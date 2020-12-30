@@ -54,11 +54,13 @@ final class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
         if (path.startsWith("/v1/category/")) {
             String id = path.substring("/v1/category/".length());
             VoteCategory category = VoteCategoryHandler.getCategoryMap().get(new ResourceLocation(id));
-            JsonObject result = new JsonObject();
-            result.addProperty("id", id);
-            category.toJson(result);
-            ByteBufUtil.writeUtf8(buf, result.toString());
-            return HttpResponseStatus.OK;
+            if (category != null) {
+                JsonObject result = new JsonObject();
+                result.addProperty("id", id);
+                category.toJson(result);
+                ByteBufUtil.writeUtf8(buf, result.toString());
+                return HttpResponseStatus.OK;
+            }
         }
         ByteBufUtil.writeUtf8(buf, "{\"error\":\"Not Found\"}");
         return HttpResponseStatus.NOT_FOUND;
