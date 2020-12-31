@@ -14,6 +14,7 @@ import io.netty.handler.codec.http.cors.CorsConfigBuilder;
 import io.netty.handler.codec.http.cors.CorsHandler;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.network.NetworkSystem;
+import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
@@ -34,9 +35,17 @@ public class VoteMeHttpServer {
     @Nullable
     private static ChannelFuture future = null;
 
+    @Nullable
+    private static MinecraftServer server = null;
+
+    public static MinecraftServer getMinecraftServer() {
+        return Objects.requireNonNull(server);
+    }
+
     @SubscribeEvent
     public static void start(FMLServerStartingEvent event) {
         try {
+            server = event.getServer();
             VoteMe.LOGGER.info("Starting the vote server on port {} ...", PORT);
             ServerBootstrap bootstrap = new ServerBootstrap().group(NetworkSystem.SERVER_NIO_EVENTLOOP.getValue());
             future = bootstrap.channel(NioServerSocketChannel.class).childHandler(new Handler()).bind(PORT).sync();
@@ -48,6 +57,7 @@ public class VoteMeHttpServer {
     @SubscribeEvent
     public static void stop(FMLServerStoppingEvent event) {
         try {
+            server = null;
             VoteMe.LOGGER.info("Stopping the vote server...");
             Objects.requireNonNull(future).channel().close().sync();
         } catch (Exception e) {
