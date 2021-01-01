@@ -1,4 +1,4 @@
-package org.teacon.voteme;
+package org.teacon.voteme.http;
 
 import com.google.common.primitives.Ints;
 import com.google.gson.JsonArray;
@@ -11,6 +11,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.*;
 import net.minecraft.util.ResourceLocation;
+import org.teacon.voteme.VoteMe;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.vote.VoteList;

@@ -1,4 +1,4 @@
-package org.teacon.voteme;
+package org.teacon.voteme.http;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -19,6 +19,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
 import net.minecraftforge.fml.event.server.FMLServerStoppingEvent;
+import org.teacon.voteme.VoteMe;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
