@@ -12,10 +12,13 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.common.util.INBTSerializable;
+import org.teacon.voteme.category.VoteCategory;
+import org.teacon.voteme.category.VoteCategoryHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.SortedMap;
 import java.util.UUID;
 
 @MethodsReturnNonnullByDefault
@@ -41,7 +44,6 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
         int oldLevel = this.votes.setCount(player, level);
         --this.countsByLevel[oldLevel];
         ++this.countsByLevel[level];
-        this.onVoteChange.run();
     }
 
     public int getVoteCount() {
@@ -53,16 +55,22 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
         return this.countsByLevel[level];
     }
 
-    public double getFinalScore() {
+    public double getFinalScore(int truncation) {
         int count = -this.countsByLevel[0];
-        if (count > 0) {
-            double sum = 0;
-            sum += 2.0 * this.countsByLevel[1];
-            sum += 4.0 * this.countsByLevel[2];
-            sum += 6.0 * this.countsByLevel[3];
-            sum += 8.0 * this.countsByLevel[4];
-            sum += 10.0 * this.countsByLevel[5];
-            return sum / count;
+        if (count > truncation * 2) {
+            int[] counts = this.countsByLevel.clone();
+            for (int i = 1, left = truncation; left > 0; ++i) {
+                int diff = Math.min(left, counts[i]);
+                counts[i] -= diff;
+                left -= diff;
+            }
+            for (int i = 5, left = truncation; left > 0; --i) {
+                int diff = Math.min(left, counts[i]);
+                counts[i] -= diff;
+                left -= diff;
+            }
+            double sum = 2.0 * counts[1] + 4.0 * counts[2] + 6.0 * counts[3] + 8.0 * counts[4] + 10.0 * counts[5];
+            return sum / (count - truncation * 2);
         }
         return 6.0;
     }
@@ -145,7 +153,9 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
             voteCounts.addProperty("5", this.votes.getVoteCount(5));
             voteCounts.addProperty("sum", this.votes.getVoteCount());
             jsonObject.add("vote_counts", voteCounts);
-            jsonObject.addProperty("vote_score", this.votes.getFinalScore());
+            SortedMap<ResourceLocation, VoteCategory> categories = VoteCategoryHandler.getCategoryMap();
+            int truncation = categories.containsKey(this.category) ? categories.get(this.category).truncation : 0;
+            jsonObject.addProperty("vote_score", this.votes.getFinalScore(truncation));
         }
     }
 }
