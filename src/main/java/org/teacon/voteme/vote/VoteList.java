@@ -3,6 +3,8 @@ package org.teacon.voteme.vote;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.nbt.ListNBT;
@@ -12,20 +14,22 @@ import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.common.util.INBTSerializable;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.function.Consumer;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class VoteList implements INBTSerializable<CompoundNBT> {
 
+    private final int[] countsByLevel;
     private final Multiset<UUID> votes;
-    private final Runnable onChange;
+    private final Runnable onVoteChange;
 
     public VoteList(Runnable onChange) {
+        this.countsByLevel = new int[1 + 5];
         this.votes = HashMultiset.create();
-        this.onChange = onChange;
+        this.onVoteChange = onChange;
     }
 
     public int get(UUID player) {
@@ -33,15 +37,34 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     }
 
     public void set(UUID player, int level) {
-        this.votes.setCount(player, MathHelper.clamp(level, 0, 5));
+        Preconditions.checkArgument(level >= 0 && level <= 5);
+        int oldLevel = this.votes.setCount(player, level);
+        --this.countsByLevel[oldLevel];
+        ++this.countsByLevel[level];
+        this.onVoteChange.run();
     }
 
     public int getVoteCount() {
-        return this.votes.elementSet().size();
+        return -this.countsByLevel[0];
     }
 
-    public float getFinalScore() {
-        return this.votes.isEmpty() ? 6.0F : 2.0F * this.votes.size() / this.votes.elementSet().size();
+    public int getVoteCount(int level) {
+        Preconditions.checkArgument(level > 0 && level <= 5);
+        return this.countsByLevel[level];
+    }
+
+    public double getFinalScore() {
+        int count = -this.countsByLevel[0];
+        if (count > 0) {
+            double sum = 0;
+            sum += 2.0 * this.countsByLevel[1];
+            sum += 4.0 * this.countsByLevel[2];
+            sum += 6.0 * this.countsByLevel[3];
+            sum += 8.0 * this.countsByLevel[4];
+            sum += 10.0 * this.countsByLevel[5];
+            return sum / count;
+        }
+        return 6.0;
     }
 
     @Override
@@ -60,15 +83,21 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     @Override
     public void deserializeNBT(CompoundNBT compound) {
         this.votes.clear();
+        Arrays.fill(this.countsByLevel, 0);
         ListNBT nbt = compound.getList("Votes", Constants.NBT.TAG_COMPOUND);
         for (int i = 0, size = nbt.size(); i < size; ++i) {
             CompoundNBT child = nbt.getCompound(i);
-            this.votes.setCount(child.getUniqueId("UUID"), MathHelper.clamp(child.getInt("Level"), 1, 5));
+            int level = MathHelper.clamp(child.getInt("Level"), 1, 5);
+            this.votes.setCount(child.getUniqueId("UUID"), level);
+            ++this.countsByLevel[level];
+            --this.countsByLevel[0];
         }
+        this.onVoteChange.run();
     }
 
     public static VoteList.Entry fromNBT(CompoundNBT compound, Runnable onChange) {
         VoteList votes = new VoteList(onChange);
+        votes.deserializeNBT(compound);
         String artifact = compound.getString("Artifact");
         ResourceLocation category = new ResourceLocation(compound.getString("Category"));
         return new Entry(artifact, category, votes);
@@ -102,6 +131,21 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
             nbt.putString("Artifact", Objects.requireNonNull(this.artifact));
             nbt.putString("Category", Objects.requireNonNull(this.category).toString());
             return nbt;
+        }
+
+        public void toJson(JsonElement json) {
+            JsonObject jsonObject = json.getAsJsonObject();
+            jsonObject.addProperty("artifact", this.artifact);
+            jsonObject.addProperty("category", this.category.toString());
+            JsonObject voteCounts = new JsonObject();
+            voteCounts.addProperty("1", this.votes.getVoteCount(1));
+            voteCounts.addProperty("2", this.votes.getVoteCount(2));
+            voteCounts.addProperty("3", this.votes.getVoteCount(3));
+            voteCounts.addProperty("4", this.votes.getVoteCount(4));
+            voteCounts.addProperty("5", this.votes.getVoteCount(5));
+            voteCounts.addProperty("sum", this.votes.getVoteCount());
+            jsonObject.add("vote_counts", voteCounts);
+            jsonObject.addProperty("vote_score", this.votes.getFinalScore());
         }
     }
 }

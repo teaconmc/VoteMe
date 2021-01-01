@@ -75,8 +75,7 @@ final class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
                 entryOptional.ifPresent(entry -> {
                     JsonObject child = new JsonObject();
                     child.addProperty("id", id);
-                    child.addProperty("artifact", entry.getArtifact());
-                    child.addProperty("category", entry.getCategory().toString());
+                    entry.toJson(child);
                     result.add(child);
                 });
             });
@@ -93,8 +92,7 @@ final class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
                     VoteList.Entry entry = entryOptional.get();
                     JsonObject result = new JsonObject();
                     result.addProperty("id", id);
-                    result.addProperty("artifact", entry.getArtifact());
-                    result.addProperty("category", entry.getCategory().toString());
+                    entry.toJson(result);
                     ByteBufUtil.writeUtf8(buf, result.toString());
                     return HttpResponseStatus.OK;
                 }
