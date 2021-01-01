@@ -25,22 +25,25 @@ final class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, HttpObject msg) throws Exception {
         if (msg instanceof HttpRequest) {
-            ByteBuf buf = Unpooled.buffer();
             HttpRequest req = (HttpRequest) msg;
-            HttpResponseStatus status = this.handle(new QueryStringDecoder(req.uri()), buf);
+            QueryStringDecoder decoder = new QueryStringDecoder(req.uri());
+            VoteMeHttpServer.getMinecraftServer().runAsync(() -> {
+                ByteBuf buf = Unpooled.buffer();
+                HttpResponseStatus status = this.handle(decoder, buf);
 
-            FullHttpResponse response = new DefaultFullHttpResponse(req.protocolVersion(), status, buf);
-            response.headers()
-                    .set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
-                    .setInt(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
+                FullHttpResponse response = new DefaultFullHttpResponse(req.protocolVersion(), status, buf);
+                response.headers()
+                        .set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
+                        .setInt(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
 
-            if (HttpUtil.isKeepAlive(req)) {
-                response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-                ctx.write(response);
-            } else {
-                response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
-                ctx.write(response).addListener(ChannelFutureListener.CLOSE);
-            }
+                if (HttpUtil.isKeepAlive(req)) {
+                    response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+                    ctx.writeAndFlush(response);
+                } else {
+                    response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
+                    ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+                }
+            });
         }
     }
 
@@ -101,11 +104,6 @@ final class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
         }
         ByteBufUtil.writeUtf8(buf, "{\"error\":\"Not Found\"}");
         return HttpResponseStatus.NOT_FOUND;
-    }
-
-    @Override
-    public void channelReadComplete(ChannelHandlerContext ctx) {
-        ctx.flush();
     }
 
     @Override
