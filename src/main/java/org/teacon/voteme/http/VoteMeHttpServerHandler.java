@@ -23,26 +23,17 @@ import java.util.Optional;
 
 final class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, HttpObject msg) throws Exception {
+    protected void channelRead0(ChannelHandlerContext ctx, HttpObject msg) {
         if (msg instanceof HttpRequest) {
             HttpRequest req = (HttpRequest) msg;
             QueryStringDecoder decoder = new QueryStringDecoder(req.uri());
             VoteMeHttpServer.getMinecraftServer().runAsync(() -> {
                 ByteBuf buf = Unpooled.buffer();
                 HttpResponseStatus status = this.handle(decoder, buf);
-
-                FullHttpResponse response = new DefaultFullHttpResponse(req.protocolVersion(), status, buf);
-                response.headers()
-                        .set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
-                        .setInt(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
-
-                if (HttpUtil.isKeepAlive(req)) {
-                    response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-                    ctx.writeAndFlush(response);
-                } else {
-                    response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
-                    ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
-                }
+                this.sendResponse(ctx, req, new DefaultFullHttpResponse(req.protocolVersion(), status, buf));
+            }).exceptionally(cause -> {
+                this.sendInternalServerError(ctx, cause);
+                return null;
             });
         }
     }
@@ -108,6 +99,24 @@ final class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        this.sendInternalServerError(ctx, cause);
+    }
+
+    private void sendResponse(ChannelHandlerContext ctx, HttpRequest request, FullHttpResponse response) {
+        response.headers()
+                .set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
+                .setInt(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
+
+        if (HttpUtil.isKeepAlive(request)) {
+            response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+            ctx.writeAndFlush(response);
+        } else {
+            response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
+            ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+        }
+    }
+
+    private void sendInternalServerError(ChannelHandlerContext ctx, Throwable cause) {
         try {
             String msg = "{\"error\":\"Internal Server Error\"}";
             ByteBuf buf = Unpooled.wrappedBuffer(msg.getBytes(StandardCharsets.UTF_8));
