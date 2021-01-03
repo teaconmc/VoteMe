@@ -19,6 +19,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
 import net.minecraftforge.fml.event.server.FMLServerStoppingEvent;
+import net.minecraftforge.fml.server.ServerLifecycleHooks;
 import org.teacon.voteme.VoteMe;
 
 import javax.annotation.Nullable;
@@ -28,7 +29,7 @@ import java.util.Objects;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
-public class VoteMeHttpServer {
+public final class VoteMeHttpServer {
     private static final int PORT = 19970;
     private static final int MAX_CONTENT_LENGTH = 2097152;
     private static final CorsConfig CORS_CONFIG = CorsConfigBuilder.forAnyOrigin().allowNullOrigin().allowCredentials().build();
@@ -36,20 +37,17 @@ public class VoteMeHttpServer {
     @Nullable
     private static ChannelFuture future = null;
 
-    @Nullable
-    private static MinecraftServer server = null;
-
     public static MinecraftServer getMinecraftServer() {
-        return Objects.requireNonNull(server);
+        return Objects.requireNonNull(ServerLifecycleHooks.getCurrentServer());
     }
 
     @SubscribeEvent
     public static void start(FMLServerStartingEvent event) {
         try {
-            server = event.getServer();
             VoteMe.LOGGER.info("Starting the vote server on port {} ...", PORT);
             ServerBootstrap bootstrap = new ServerBootstrap().group(NetworkSystem.SERVER_NIO_EVENTLOOP.getValue());
             future = bootstrap.channel(NioServerSocketChannel.class).childHandler(new Handler()).bind(PORT).sync();
+            VoteMe.LOGGER.info("Successfully started the vote server on port {}.", PORT);
         } catch (Exception e) {
             VoteMe.LOGGER.error("Failed to start the vote server.", e);
         }
@@ -58,14 +56,16 @@ public class VoteMeHttpServer {
     @SubscribeEvent
     public static void stop(FMLServerStoppingEvent event) {
         try {
-            server = null;
             VoteMe.LOGGER.info("Stopping the vote server...");
             Objects.requireNonNull(future).channel().close().sync();
+            VoteMe.LOGGER.info("Successfully stopped the vote server.");
         } catch (Exception e) {
             VoteMe.LOGGER.error("Failed to stop the vote server.", e);
         }
     }
 
+    @MethodsReturnNonnullByDefault
+    @ParametersAreNonnullByDefault
     private static final class Handler extends ChannelInitializer<SocketChannel> {
         @Override
         protected void initChannel(SocketChannel ch) {

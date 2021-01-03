@@ -2,8 +2,13 @@ package org.teacon.voteme.category;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.util.JSONUtils;
 
+import javax.annotation.ParametersAreNonnullByDefault;
+
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
 public final class VoteCategory {
     public final String name;
     public final String description;

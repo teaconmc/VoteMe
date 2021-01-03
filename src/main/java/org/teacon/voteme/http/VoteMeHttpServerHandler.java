@@ -10,17 +10,21 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.*;
+import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.util.ResourceLocation;
 import org.teacon.voteme.VoteMe;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
-import org.teacon.voteme.vote.VoteList;
+import org.teacon.voteme.vote.VoteListEntry;
 import org.teacon.voteme.vote.VoteListHandler;
 
+import javax.annotation.ParametersAreNonnullByDefault;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
 
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
 final class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, HttpObject msg) {
@@ -66,7 +70,7 @@ final class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
             JsonArray result = new JsonArray();
             VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
             handler.getIds().forEach(id -> {
-                Optional<VoteList.Entry> entryOptional = handler.getEntry(id);
+                Optional<VoteListEntry> entryOptional = handler.getEntry(id);
                 entryOptional.ifPresent(entry -> {
                     JsonObject child = new JsonObject();
                     child.addProperty("id", id);
@@ -82,9 +86,9 @@ final class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
             Integer id = Ints.tryParse(path.substring("/v1/vote_list/".length()));
             if (id != null) {
                 VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
-                Optional<VoteList.Entry> entryOptional = handler.getEntry(id);
+                Optional<VoteListEntry> entryOptional = handler.getEntry(id);
                 if (entryOptional.isPresent()) {
-                    VoteList.Entry entry = entryOptional.get();
+                    VoteListEntry entry = entryOptional.get();
                     JsonObject result = new JsonObject();
                     result.addProperty("id", id);
                     entry.toJson(result);
