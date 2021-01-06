@@ -74,7 +74,7 @@ public final class VoteMeHttpServer {
             pipeline.addLast(new HttpRequestDecoder());
             pipeline.addLast(new HttpObjectAggregator(MAX_CONTENT_LENGTH));
             pipeline.addLast(new CorsHandler(CORS_CONFIG));
-            pipeline.addLast(new VoteMeHttpServerHandler());
+            pipeline.addLast(new VoteMeHttpServerHandlerImpl());
         }
     }
 }
