@@ -20,6 +20,8 @@ import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.nio.charset.StandardCharsets;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Optional;
 
@@ -29,14 +31,14 @@ final class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, HttpObject msg) {
         if (msg instanceof HttpRequest) {
-            HttpRequest req = (HttpRequest) msg;
-            QueryStringDecoder decoder = new QueryStringDecoder(req.uri());
+            HttpRequest request = (HttpRequest) msg;
+            QueryStringDecoder decoder = new QueryStringDecoder(request.uri());
             VoteMeHttpServer.getMinecraftServer().runAsync(() -> {
                 ByteBuf buf = Unpooled.buffer();
                 HttpResponseStatus status = this.handle(decoder, buf);
-                this.sendResponse(ctx, req, new DefaultFullHttpResponse(req.protocolVersion(), status, buf));
+                this.sendResponse(ctx, request, buf, status);
             }).exceptionally(cause -> {
-                this.sendInternalServerError(ctx, cause);
+                this.sendInternalServerError(ctx, request, cause);
                 return null;
             });
         }
@@ -103,39 +105,62 @@ final class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        this.sendInternalServerError(ctx, cause);
+        FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/");
+        this.sendInternalServerError(ctx, request, cause);
     }
 
-    private void sendResponse(ChannelHandlerContext ctx, HttpRequest request, FullHttpResponse response) {
-        response.headers()
-                .set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
-                .setInt(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
+    private void sendResponse(ChannelHandlerContext ctx, HttpRequest request, ByteBuf buf, HttpResponseStatus status) {
+        if (HttpMethod.HEAD.equals(request.method())) {
+            FullHttpResponse response = new DefaultFullHttpResponse(request.protocolVersion(), status);
+            this.sendFinalResponse(ctx, request, response);
+            return;
+        }
+        if (HttpMethod.GET.equals(request.method())) {
+            FullHttpResponse response = new DefaultFullHttpResponse(request.protocolVersion(), status, buf);
+            response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
+            this.sendFinalResponse(ctx, request, response);
+            return;
+        }
+        this.sendBadRequestError(ctx, request);
+    }
 
-        if (HttpUtil.isKeepAlive(request)) {
-            response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-            ctx.writeAndFlush(response);
-        } else {
-            response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
-            ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+    private void sendBadRequestError(ChannelHandlerContext ctx, HttpRequest request) {
+        String msg = "{\"error\":\"Bad Request\"}";
+        HttpResponseStatus status = HttpResponseStatus.BAD_REQUEST;
+        ByteBuf buf = Unpooled.wrappedBuffer(msg.getBytes(StandardCharsets.UTF_8));
+
+        FullHttpResponse response = new DefaultFullHttpResponse(request.protocolVersion(), status, buf);
+        response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
+        this.sendFinalResponse(ctx, request, response);
+    }
+
+    private void sendInternalServerError(ChannelHandlerContext ctx, HttpRequest request, Throwable cause) {
+        try {
+            String msg = "{\"error\":\"Internal Server Error\"}";
+            HttpResponseStatus status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
+            ByteBuf buf = Unpooled.wrappedBuffer(msg.getBytes(StandardCharsets.UTF_8));
+
+            FullHttpResponse response = new DefaultFullHttpResponse(request.protocolVersion(), status, buf);
+            response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
+            this.sendFinalResponse(ctx, request, response);
+        } finally {
+            VoteMe.LOGGER.error("Internal server error was thrown when handling the request.", cause);
         }
     }
 
-    private void sendInternalServerError(ChannelHandlerContext ctx, Throwable cause) {
-        try {
-            String msg = "{\"error\":\"Internal Server Error\"}";
-            ByteBuf buf = Unpooled.wrappedBuffer(msg.getBytes(StandardCharsets.UTF_8));
-
-            HttpResponseStatus status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
-            FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status, buf);
-
+    private void sendFinalResponse(ChannelHandlerContext ctx, HttpRequest request, FullHttpResponse response) {
+        if (HttpUtil.isKeepAlive(request)) {
+            response.headers()
+                    .set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
+                    .set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
+                    .set(HttpHeaderNames.DATE, DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now()));
+            ctx.writeAndFlush(response, ctx.voidPromise());
+        } else {
             response.headers()
                     .set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE)
                     .set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
-                    .setInt(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
-
-            ctx.write(response).addListener(ChannelFutureListener.CLOSE);
-        } finally {
-            VoteMe.LOGGER.error("Internal server error was thrown when handling the request.", cause);
+                    .set(HttpHeaderNames.DATE, DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now()));
+            ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
         }
     }
 }
