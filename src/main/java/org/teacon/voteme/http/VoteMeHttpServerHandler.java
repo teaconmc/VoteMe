@@ -99,8 +99,8 @@ final class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
                 }
             }
         }
-        ByteBufUtil.writeUtf8(buf, "{\"error\":\"Not Found\"}");
-        return HttpResponseStatus.NOT_FOUND;
+        ByteBufUtil.writeUtf8(buf, "{\"error\":\"Bad Request\"}");
+        return HttpResponseStatus.BAD_REQUEST;
     }
 
     @Override
@@ -121,16 +121,18 @@ final class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
             this.sendFinalResponse(ctx, request, response);
             return;
         }
-        this.sendBadRequestError(ctx, request);
+        this.sendMethodNotAllowed(ctx, request);
     }
 
-    private void sendBadRequestError(ChannelHandlerContext ctx, HttpRequest request) {
-        String msg = "{\"error\":\"Bad Request\"}";
-        HttpResponseStatus status = HttpResponseStatus.BAD_REQUEST;
+    private void sendMethodNotAllowed(ChannelHandlerContext ctx, HttpRequest request) {
+        String msg = "{\"error\":\"Method Not Allowed\"}";
+        HttpResponseStatus status = HttpResponseStatus.METHOD_NOT_ALLOWED;
         ByteBuf buf = Unpooled.wrappedBuffer(msg.getBytes(StandardCharsets.UTF_8));
 
         FullHttpResponse response = new DefaultFullHttpResponse(request.protocolVersion(), status, buf);
-        response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
+        response.headers()
+                .set(HttpHeaderNames.ALLOW, "GET, HEAD")
+                .setInt(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
         this.sendFinalResponse(ctx, request, response);
     }
 
