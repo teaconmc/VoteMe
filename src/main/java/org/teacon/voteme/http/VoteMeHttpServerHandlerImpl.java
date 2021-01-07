@@ -18,7 +18,6 @@ import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Optional;
-import java.util.SortedMap;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -42,18 +41,22 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
     }
 
     private HttpResponseStatus handleCategories(ByteBuf buf) {
-        SortedMap<ResourceLocation, VoteCategory> categoryMap = VoteCategoryHandler.getCategoryMap();
-        return this.handleOK(buf, Util.make(new JsonArray(), result -> categoryMap.forEach((key, value) -> {
-            JsonObject child = new JsonObject();
-            child.addProperty("id", key.toString());
-            value.toJson(child);
-            result.add(child);
+        return this.handleOK(buf, Util.make(new JsonArray(), result -> VoteCategoryHandler.getIds().forEach(id -> {
+            Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(id);
+            if (categoryOptional.isPresent()) {
+                VoteCategory category = categoryOptional.get();
+                JsonObject child = new JsonObject();
+                child.addProperty("id", id.toString());
+                category.toJson(child);
+                result.add(child);
+            }
         })));
     }
 
     private HttpResponseStatus handleCategory(ByteBuf buf, String id) {
-        VoteCategory category = VoteCategoryHandler.getCategoryMap().get(new ResourceLocation(id));
-        if (category != null) {
+        Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(new ResourceLocation(id));
+        if (categoryOptional.isPresent()) {
+            VoteCategory category = categoryOptional.get();
             return this.handleOK(buf, Util.make(new JsonObject(), result -> {
                 result.addProperty("id", id);
                 category.toJson(result);

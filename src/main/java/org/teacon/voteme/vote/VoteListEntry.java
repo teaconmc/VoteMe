@@ -5,12 +5,10 @@ import com.google.gson.JsonObject;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.util.ResourceLocation;
-import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;
-import java.util.SortedMap;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -52,8 +50,7 @@ public final class VoteListEntry {
         voteCounts.addProperty("5", this.votes.getVoteCount(5));
         voteCounts.addProperty("sum", this.votes.getVoteCount());
         jsonObject.add("vote_counts", voteCounts);
-        SortedMap<ResourceLocation, VoteCategory> categories = VoteCategoryHandler.getCategoryMap();
-        int truncation = categories.containsKey(this.category) ? categories.get(this.category).truncation : 0;
+        int truncation = VoteCategoryHandler.getCategory(this.category).map(c -> c.truncation).orElse(0);
         jsonObject.addProperty("vote_score", this.votes.getFinalScore(truncation));
     }
 }

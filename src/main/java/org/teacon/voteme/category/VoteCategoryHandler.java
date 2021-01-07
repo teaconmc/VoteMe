@@ -16,7 +16,9 @@ import net.minecraftforge.fml.common.Mod;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Map;
+import java.util.Optional;
 import java.util.SortedMap;
+import java.util.stream.Stream;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -30,8 +32,12 @@ public final class VoteCategoryHandler extends JsonReloadListener {
         super(GSON, "vote_categories");
     }
 
-    public static SortedMap<ResourceLocation, VoteCategory> getCategoryMap() {
-        return categoryMap;
+    public static Optional<VoteCategory> getCategory(ResourceLocation id) {
+        return Optional.ofNullable(categoryMap.get(id));
+    }
+
+    public static Stream<ResourceLocation> getIds() {
+        return categoryMap.keySet().stream();
     }
 
     @Override

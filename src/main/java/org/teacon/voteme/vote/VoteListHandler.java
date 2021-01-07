@@ -36,9 +36,7 @@ public final class VoteListHandler extends WorldSavedData {
 
         // create default entries
         UUID uuid = UUID.fromString("7c5faf44-24b0-4496-b91a-147fb781fae9"); // zzzz_ustc
-        for (ResourceLocation category : VoteCategoryHandler.getCategoryMap().keySet()) {
-            this.voteEntries.get(this.getIdOrCreate("VoteMe", category)).votes.set(uuid, 5);
-        }
+        VoteCategoryHandler.getIds().forEach(c -> this.voteEntries.get(this.getIdOrCreate("VoteMe", c)).votes.set(uuid, 5));
     }
 
     public int getIdOrCreate(String artifact, ResourceLocation category) {
