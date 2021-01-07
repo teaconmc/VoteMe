@@ -56,7 +56,7 @@ public final class VoteMeHttpServer {
     @SubscribeEvent
     public static void stop(FMLServerStoppingEvent event) {
         try {
-            VoteMe.LOGGER.info("Stopping the vote server...");
+            VoteMe.LOGGER.info("Stopping the vote server ...");
             Objects.requireNonNull(future).channel().close().sync();
             VoteMe.LOGGER.info("Successfully stopped the vote server.");
         } catch (Exception e) {

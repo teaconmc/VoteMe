@@ -26,17 +26,17 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
     @Override
     protected HttpResponseStatus handle(QueryStringDecoder decoder, ByteBuf buf) {
         String path = decoder.path();
-        if ("/v1/categories".equals(path)) {
+        if ("/v1/categories".equals(path) || "/v1/categories/".equals(path)) {
             return this.handleCategories(buf);
         }
-        if (path.startsWith("/v1/category/")) {
-            return this.handleCategory(buf, path.substring("/v1/category/".length()));
+        if (path.startsWith("/v1/categories/")) {
+            return this.handleCategory(buf, path.substring("/v1/categories/".length()));
         }
-        if ("/v1/vote_lists".equals(path)) {
+        if ("/v1/vote_lists".equals(path) || "/v1/vote_lists/".equals(path)) {
             return this.handleVoteLists(buf);
         }
-        if (path.startsWith("/v1/vote_list/")) {
-            return this.handleVoteList(buf, path.substring("/v1/vote_list/".length()));
+        if (path.startsWith("/v1/vote_lists/")) {
+            return this.handleVoteList(buf, path.substring("/v1/vote_lists/".length()));
         }
         return this.handleBadRequest(buf);
     }
