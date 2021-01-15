@@ -1,80 +1,111 @@
 package org.teacon.voteme.vote;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.HashMultiset;
-import com.google.common.collect.Multiset;
+import com.google.common.collect.ImmutableSortedMap;
 import mcp.MethodsReturnNonnullByDefault;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.nbt.ListNBT;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.common.util.INBTSerializable;
+import org.apache.commons.lang3.tuple.Pair;
+import org.teacon.voteme.roles.VoteRole;
+import org.teacon.voteme.roles.VoteRoleHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Arrays;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.IntStream;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class VoteList implements INBTSerializable<CompoundNBT> {
-    private final int[] countsByLevel;
-    private final Multiset<UUID> votes;
     private final Runnable onVoteChange;
+    private final Map<ResourceLocation, int[]> countMap;
+    private final Map<UUID, Pair<Integer, ResourceLocation>> votes;
 
     public VoteList(Runnable onChange) {
-        this.countsByLevel = new int[1 + 5];
-        this.votes = HashMultiset.create();
+        this.votes = new HashMap<>();
+        this.countMap = new HashMap<>();
         this.onVoteChange = onChange;
     }
 
-    public int get(UUID player) {
-        return this.votes.count(player);
+    public int get(ServerPlayerEntity player) {
+        return this.get(player.getUniqueID());
     }
 
-    public void set(UUID player, int level) {
+    public int get(UUID uuid) {
+        return this.votes.containsKey(uuid) ? this.votes.get(uuid).getLeft() : 0;
+    }
+
+    public void set(ServerPlayerEntity player, int level) {
         Preconditions.checkArgument(level >= 0 && level <= 5);
-        int oldLevel = this.votes.setCount(player, level);
-        --this.countsByLevel[oldLevel];
-        ++this.countsByLevel[level];
-        this.onVoteChange.run();
+        VoteRoleHandler.getRole(player).ifPresent(role -> this.set(player.getUniqueID(), level, role));
     }
 
-    public int getVoteCount() {
-        return -this.countsByLevel[0];
-    }
-
-    public int getVoteCount(int level) {
-        Preconditions.checkArgument(level > 0 && level <= 5);
-        return this.countsByLevel[level];
-    }
-
-    public double getFinalScore(int truncation) {
-        int count = -this.countsByLevel[0];
-        if (count > truncation * 2) {
-            int[] counts = this.countsByLevel.clone();
-            for (int i = 1, left = truncation; left > 0; ++i) {
-                int diff = Math.min(left, counts[i]);
-                counts[i] -= diff;
-                left -= diff;
+    public void set(UUID uuid, int level, ResourceLocation role) {
+        if (level > 0) {
+            Pair<Integer, ResourceLocation> oldValue = this.votes.put(uuid, Pair.of(level, role));
+            int[] newCountsByLevel = this.countMap.computeIfAbsent(role, k -> new int[1 + 5]);
+            ++newCountsByLevel[level];
+            --newCountsByLevel[0];
+            if (oldValue != null) {
+                int[] oldCountsByLevel = Objects.requireNonNull(this.countMap.get(oldValue.getRight()));
+                --oldCountsByLevel[oldValue.getLeft()];
+                ++oldCountsByLevel[0];
             }
-            for (int i = 5, left = truncation; left > 0; --i) {
-                int diff = Math.min(left, counts[i]);
-                counts[i] -= diff;
-                left -= diff;
+            this.onVoteChange.run();
+        } else {
+            Pair<Integer, ResourceLocation> old = this.votes.remove(uuid);
+            if (old != null) {
+                int[] oldCountsByLevel = Objects.requireNonNull(this.countMap.get(old.getRight()));
+                --oldCountsByLevel[old.getLeft()];
+                ++oldCountsByLevel[0];
+                this.onVoteChange.run();
             }
-            double sum = 2.0 * counts[1] + 4.0 * counts[2] + 6.0 * counts[3] + 8.0 * counts[4] + 10.0 * counts[5];
-            return sum / (count - truncation * 2);
         }
-        return 6.0;
+    }
+
+    public SortedMap<ResourceLocation, Stats> buildFinalScore(ResourceLocation category) {
+        ImmutableSortedMap.Builder<ResourceLocation, Stats> resultBuilder = ImmutableSortedMap.naturalOrder();
+        VoteRoleHandler.getIds().forEach(location -> {
+            VoteRole role = VoteRoleHandler.getRole(location).orElseThrow(NullPointerException::new);
+            VoteRole.Category roleCategory = role.categories.get(category);
+            if (roleCategory != null) {
+                int[] countsByLevel = this.countMap.computeIfAbsent(location, k -> new int[1 + 5]);
+                float weight = roleCategory.weight, finalScore = 6F;
+                int count = -countsByLevel[0], truncation = roleCategory.truncation;
+                if (count > truncation * 2) {
+                    int[] counts = countsByLevel.clone();
+                    for (int i = 1, left = truncation; left > 0; ++i) {
+                        int diff = Math.min(left, counts[i]);
+                        counts[i] -= diff;
+                        left -= diff;
+                    }
+                    for (int i = 5, left = truncation; left > 0; --i) {
+                        int diff = Math.min(left, counts[i]);
+                        counts[i] -= diff;
+                        left -= diff;
+                    }
+                    float sum = 2F * counts[1] + 4F * counts[2] + 6F * counts[3] + 8F * counts[4] + 10F * counts[5];
+                    finalScore = sum / (count - truncation * 2);
+                }
+                resultBuilder.put(location, new Stats(weight, finalScore, countsByLevel));
+            }
+        });
+        return resultBuilder.build();
     }
 
     @Override
     public CompoundNBT serializeNBT() {
         ListNBT nbt = new ListNBT();
-        for (Multiset.Entry<UUID> entry : this.votes.entrySet()) {
+        for (Map.Entry<UUID, Pair<Integer, ResourceLocation>> entry : this.votes.entrySet()) {
             CompoundNBT child = new CompoundNBT();
-            child.putUniqueId("UUID", entry.getElement());
-            child.putInt("Level", entry.getCount());
+            child.putUniqueId("UUID", entry.getKey());
+            child.putInt("Level", entry.getValue().getLeft());
+            child.putString("VoteRole", entry.getValue().getRight().toString());
+            nbt.add(child);
         }
         CompoundNBT result = new CompoundNBT();
         result.put("Votes", nbt);
@@ -84,15 +115,66 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     @Override
     public void deserializeNBT(CompoundNBT compound) {
         this.votes.clear();
-        Arrays.fill(this.countsByLevel, 0);
         ListNBT nbt = compound.getList("Votes", Constants.NBT.TAG_COMPOUND);
         for (int i = 0, size = nbt.size(); i < size; ++i) {
             CompoundNBT child = nbt.getCompound(i);
             int level = MathHelper.clamp(child.getInt("Level"), 1, 5);
-            this.votes.setCount(child.getUniqueId("UUID"), level);
-            ++this.countsByLevel[level];
-            --this.countsByLevel[0];
+            ResourceLocation role = new ResourceLocation(child.getString("VoteRole"));
+            int[] countsByLevel = this.countMap.computeIfAbsent(role, k -> new int[1 + 5]);
+            this.votes.put(child.getUniqueId("UUID"), Pair.of(level, role));
+            ++countsByLevel[level];
+            --countsByLevel[0];
         }
         this.onVoteChange.run();
+    }
+
+    @MethodsReturnNonnullByDefault
+    @ParametersAreNonnullByDefault
+    public static final class Stats {
+        private final float weight;
+        private final float finalScore;
+        private final int[] countsByLevel;
+
+        public Stats(float weight, float finalScore, int[] countsByLevel) {
+            this.weight = weight;
+            this.finalScore = finalScore;
+            this.countsByLevel = countsByLevel.clone();
+            Preconditions.checkArgument(countsByLevel.length == 1 + 5);
+            Preconditions.checkArgument(IntStream.of(countsByLevel).sum() == 0);
+        }
+
+        public int getVoteCount() {
+            return -this.countsByLevel[0];
+        }
+
+        public int getVoteCount(int level) {
+            Preconditions.checkArgument(level > 0 && level <= 5);
+            return this.countsByLevel[level];
+        }
+
+        public float getWeight() {
+            return this.weight;
+        }
+
+        public float getFinalScore() {
+            return this.finalScore;
+        }
+
+        public static Stats combine(Iterable<Stats> iterable) {
+            float weight = 0F, weightedFinalScore = 0F;
+            int[] countsByLevel = new int[1 + 5];
+            for (Stats stats : iterable) {
+                weight += stats.weight;
+                countsByLevel[0] += stats.countsByLevel[0];
+                countsByLevel[1] += stats.countsByLevel[1];
+                countsByLevel[2] += stats.countsByLevel[2];
+                countsByLevel[3] += stats.countsByLevel[3];
+                countsByLevel[4] += stats.countsByLevel[4];
+                countsByLevel[5] += stats.countsByLevel[5];
+                weightedFinalScore += stats.weight * stats.finalScore;
+            }
+            float finalScore = weight > 0F ? weightedFinalScore / weight : 6F;
+            return new Stats(weight, finalScore, countsByLevel);
+        }
     }
 }

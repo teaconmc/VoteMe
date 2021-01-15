@@ -1,14 +1,16 @@
 package org.teacon.voteme.vote;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.util.ResourceLocation;
-import org.teacon.voteme.category.VoteCategoryHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Map;
 import java.util.Objects;
+import java.util.SortedMap;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -42,15 +44,28 @@ public final class VoteListEntry {
         JsonObject jsonObject = json.getAsJsonObject();
         jsonObject.addProperty("artifact", this.artifact);
         jsonObject.addProperty("category", this.category.toString());
-        JsonObject voteCounts = new JsonObject();
-        voteCounts.addProperty("1", this.votes.getVoteCount(1));
-        voteCounts.addProperty("2", this.votes.getVoteCount(2));
-        voteCounts.addProperty("3", this.votes.getVoteCount(3));
-        voteCounts.addProperty("4", this.votes.getVoteCount(4));
-        voteCounts.addProperty("5", this.votes.getVoteCount(5));
-        voteCounts.addProperty("sum", this.votes.getVoteCount());
-        jsonObject.add("vote_counts", voteCounts);
-        int truncation = VoteCategoryHandler.getCategory(this.category).map(c -> c.truncation).orElse(0);
-        jsonObject.addProperty("vote_score", this.votes.getFinalScore(truncation));
+        SortedMap<ResourceLocation, VoteList.Stats> scores = this.votes.buildFinalScore(this.category);
+        jsonObject.add("vote_counts", this.toVoteCountInfoJson(scores));
+        jsonObject.addProperty("final_score", VoteList.Stats.combine(scores.values()).getFinalScore());
+    }
+
+    private JsonElement toVoteCountInfoJson(SortedMap<ResourceLocation, VoteList.Stats> scores) {
+        JsonArray voteCountInfo = new JsonArray();
+        for (Map.Entry<ResourceLocation, VoteList.Stats> entry : scores.entrySet()) {
+            ResourceLocation role = entry.getKey();
+            VoteList.Stats stats = entry.getValue();
+            JsonObject childVoteCountInfo = new JsonObject();
+            childVoteCountInfo.addProperty("role", role.toString());
+            childVoteCountInfo.addProperty("1", stats.getVoteCount(1));
+            childVoteCountInfo.addProperty("2", stats.getVoteCount(2));
+            childVoteCountInfo.addProperty("3", stats.getVoteCount(3));
+            childVoteCountInfo.addProperty("4", stats.getVoteCount(4));
+            childVoteCountInfo.addProperty("5", stats.getVoteCount(5));
+            childVoteCountInfo.addProperty("sum", stats.getVoteCount());
+            childVoteCountInfo.addProperty("weight", stats.getWeight());
+            childVoteCountInfo.addProperty("score", stats.getFinalScore());
+            voteCountInfo.add(childVoteCountInfo);
+        }
+        return voteCountInfo;
     }
 }

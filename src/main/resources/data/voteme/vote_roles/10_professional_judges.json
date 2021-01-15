@@ -1,0 +1,13 @@
+{
+  "name": "Professional Judges",
+  "selector": "@a[tag=voteme_judges]",
+  "categories": {
+    "voteme:general": {
+      "weight": 2.0
+    },
+    "voteme:professional": {
+      "weight": 1.0,
+      "truncation": 1
+    }
+  }
+}

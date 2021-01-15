@@ -8,6 +8,7 @@ import net.minecraftforge.fml.network.NetworkEvent;
 import org.teacon.voteme.VoteMe;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
+import org.teacon.voteme.vote.VoteList;
 import org.teacon.voteme.vote.VoteListEntry;
 import org.teacon.voteme.vote.VoteListHandler;
 
@@ -77,7 +78,8 @@ public final class EditCounterPacket {
                 VoteCategory category = VoteCategoryHandler.getCategory(location).get();
                 // noinspection OptionalGetWithoutIsPresent
                 VoteListEntry entry = voteListHandler.getEntry(voteListHandler.getIdOrCreate(artifact, location)).get();
-                infos.add(new Info(location, category.name, category.description, entry.votes.getFinalScore(category.truncation)));
+                VoteList.Stats stats = VoteList.Stats.combine(entry.votes.buildFinalScore(location).values());
+                infos.add(new Info(location, category.name, category.description, stats.getFinalScore()));
             });
             if (!infos.isEmpty()) {
                 ResourceLocation category = entryOptional.get().category;
@@ -118,7 +120,7 @@ public final class EditCounterPacket {
 
         @Override
         public String toString() {
-            return "Info{" + "name='" + name + '\'' + ", desc='" + desc + '\'' + ", score=" + score + ", id=" + id + "}";
+            return "EditCounterPacker.Info{id='" + this.id + "', name='" + this.name + "', desc=" + this.desc + ", score=" + this.score + "}";
         }
     }
 }

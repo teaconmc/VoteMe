@@ -35,8 +35,9 @@ public final class VoteListHandler extends WorldSavedData {
         this.voteEntries = new ArrayList<>(Collections.singletonList(null));
 
         // create default entries
+        ResourceLocation role = new ResourceLocation("voteme:00_general_players");
         UUID uuid = UUID.fromString("7c5faf44-24b0-4496-b91a-147fb781fae9"); // zzzz_ustc
-        VoteCategoryHandler.getIds().forEach(c -> this.voteEntries.get(this.getIdOrCreate("VoteMe", c)).votes.set(uuid, 5));
+        VoteCategoryHandler.getIds().forEach(c -> this.voteEntries.get(this.getIdOrCreate("VoteMe", c)).votes.set(uuid, 5, role));
     }
 
     public int getIdOrCreate(String artifact, ResourceLocation category) {
