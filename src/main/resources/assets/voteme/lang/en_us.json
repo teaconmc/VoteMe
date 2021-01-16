@@ -1,4 +1,8 @@
 {
   "item.voteme.counter": "Voting Counter",
-  "item.voteme.voter": "Voting Machine"
+  "item.voteme.voter": "Voting Machine",
+  "commands.voteme.list.roles.none": "There are no roles for voting",
+  "commands.voteme.list.roles.success": "There are %s different roles for voting: %s",
+  "commands.voteme.list.categories.none": "There are no vote categories",
+  "commands.voteme.list.categories.success": "There are %s voteme categories: %s"
 }
