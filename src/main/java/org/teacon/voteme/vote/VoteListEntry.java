@@ -62,6 +62,7 @@ public final class VoteListEntry {
             childVoteCountInfo.addProperty("4", stats.getVoteCount(4));
             childVoteCountInfo.addProperty("5", stats.getVoteCount(5));
             childVoteCountInfo.addProperty("sum", stats.getVoteCount());
+            childVoteCountInfo.addProperty("effective", stats.getEffectiveCount());
             childVoteCountInfo.addProperty("weight", stats.getWeight());
             childVoteCountInfo.addProperty("score", stats.getFinalScore());
             voteCountInfo.add(childVoteCountInfo);

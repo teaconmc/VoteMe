@@ -76,7 +76,8 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
                 int[] countsByLevel = this.countMap.computeIfAbsent(location, k -> new int[1 + 5]);
                 float weight = roleCategory.weight, finalScore = 6F;
                 int count = -countsByLevel[0], truncation = roleCategory.truncation;
-                if (count > truncation * 2) {
+                int effectiveCount = Math.max(0, count - truncation * 2);
+                if (effectiveCount > 0) {
                     int[] counts = countsByLevel.clone();
                     for (int i = 1, left = truncation; left > 0; ++i) {
                         int diff = Math.min(left, counts[i]);
@@ -89,9 +90,9 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
                         left -= diff;
                     }
                     float sum = 2F * counts[1] + 4F * counts[2] + 6F * counts[3] + 8F * counts[4] + 10F * counts[5];
-                    finalScore = sum / (count - truncation * 2);
+                    finalScore = sum / effectiveCount;
                 }
-                resultBuilder.put(location, new Stats(weight, finalScore, countsByLevel));
+                resultBuilder.put(location, new Stats(weight, finalScore, effectiveCount, countsByLevel));
             }
         });
         return resultBuilder.build();
@@ -133,14 +134,20 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     public static final class Stats {
         private final float weight;
         private final float finalScore;
+        private final int effectiveCount;
         private final int[] countsByLevel;
 
-        public Stats(float weight, float finalScore, int[] countsByLevel) {
+        public Stats(float weight, float finalScore, int effectiveCount, int[] countsByLevel) {
             this.weight = weight;
             this.finalScore = finalScore;
+            this.effectiveCount = effectiveCount;
             this.countsByLevel = countsByLevel.clone();
             Preconditions.checkArgument(countsByLevel.length == 1 + 5);
             Preconditions.checkArgument(IntStream.of(countsByLevel).sum() == 0);
+        }
+
+        public int getEffectiveCount() {
+            return this.effectiveCount;
         }
 
         public int getVoteCount() {
@@ -161,20 +168,24 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
         }
 
         public static Stats combine(Iterable<Stats> iterable) {
-            float weight = 0F, weightedFinalScore = 0F;
+            int effectiveCount = 0;
+            float weightedCount = 0F;
+            float weightedFinalScore = 0F;
             int[] countsByLevel = new int[1 + 5];
             for (Stats stats : iterable) {
-                weight += stats.weight;
+                effectiveCount += stats.effectiveCount;
                 countsByLevel[0] += stats.countsByLevel[0];
                 countsByLevel[1] += stats.countsByLevel[1];
                 countsByLevel[2] += stats.countsByLevel[2];
                 countsByLevel[3] += stats.countsByLevel[3];
                 countsByLevel[4] += stats.countsByLevel[4];
                 countsByLevel[5] += stats.countsByLevel[5];
-                weightedFinalScore += stats.weight * stats.finalScore;
+                weightedCount += stats.weight * stats.effectiveCount;
+                weightedFinalScore += stats.weight * stats.effectiveCount * stats.finalScore;
             }
-            float finalScore = weight > 0F ? weightedFinalScore / weight : 6F;
-            return new Stats(weight, finalScore, countsByLevel);
+            float finalScore = weightedCount > 0F ? weightedFinalScore / weightedCount : 6F;
+            float weight = effectiveCount > 0 ? weightedCount / effectiveCount : 1F;
+            return new Stats(weight, finalScore, effectiveCount, countsByLevel);
         }
     }
 }
