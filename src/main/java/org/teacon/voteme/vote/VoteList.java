@@ -10,20 +10,24 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.common.util.INBTSerializable;
-import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.teacon.voteme.roles.VoteRole;
 import org.teacon.voteme.roles.VoteRoleHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.IntStream;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class VoteList implements INBTSerializable<CompoundNBT> {
+    public static final Instant DEFAULT_VOTE_TIME = DateTimeFormatter.RFC_1123_DATE_TIME.parse("Sat Jan 9 02:00:00 2021 +0800", Instant::from);
+
     private final Runnable onVoteChange;
     private final Map<ResourceLocation, int[]> countMap;
-    private final Map<UUID, Pair<Integer, ResourceLocation>> votes;
+    private final Map<UUID, Triple<Integer, ResourceLocation, Instant>> votes;
 
     public VoteList(Runnable onChange) {
         this.votes = new HashMap<>();
@@ -41,25 +45,25 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
 
     public void set(ServerPlayerEntity player, int level) {
         Preconditions.checkArgument(level >= 0 && level <= 5);
-        VoteRoleHandler.getRole(player).ifPresent(role -> this.set(player.getUniqueID(), level, role));
+        VoteRoleHandler.getRole(player).ifPresent(role -> this.set(player.getUniqueID(), level, role, Instant.now()));
     }
 
-    public void set(UUID uuid, int level, ResourceLocation role) {
+    public void set(UUID uuid, int level, ResourceLocation role, Instant voteTime) {
         if (level > 0) {
-            Pair<Integer, ResourceLocation> oldValue = this.votes.put(uuid, Pair.of(level, role));
+            Triple<Integer, ResourceLocation, Instant> old = this.votes.put(uuid, Triple.of(level, role, voteTime));
             int[] newCountsByLevel = this.countMap.computeIfAbsent(role, k -> new int[1 + 5]);
             ++newCountsByLevel[level];
             --newCountsByLevel[0];
-            if (oldValue != null) {
-                int[] oldCountsByLevel = Objects.requireNonNull(this.countMap.get(oldValue.getRight()));
-                --oldCountsByLevel[oldValue.getLeft()];
+            if (old != null) {
+                int[] oldCountsByLevel = Objects.requireNonNull(this.countMap.get(old.getMiddle()));
+                --oldCountsByLevel[old.getLeft()];
                 ++oldCountsByLevel[0];
             }
             this.onVoteChange.run();
         } else {
-            Pair<Integer, ResourceLocation> old = this.votes.remove(uuid);
+            Triple<Integer, ResourceLocation, Instant> old = this.votes.remove(uuid);
             if (old != null) {
-                int[] oldCountsByLevel = Objects.requireNonNull(this.countMap.get(old.getRight()));
+                int[] oldCountsByLevel = Objects.requireNonNull(this.countMap.get(old.getMiddle()));
                 --oldCountsByLevel[old.getLeft()];
                 ++oldCountsByLevel[0];
                 this.onVoteChange.run();
@@ -101,11 +105,12 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     @Override
     public CompoundNBT serializeNBT() {
         ListNBT nbt = new ListNBT();
-        for (Map.Entry<UUID, Pair<Integer, ResourceLocation>> entry : this.votes.entrySet()) {
+        for (Map.Entry<UUID, Triple<Integer, ResourceLocation, Instant>> entry : this.votes.entrySet()) {
             CompoundNBT child = new CompoundNBT();
             child.putUniqueId("UUID", entry.getKey());
             child.putInt("Level", entry.getValue().getLeft());
-            child.putString("VoteRole", entry.getValue().getRight().toString());
+            child.putString("VoteRole", entry.getValue().getMiddle().toString());
+            child.putLong("VoteTime", entry.getValue().getRight().toEpochMilli());
             nbt.add(child);
         }
         CompoundNBT result = new CompoundNBT();
@@ -121,8 +126,9 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
             CompoundNBT child = nbt.getCompound(i);
             int level = MathHelper.clamp(child.getInt("Level"), 1, 5);
             ResourceLocation role = new ResourceLocation(child.getString("VoteRole"));
+            Instant voteTime = child.contains("VoteTime", Constants.NBT.TAG_LONG) ? Instant.ofEpochMilli(child.getLong("VoteTime")) : DEFAULT_VOTE_TIME;
             int[] countsByLevel = this.countMap.computeIfAbsent(role, k -> new int[1 + 5]);
-            this.votes.put(child.getUniqueId("UUID"), Pair.of(level, role));
+            this.votes.put(child.getUniqueId("UUID"), Triple.of(level, role, voteTime));
             ++countsByLevel[level];
             --countsByLevel[0];
         }
