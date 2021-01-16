@@ -23,7 +23,7 @@ import java.util.stream.IntStream;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class VoteList implements INBTSerializable<CompoundNBT> {
-    public static final Instant DEFAULT_VOTE_TIME = DateTimeFormatter.RFC_1123_DATE_TIME.parse("Sat Jan 9 02:00:00 2021 +0800", Instant::from);
+    public static final Instant DEFAULT_VOTE_TIME = DateTimeFormatter.RFC_1123_DATE_TIME.parse("Sat, 9 Jan 2021 02:00:00 +0800", Instant::from);
 
     private final Runnable onVoteChange;
     private final Map<ResourceLocation, int[]> countMap;
