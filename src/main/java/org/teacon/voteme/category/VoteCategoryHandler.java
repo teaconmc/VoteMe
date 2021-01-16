@@ -15,6 +15,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
@@ -36,8 +37,8 @@ public final class VoteCategoryHandler extends JsonReloadListener {
         return Optional.ofNullable(categoryMap.get(id));
     }
 
-    public static Stream<ResourceLocation> getIds() {
-        return categoryMap.keySet().stream();
+    public static Collection<? extends ResourceLocation> getIds() {
+        return categoryMap.keySet();
     }
 
     @Override

@@ -2,6 +2,7 @@ package org.teacon.voteme.vote;
 
 import com.google.common.collect.Table;
 import com.google.common.collect.TreeBasedTable;
+import it.unimi.dsi.fastutil.ints.*;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.nbt.ListNBT;
@@ -22,7 +23,7 @@ import java.util.stream.IntStream;
 @ParametersAreNonnullByDefault
 public final class VoteListHandler extends WorldSavedData {
     private int nextIndex;
-    private final List<VoteListEntry> voteEntries;
+    private final Int2ObjectMap<VoteListEntry> voteEntries;
     private final Table<String, ResourceLocation, Integer> voteListIndices;
 
     public static VoteListHandler get(MinecraftServer server) {
@@ -34,7 +35,7 @@ public final class VoteListHandler extends WorldSavedData {
         super(name);
         this.nextIndex = 1;
         this.voteListIndices = TreeBasedTable.create();
-        this.voteEntries = new ArrayList<>(Collections.singletonList(null));
+        this.voteEntries = new Int2ObjectRBTreeMap<>();
 
         // create default entries
         Instant voteTime = VoteList.DEFAULT_VOTE_TIME;
@@ -48,7 +49,7 @@ public final class VoteListHandler extends WorldSavedData {
         if (oldId == null) {
             int id = this.nextIndex++;
             this.voteListIndices.put(artifact, category, id);
-            this.voteEntries.add(id, new VoteListEntry(artifact, category, new VoteList(() -> this.onChange(id))));
+            this.voteEntries.put(id, new VoteListEntry(artifact, category, new VoteList(() -> this.onChange(id))));
             return id;
         }
         return oldId;
@@ -58,8 +59,8 @@ public final class VoteListHandler extends WorldSavedData {
         return Optional.ofNullable(this.voteEntries.get(id));
     }
 
-    public IntStream getIds() {
-        return IntStream.range(0, this.nextIndex).filter(id -> this.voteEntries.get(id) != null);
+    public IntCollection getIds() {
+        return IntCollections.unmodifiable(this.voteEntries.keySet());
     }
 
     private void onChange(int id) {
@@ -78,9 +79,8 @@ public final class VoteListHandler extends WorldSavedData {
             int id = child.getInt("VoteListIndex");
             if (id < this.nextIndex) {
                 VoteListEntry entry = VoteListEntry.fromNBT(child, () -> this.onChange(id));
-                while (this.voteEntries.size() < id) this.voteEntries.add(null);
                 this.voteListIndices.put(entry.artifact, entry.category, id);
-                this.voteEntries.add(id, entry);
+                this.voteEntries.put(id, entry);
             }
         }
     }

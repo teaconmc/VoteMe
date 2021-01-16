@@ -19,6 +19,7 @@ import org.teacon.voteme.roles.VoteRole;
 import org.teacon.voteme.roles.VoteRoleHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -39,7 +40,7 @@ public final class VoteMeCommand {
     }
 
     private static int listRoles(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        List<ResourceLocation> roles = VoteRoleHandler.getIds().collect(Collectors.toList());
+        Collection<? extends ResourceLocation> roles = VoteRoleHandler.getIds();
         if (roles.isEmpty()) {
             context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.list.roles.none"), false);
         } else {
@@ -54,7 +55,7 @@ public final class VoteMeCommand {
     }
 
     private static int listCategories(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        List<ResourceLocation> categories = VoteCategoryHandler.getIds().collect(Collectors.toList());
+        Collection<? extends ResourceLocation> categories = VoteCategoryHandler.getIds();
         if (categories.isEmpty()) {
             context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.list.categories.none"), false);
         } else {

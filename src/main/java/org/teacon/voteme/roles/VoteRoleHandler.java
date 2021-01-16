@@ -59,8 +59,8 @@ public final class VoteRoleHandler extends JsonReloadListener {
         return Optional.ofNullable(reversedRoleMap.get(id));
     }
 
-    public static Stream<ResourceLocation> getIds() {
-        return roleIds.stream();
+    public static Collection<? extends ResourceLocation> getIds() {
+        return roleIds;
     }
 
     @Override

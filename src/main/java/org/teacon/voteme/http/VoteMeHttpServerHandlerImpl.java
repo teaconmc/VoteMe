@@ -72,7 +72,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
 
     private HttpResponseStatus handleVoteLists(ByteBuf buf) {
         VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
-        return this.handleOK(buf, Util.make(new JsonArray(), result -> handler.getIds().forEach(id -> {
+        return this.handleOK(buf, Util.make(new JsonArray(), result -> handler.getIds().forEach((int id) -> {
             Optional<VoteListEntry> entryOptional = handler.getEntry(id);
             entryOptional.ifPresent(entry -> {
                 JsonObject child = new JsonObject();
