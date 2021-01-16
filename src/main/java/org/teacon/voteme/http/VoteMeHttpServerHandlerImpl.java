@@ -1,10 +1,9 @@
 package org.teacon.voteme.http;
 
 import com.google.common.primitives.Ints;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import com.google.gson.*;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufOutputStream;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.QueryStringDecoder;
@@ -17,11 +16,17 @@ import org.teacon.voteme.vote.VoteListEntry;
 import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+
     @Override
     protected HttpResponseStatus handle(QueryStringDecoder decoder, ByteBuf buf) {
         String path = decoder.path();
@@ -95,17 +100,22 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
     }
 
     private HttpResponseStatus handleOK(ByteBuf buf, JsonElement result) {
-        ByteBufUtil.writeUtf8(buf, result.toString());
-        return HttpResponseStatus.OK;
+        try (Writer writer = new OutputStreamWriter(new ByteBufOutputStream(buf), StandardCharsets.UTF_8)) {
+            GSON.toJson(result, writer);
+            return HttpResponseStatus.OK;
+        } catch (IOException | JsonIOException e) {
+            buf.clear();
+            return this.handleNotFound(buf);
+        }
     }
 
     private HttpResponseStatus handleNotFound(ByteBuf buf) {
-        ByteBufUtil.writeUtf8(buf, "{\"error\":\"Not Found\"}");
+        ByteBufUtil.writeUtf8(buf, "{\n  \"error\": \"Not Found\"\n}");
         return HttpResponseStatus.NOT_FOUND;
     }
 
     private HttpResponseStatus handleBadRequest(ByteBuf buf) {
-        ByteBufUtil.writeUtf8(buf, "{\"error\":\"Bad Request\"}");
+        ByteBufUtil.writeUtf8(buf, "{\n  \"error\": \"Bad Request\"\n}");
         return HttpResponseStatus.BAD_REQUEST;
     }
 }

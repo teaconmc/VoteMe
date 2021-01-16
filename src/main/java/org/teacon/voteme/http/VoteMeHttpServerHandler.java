@@ -57,7 +57,7 @@ abstract class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpO
     }
 
     private void sendMethodNotAllowed(ChannelHandlerContext ctx, HttpRequest request) {
-        String msg = "{\"error\":\"Method Not Allowed\"}";
+        String msg = "{\n  \"error\": \"Method Not Allowed\"\n}";
         HttpResponseStatus status = HttpResponseStatus.METHOD_NOT_ALLOWED;
         ByteBuf buf = Unpooled.wrappedBuffer(msg.getBytes(StandardCharsets.UTF_8));
 
@@ -70,7 +70,7 @@ abstract class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpO
 
     private void sendInternalServerError(ChannelHandlerContext ctx, HttpRequest request, Throwable cause) {
         try {
-            String msg = "{\"error\":\"Internal Server Error\"}";
+            String msg = "{\n  \"error\": \"Internal Server Error\"\n}";
             HttpResponseStatus status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
             ByteBuf buf = Unpooled.wrappedBuffer(msg.getBytes(StandardCharsets.UTF_8));
 
