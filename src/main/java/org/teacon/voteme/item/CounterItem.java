@@ -51,11 +51,12 @@ public final class CounterItem extends Item {
             CompoundNBT tag = itemStack.getTag();
             Optional<EditCounterPacket> packet = Optional.empty();
             MinecraftServer server = Objects.requireNonNull(player.getServer());
+            int inventoryId = hand == Hand.MAIN_HAND ? player.inventory.currentItem : 40;
             if (tag != null && tag.contains("CurrentVoteId", Constants.NBT.TAG_INT)) {
-                packet = EditCounterPacket.create(tag.getInt("CurrentVoteId"), server);
+                packet = EditCounterPacket.create(tag.getInt("CurrentVoteId"), inventoryId, server);
             }
             if (!packet.isPresent()) {
-                packet = EditCounterPacket.create(server);
+                packet = EditCounterPacket.create(inventoryId, server);
             }
             if (packet.isPresent()) {
                 PacketDistributor.PacketTarget target = PacketDistributor.PLAYER.with(() -> (ServerPlayerEntity) player);

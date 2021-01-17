@@ -1,4 +1,8 @@
 {
-  "name": "General",
-  "description": "General judgement of the work"
+  "name": {
+    "text": "General"
+  },
+  "description": {
+    "text": "General judgement of the work. You can edit this category by loading a datapack and modifying 'data/voteme/vote_categories/general.json'."
+  }
 }

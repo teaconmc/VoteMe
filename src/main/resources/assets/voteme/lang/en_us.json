@@ -1,6 +1,11 @@
 {
   "item.voteme.counter": "Voting Counter",
   "item.voteme.voter": "Voting Machine",
+  "gui.voteme.counter.ok": "OK",
+  "gui.voteme.counter.rename": "Rename",
+  "gui.voteme.counter.empty_artifact": "Input artifact name",
+  "gui.voteme.counter.prev": "Previous",
+  "gui.voteme.counter.next": "Next",
   "commands.voteme.list.roles.none": "There are no roles for voting",
   "commands.voteme.list.roles.success": "There are %s different roles for voting: %s",
   "commands.voteme.list.categories.none": "There are no vote categories",

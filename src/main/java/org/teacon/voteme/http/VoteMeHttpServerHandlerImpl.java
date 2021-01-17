@@ -52,7 +52,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
                 VoteCategory category = categoryOptional.get();
                 JsonObject child = new JsonObject();
                 child.addProperty("id", id.toString());
-                category.toJson(child);
+                category.toHTTPJson(child);
                 result.add(child);
             }
         })));
@@ -64,7 +64,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
             VoteCategory category = categoryOptional.get();
             return this.handleOK(buf, Util.make(new JsonObject(), result -> {
                 result.addProperty("id", id);
-                category.toJson(result);
+                category.toHTTPJson(result);
             }));
         }
         return this.handleNotFound(buf);

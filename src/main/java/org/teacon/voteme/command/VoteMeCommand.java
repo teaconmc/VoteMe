@@ -61,7 +61,7 @@ public final class VoteMeCommand {
         } else {
             context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.list.categories.success", categories.size(), TextComponentUtils.func_240649_b_(categories, elem -> {
                 VoteCategory category = VoteCategoryHandler.getCategory(elem).orElseThrow(NullPointerException::new);
-                ITextComponent hover = new StringTextComponent(category.name).appendString("\n").appendString(category.description);
+                ITextComponent hover = new StringTextComponent("").append(category.name).appendString("\n").append(category.description);
                 return TextComponentUtils.wrapWithSquareBrackets(new StringTextComponent(elem.toString()))
                         .modifyStyle(style -> style.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover)));
             })), false);

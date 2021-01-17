@@ -1,4 +1,8 @@
 {
-  "name": "Professional",
-  "description": "Professional judgement of the work"
+  "name": {
+    "text": "Professional"
+  },
+  "description": {
+    "text": "Professional judgement of the work. You can edit this category by loading a datapack and modifying 'data/voteme/vote_categories/professional.json'."
+  }
 }

@@ -1,6 +1,11 @@
 {
   "item.voteme.counter": "投票计数器",
   "item.voteme.voter": "投票表决器",
+  "gui.voteme.counter.ok": "确认",
+  "gui.voteme.counter.rename": "更名",
+  "gui.voteme.counter.empty_artifact": "请输入作品名",
+  "gui.voteme.counter.prev": "上一个",
+  "gui.voteme.counter.next": "下一个",
   "commands.voteme.list.roles.none": "无 VoteMe 投票角色",
   "commands.voteme.list.roles.success": "共 %s 个不同的 VoteMe 投票角色：%s",
   "commands.voteme.list.categories.none": "无 VoteMe 投票分类",
