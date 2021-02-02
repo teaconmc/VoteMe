@@ -17,26 +17,29 @@ import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Supplier;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class EditCounterPacket {
     public final int inventoryIndex;
-    public final String currentArtifact;
+    public final UUID artifactUUID;
+    public final String artifactName;
     public final ResourceLocation current;
     public final ImmutableList<Info> info;
 
-    public EditCounterPacket(int inventoryIndex, String artifact, ResourceLocation category, ImmutableList<Info> infos) {
+    public EditCounterPacket(int inventoryIndex, UUID artifactID, String artifactName, ResourceLocation category, ImmutableList<Info> infos) {
         this.inventoryIndex = inventoryIndex;
-        this.currentArtifact = artifact;
+        this.artifactName = artifactName;
+        this.artifactUUID = artifactID;
         this.current = category;
         this.info = infos;
     }
 
     public void handle(Supplier<NetworkEvent.Context> supplier) {
         if (!this.info.isEmpty()) {
-            CounterScreen gui = new CounterScreen(this.currentArtifact, this.inventoryIndex, this.current, this.info);
+            CounterScreen gui = new CounterScreen(this.artifactUUID, this.artifactName, this.inventoryIndex, this.current, this.info);
             supplier.get().enqueueWork(() -> Minecraft.getInstance().displayGuiScreen(gui));
         }
         supplier.get().setPacketHandled(true);
@@ -44,7 +47,8 @@ public final class EditCounterPacket {
 
     public void write(PacketBuffer buffer) {
         buffer.writeInt(this.inventoryIndex);
-        buffer.writeString(this.currentArtifact);
+        buffer.writeString(this.artifactName);
+        buffer.writeUniqueId(this.artifactUUID);
         buffer.writeResourceLocation(this.current);
         for (Info info : this.info) {
             buffer.writeDouble(info.score);
@@ -57,7 +61,8 @@ public final class EditCounterPacket {
 
     public static EditCounterPacket read(PacketBuffer buffer) {
         int inventoryIndex = buffer.readInt();
-        String artifact = buffer.readString();
+        String artifactName = buffer.readString();
+        UUID artifactUUID = buffer.readUniqueId();
         ResourceLocation category = buffer.readResourceLocation();
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
         for (double score = buffer.readDouble(); !Double.isNaN(score); score = buffer.readDouble()) {
@@ -65,7 +70,7 @@ public final class EditCounterPacket {
             ITextComponent desc = buffer.readTextComponent();
             builder.add(new Info(buffer.readResourceLocation(), name, desc, score));
         }
-        return new EditCounterPacket(inventoryIndex, artifact, category, builder.build());
+        return new EditCounterPacket(inventoryIndex, artifactUUID, artifactName, category, builder.build());
     }
 
     public static Optional<EditCounterPacket> create(int id, int inventoryId, MinecraftServer server) {
@@ -73,19 +78,20 @@ public final class EditCounterPacket {
         Optional<VoteListEntry> entryOptional = voteListHandler.getEntry(id);
         if (entryOptional.isPresent()) {
             ImmutableList.Builder<Info> builder = ImmutableList.builder();
-            String artifact = entryOptional.get().artifact;
+            UUID artifactID = entryOptional.get().artifactID;
+            String artifactName = voteListHandler.getArtifactName(artifactID);
             VoteCategoryHandler.getIds().forEach(location -> {
                 // noinspection OptionalGetWithoutIsPresent
                 VoteCategory category = VoteCategoryHandler.getCategory(location).get();
                 // noinspection OptionalGetWithoutIsPresent
-                VoteListEntry entry = voteListHandler.getEntry(voteListHandler.getIdOrCreate(artifact, location)).get();
+                VoteListEntry entry = voteListHandler.getEntry(voteListHandler.getIdOrCreate(artifactID, location)).get();
                 VoteList.Stats stats = VoteList.Stats.combine(entry.votes.buildFinalScore(location).values());
                 builder.add(new Info(location, category.name, category.description, stats.getFinalScore()));
             });
             ImmutableList<Info> infos = builder.build();
             if (!infos.isEmpty()) {
                 ResourceLocation category = entryOptional.get().category;
-                return Optional.of(new EditCounterPacket(inventoryId, artifact, category, infos));
+                return Optional.of(new EditCounterPacket(inventoryId, artifactID, artifactName, category, infos));
             }
         }
         return Optional.empty();
@@ -100,8 +106,9 @@ public final class EditCounterPacket {
         });
         ImmutableList<Info> infos = builder.build();
         if (!infos.isEmpty()) {
+            UUID newArtifactUUID = UUID.randomUUID();
             ResourceLocation category = infos.iterator().next().id;
-            return Optional.of(new EditCounterPacket(inventoryId, "", category, infos));
+            return Optional.of(new EditCounterPacket(inventoryId, newArtifactUUID, "", category, infos));
         }
         return Optional.empty();
     }

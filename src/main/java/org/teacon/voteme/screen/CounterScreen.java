@@ -20,13 +20,13 @@ import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import org.teacon.voteme.network.ApplyCounterPacket;
 import org.teacon.voteme.network.EditCounterPacket;
+import org.teacon.voteme.network.EditNamePacket;
+import org.teacon.voteme.network.VoteMePacketManager;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
@@ -47,16 +47,20 @@ public final class CounterScreen extends Screen {
     private String artifact;
     private String oldArtifact;
     private int artifactCursorTick;
+
+    private final UUID artifactUUID;
     private final int inventoryIndex;
     private final List<EditCounterPacket.Info> infoCollection;
 
     private BottomButton renameButton;
     private TextInputUtil artifactInput;
 
-    public CounterScreen(String artifact, int inventoryIndex, ResourceLocation category, List<EditCounterPacket.Info> infos) {
+    public CounterScreen(UUID artifactUUID, String artifactName, int inventoryIndex,
+                         ResourceLocation category, List<EditCounterPacket.Info> infos) {
         super(NarratorChatListener.EMPTY);
+        this.artifactUUID = artifactUUID;
         this.inventoryIndex = inventoryIndex;
-        this.artifact = this.oldArtifact = artifact;
+        this.artifact = this.oldArtifact = artifactName;
         Preconditions.checkArgument(infos.size() > 0);
         this.infoCollection = rotateAsFirst(infos, info -> category.equals(info.id));
     }
@@ -102,6 +106,15 @@ public final class CounterScreen extends Screen {
         return this.artifactInput.specialKeyPressed(keyCode) || super.keyPressed(keyCode, scanCode, modifiers);
     }
 
+    @Override
+    public void onClose() {
+        if (!this.oldArtifact.isEmpty()) {
+            ResourceLocation categoryID = this.infoCollection.iterator().next().id;
+            ApplyCounterPacket packet = ApplyCounterPacket.create(this.inventoryIndex, this.artifactUUID, categoryID);
+            VoteMePacketManager.CHANNEL.sendToServer(packet);
+        }
+    }
+
     private void onPrevButtonClick(Button button) {
         Collections.rotate(this.infoCollection, -1);
     }
@@ -115,7 +128,8 @@ public final class CounterScreen extends Screen {
     }
 
     private void onRenameButtonClick(Button button) {
-        // TODO
+        EditNamePacket packet = EditNamePacket.create(this.artifactUUID, this.oldArtifact = this.artifact);
+        VoteMePacketManager.CHANNEL.sendToServer(packet);
     }
 
     @SuppressWarnings("deprecation")

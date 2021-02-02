@@ -2,7 +2,10 @@ package org.teacon.voteme.vote;
 
 import com.google.common.collect.Table;
 import com.google.common.collect.TreeBasedTable;
-import it.unimi.dsi.fastutil.ints.*;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
+import it.unimi.dsi.fastutil.ints.IntCollection;
+import it.unimi.dsi.fastutil.ints.IntCollections;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.nbt.ListNBT;
@@ -15,16 +18,19 @@ import org.teacon.voteme.category.VoteCategoryHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.time.Instant;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.stream.IntStream;
+import java.util.Map;
+import java.util.Optional;
+import java.util.TreeMap;
+import java.util.UUID;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class VoteListHandler extends WorldSavedData {
     private int nextIndex;
+
+    private final Map<UUID, String> voteArtifactNames;
     private final Int2ObjectMap<VoteListEntry> voteEntries;
-    private final Table<String, ResourceLocation, Integer> voteListIndices;
+    private final Table<UUID, ResourceLocation, Integer> voteListIndices;
 
     public static VoteListHandler get(MinecraftServer server) {
         DimensionSavedDataManager manager = server.func_241755_D_().getSavedData();
@@ -34,25 +40,44 @@ public final class VoteListHandler extends WorldSavedData {
     public VoteListHandler(String name) {
         super(name);
         this.nextIndex = 1;
+        this.voteArtifactNames = new TreeMap<>();
         this.voteListIndices = TreeBasedTable.create();
         this.voteEntries = new Int2ObjectRBTreeMap<>();
 
-        // create default entries
+        // initialize default values
         Instant voteTime = VoteList.DEFAULT_VOTE_TIME;
         ResourceLocation role = new ResourceLocation("voteme:00_general_players");
-        UUID uuid = UUID.fromString("7c5faf44-24b0-4496-b91a-147fb781fae9"); // zzzz_ustc
-        VoteCategoryHandler.getIds().forEach(c -> this.voteEntries.get(this.getIdOrCreate("VoteMe", c)).votes.set(uuid, 5, role, voteTime));
+        UUID artifactID = UUID.fromString("8898dd9a-23cd-4f5f-80db-f66a32fd5e66");
+        UUID userID = UUID.fromString("7c5faf44-24b0-4496-b91a-147fb781fae9"); // zzzz_ustc
+
+        // create default entries
+        this.voteArtifactNames.put(artifactID, "VoteMe");
+        VoteCategoryHandler.getIds().stream()
+                .mapToInt(category -> this.getIdOrCreate(artifactID, category))
+                .forEach(id -> this.voteEntries.get(id).votes.set(userID, 5, role, voteTime));
     }
 
-    public int getIdOrCreate(String artifact, ResourceLocation category) {
-        Integer oldId = this.voteListIndices.get(artifact, category);
+    public int getIdOrCreate(UUID artifactID, ResourceLocation category) {
+        Integer oldId = this.voteListIndices.get(artifactID, category);
         if (oldId == null) {
             int id = this.nextIndex++;
-            this.voteListIndices.put(artifact, category, id);
-            this.voteEntries.put(id, new VoteListEntry(artifact, category, new VoteList(() -> this.onChange(id))));
+            this.voteListIndices.put(artifactID, category, id);
+            this.voteEntries.put(id, new VoteListEntry(artifactID, category, new VoteList(() -> this.onChange(id))));
             return id;
         }
         return oldId;
+    }
+
+    public String getArtifactName(UUID uuid) {
+        return this.voteArtifactNames.getOrDefault(uuid, "");
+    }
+
+    public void putArtifactName(UUID uuid, String name) {
+        if (name.isEmpty()) {
+            this.voteArtifactNames.remove(uuid);
+        } else {
+            this.voteArtifactNames.put(uuid, name);
+        }
     }
 
     public Optional<VoteListEntry> getEntry(int id) {
@@ -70,35 +95,51 @@ public final class VoteListHandler extends WorldSavedData {
 
     @Override
     public void read(CompoundNBT nbt) {
+        this.voteArtifactNames.clear();
         this.voteEntries.clear();
         this.voteListIndices.clear();
         this.nextIndex = nbt.getInt("VoteListNextIndex");
-        ListNBT children = nbt.getList("VoteLists", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0, size = children.size(); i < size; ++i) {
-            CompoundNBT child = children.getCompound(i);
+        ListNBT lists = nbt.getList("VoteLists", Constants.NBT.TAG_COMPOUND);
+        for (int i = 0, size = lists.size(); i < size; ++i) {
+            CompoundNBT child = lists.getCompound(i);
             int id = child.getInt("VoteListIndex");
             if (id < this.nextIndex) {
                 VoteListEntry entry = VoteListEntry.fromNBT(child, () -> this.onChange(id));
-                this.voteListIndices.put(entry.artifact, entry.category, id);
+                this.voteListIndices.put(entry.artifactID, entry.category, id);
                 this.voteEntries.put(id, entry);
             }
+        }
+        ListNBT names = nbt.getList("VoteArtifacts", Constants.NBT.TAG_COMPOUND);
+        for (int i = 0, size = names.size(); i < size; ++i) {
+            CompoundNBT child = names.getCompound(i);
+            UUID id = child.getUniqueId("UUID");
+            String name = child.getString("Name");
+            this.voteArtifactNames.put(id, name);
         }
     }
 
     @Override
     public CompoundNBT write(CompoundNBT compound) {
-        ListNBT children = new ListNBT();
+        ListNBT lists = new ListNBT();
         for (int id = 0; id < this.nextIndex; ++id) {
             VoteListEntry entry = this.voteEntries.get(id);
             if (entry != null) {
                 CompoundNBT child = entry.toNBT();
                 child.putInt("VoteListIndex", id);
-                children.add(child);
+                lists.add(child);
             }
+        }
+        ListNBT names = new ListNBT();
+        for (Map.Entry<UUID, String> entry : this.voteArtifactNames.entrySet()) {
+            CompoundNBT child = new CompoundNBT();
+            child.putUniqueId("UUID", entry.getKey());
+            child.putString("Name", entry.getValue());
+            names.add(child);
         }
         CompoundNBT nbt = new CompoundNBT();
         nbt.putInt("VoteListNextIndex", this.nextIndex);
-        nbt.put("VoteLists", children);
+        nbt.put("VoteArtifacts", names);
+        nbt.put("VoteLists", lists);
         return nbt;
     }
 }

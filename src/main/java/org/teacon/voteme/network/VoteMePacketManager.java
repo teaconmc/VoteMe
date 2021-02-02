@@ -22,5 +22,9 @@ public final class VoteMePacketManager {
     public static void setup(FMLCommonSetupEvent event) {
         CHANNEL.registerMessage(0, EditCounterPacket.class,
                 EditCounterPacket::write, EditCounterPacket::read, EditCounterPacket::handle);
+        CHANNEL.registerMessage(1, ApplyCounterPacket.class,
+                ApplyCounterPacket::write, ApplyCounterPacket::read, ApplyCounterPacket::handle);
+        CHANNEL.registerMessage(2, EditNamePacket.class,
+                EditNamePacket::write, EditNamePacket::read, EditNamePacket::handle);
     }
 }

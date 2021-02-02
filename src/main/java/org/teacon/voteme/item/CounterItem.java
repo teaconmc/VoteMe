@@ -10,6 +10,7 @@ import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.event.RegistryEvent;
@@ -19,10 +20,13 @@ import net.minecraftforge.fml.network.PacketDistributor;
 import net.minecraftforge.registries.ObjectHolder;
 import org.teacon.voteme.network.EditCounterPacket;
 import org.teacon.voteme.network.VoteMePacketManager;
+import org.teacon.voteme.vote.VoteListEntry;
+import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -32,7 +36,7 @@ public final class CounterItem extends Item {
     public static final String ID = "voteme:counter";
 
     @ObjectHolder(ID)
-    public static final CounterItem INSTANCE = null;
+    public static CounterItem INSTANCE;
 
     @SubscribeEvent
     public static void register(RegistryEvent.Register<Item> event) {
@@ -64,5 +68,21 @@ public final class CounterItem extends Item {
             }
         }
         return ActionResult.func_233538_a_(itemStack, world.isRemote());
+    }
+
+    public void modifyVoteId(ServerPlayerEntity sender, ItemStack stack, UUID artifactID, ResourceLocation category) {
+        boolean matchArtifact = true;
+        CompoundNBT tag = stack.getTag();
+        VoteListHandler voteListHandler = VoteListHandler.get(Objects.requireNonNull(sender.getServer()));
+        if (tag != null && tag.contains("CurrentVoteId", Constants.NBT.TAG_INT)) {
+            Optional<VoteListEntry> entryOptional = voteListHandler.getEntry(tag.getInt("CurrentVoteId"));
+            if (entryOptional.isPresent()) {
+                matchArtifact = entryOptional.get().artifactID.equals(artifactID);
+            }
+        }
+        if (matchArtifact) {
+            int id = voteListHandler.getIdOrCreate(artifactID, category);
+            stack.getOrCreateTag().putInt("CurrentVoteId", id);
+        }
     }
 }

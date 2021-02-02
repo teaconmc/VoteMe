@@ -11,39 +11,40 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Map;
 import java.util.Objects;
 import java.util.SortedMap;
+import java.util.UUID;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class VoteListEntry {
     public final VoteList votes;
-    public final String artifact;
+    public final UUID artifactID;
     public final ResourceLocation category;
 
-    public VoteListEntry(String artifact, ResourceLocation category, VoteList votes) {
+    public VoteListEntry(UUID artifactID, ResourceLocation category, VoteList votes) {
+        this.artifactID = artifactID;
         this.category = category;
-        this.artifact = artifact;
         this.votes = votes;
     }
 
     public static VoteListEntry fromNBT(CompoundNBT compound, Runnable onChange) {
         VoteList votes = new VoteList(onChange);
         votes.deserializeNBT(compound);
-        String artifact = compound.getString("Artifact");
+        UUID artifactID = compound.getUniqueId("ArtifactUUID");
         ResourceLocation category = new ResourceLocation(compound.getString("Category"));
-        return new VoteListEntry(artifact, category, votes);
+        return new VoteListEntry(artifactID, category, votes);
     }
 
     public CompoundNBT toNBT() {
         CompoundNBT nbt = this.votes.serializeNBT();
-        nbt.putString("Artifact", Objects.requireNonNull(this.artifact));
+        nbt.putUniqueId("ArtifactUUID", Objects.requireNonNull(this.artifactID));
         nbt.putString("Category", Objects.requireNonNull(this.category).toString());
         return nbt;
     }
 
     public void toJson(JsonElement json) {
         JsonObject jsonObject = json.getAsJsonObject();
-        jsonObject.addProperty("artifact", this.artifact);
         jsonObject.addProperty("category", this.category.toString());
+        jsonObject.addProperty("artifact", this.artifactID.toString());
         SortedMap<ResourceLocation, VoteList.Stats> scores = this.votes.buildFinalScore(this.category);
         jsonObject.add("vote_counts", this.toVoteCountInfoJson(scores));
         jsonObject.addProperty("final_score", VoteList.Stats.combine(scores.values()).getFinalScore());
