@@ -86,13 +86,13 @@ abstract class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpO
         if (HttpUtil.isKeepAlive(request)) {
             response.headers()
                     .set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
-                    .set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
+                    .set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=utf-8")
                     .set(HttpHeaderNames.DATE, DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now()));
             ctx.writeAndFlush(response, ctx.voidPromise());
         } else {
             response.headers()
                     .set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE)
-                    .set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
+                    .set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=utf-8")
                     .set(HttpHeaderNames.DATE, DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now()));
             ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
         }
