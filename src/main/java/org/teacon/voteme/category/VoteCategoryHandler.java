@@ -19,7 +19,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
-import java.util.stream.Stream;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault

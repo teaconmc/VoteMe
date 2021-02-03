@@ -2,15 +2,16 @@ package org.teacon.voteme.vote;
 
 import com.google.common.collect.Table;
 import com.google.common.collect.TreeBasedTable;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
-import it.unimi.dsi.fastutil.ints.IntCollection;
-import it.unimi.dsi.fastutil.ints.IntCollections;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.nbt.ListNBT;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.Util;
 import net.minecraft.world.storage.DimensionSavedDataManager;
 import net.minecraft.world.storage.WorldSavedData;
 import net.minecraftforge.common.util.Constants;
@@ -18,10 +19,7 @@ import org.teacon.voteme.category.VoteCategoryHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.time.Instant;
-import java.util.Map;
-import java.util.Optional;
-import java.util.TreeMap;
-import java.util.UUID;
+import java.util.*;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -68,6 +66,10 @@ public final class VoteListHandler extends WorldSavedData {
         return oldId;
     }
 
+    public Collection<? extends UUID> getArtifacts() {
+        return Collections.unmodifiableSet(this.voteArtifactNames.keySet());
+    }
+
     public String getArtifactName(UUID uuid) {
         return this.voteArtifactNames.getOrDefault(uuid, "");
     }
@@ -84,8 +86,16 @@ public final class VoteListHandler extends WorldSavedData {
         return Optional.ofNullable(this.voteEntries.get(id));
     }
 
-    public IntCollection getIds() {
-        return IntCollections.unmodifiable(this.voteEntries.keySet());
+    public JsonObject toHTTPJson(UUID artifactID) {
+        return Util.make(new JsonObject(), result -> {
+            result.addProperty("id", artifactID.toString());
+            result.addProperty("name", this.getArtifactName(artifactID));
+            result.add("vote_lists", Util.make(new JsonArray(), array -> {
+                for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
+                    array.add(this.getIdOrCreate(artifactID, categoryID));
+                }
+            }));
+        });
     }
 
     private void onChange(int id) {
@@ -114,7 +124,9 @@ public final class VoteListHandler extends WorldSavedData {
             CompoundNBT child = names.getCompound(i);
             UUID id = child.getUniqueId("UUID");
             String name = child.getString("Name");
-            this.voteArtifactNames.put(id, name);
+            if (!name.isEmpty()) {
+                this.voteArtifactNames.put(id, name);
+            }
         }
     }
 

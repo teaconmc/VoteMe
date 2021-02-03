@@ -41,13 +41,15 @@ public final class VoteListEntry {
         return nbt;
     }
 
-    public void toJson(JsonElement json) {
-        JsonObject jsonObject = json.getAsJsonObject();
+    public JsonElement toHTTPJson(int voteListID) {
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("id", voteListID);
         jsonObject.addProperty("category", this.category.toString());
         jsonObject.addProperty("artifact", this.artifactID.toString());
         SortedMap<ResourceLocation, VoteList.Stats> scores = this.votes.buildFinalScore(this.category);
         jsonObject.add("vote_counts", this.toVoteCountInfoJson(scores));
         jsonObject.addProperty("final_score", VoteList.Stats.combine(scores.values()).getFinalScore());
+        return jsonObject;
     }
 
     private JsonElement toVoteCountInfoJson(SortedMap<ResourceLocation, VoteList.Stats> scores) {

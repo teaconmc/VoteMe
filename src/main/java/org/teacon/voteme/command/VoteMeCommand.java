@@ -20,8 +20,6 @@ import org.teacon.voteme.roles.VoteRoleHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
 
 import static net.minecraft.command.Commands.literal;
 

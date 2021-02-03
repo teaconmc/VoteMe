@@ -1,12 +1,18 @@
 package org.teacon.voteme.category;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import mcp.MethodsReturnNonnullByDefault;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.Util;
 import net.minecraft.util.text.ITextComponent;
+import org.teacon.voteme.http.VoteMeHttpServer;
+import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.UUID;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -29,9 +35,17 @@ public final class VoteCategory {
         return new VoteCategory(name, desc);
     }
 
-    public void toHTTPJson(JsonElement json) {
-        JsonObject jsonObject = json.getAsJsonObject();
+    public JsonElement toHTTPJson(ResourceLocation categoryID) {
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("id", categoryID.toString());
         jsonObject.addProperty("name", this.name.getString());
         jsonObject.addProperty("description", this.description.getString());
+        VoteListHandler voteListHandler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
+        jsonObject.add("vote_lists", Util.make(new JsonArray(), array -> {
+            for (UUID artifactID : voteListHandler.getArtifacts()) {
+                array.add(voteListHandler.getIdOrCreate(artifactID, categoryID));
+            }
+        }));
+        return jsonObject;
     }
 }
