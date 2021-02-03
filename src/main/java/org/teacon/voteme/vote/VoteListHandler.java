@@ -60,7 +60,8 @@ public final class VoteListHandler extends WorldSavedData {
         if (oldId == null) {
             int id = this.nextIndex++;
             this.voteListIndices.put(artifactID, category, id);
-            this.voteEntries.put(id, new VoteListEntry(artifactID, category, new VoteList(() -> this.onChange(id))));
+            this.voteEntries.put(id, new VoteListEntry(artifactID, category, new VoteList(this::markDirty)));
+            this.markDirty();
             return id;
         }
         return oldId;
@@ -75,10 +76,12 @@ public final class VoteListHandler extends WorldSavedData {
     }
 
     public void putArtifactName(UUID uuid, String name) {
-        if (name.isEmpty()) {
-            this.voteArtifactNames.remove(uuid);
-        } else {
+        if (!name.isEmpty()) {
             this.voteArtifactNames.put(uuid, name);
+            this.markDirty();
+        } else if (this.voteArtifactNames.containsKey(uuid)) {
+            this.voteArtifactNames.remove(uuid);
+            this.markDirty();
         }
     }
 
@@ -98,11 +101,6 @@ public final class VoteListHandler extends WorldSavedData {
         });
     }
 
-    private void onChange(int id) {
-        this.markDirty();
-        // TODO: more things
-    }
-
     @Override
     public void read(CompoundNBT nbt) {
         this.voteArtifactNames.clear();
@@ -114,7 +112,7 @@ public final class VoteListHandler extends WorldSavedData {
             CompoundNBT child = lists.getCompound(i);
             int id = child.getInt("VoteListIndex");
             if (id < this.nextIndex) {
-                VoteListEntry entry = VoteListEntry.fromNBT(child, () -> this.onChange(id));
+                VoteListEntry entry = VoteListEntry.fromNBT(child, this::markDirty);
                 this.voteListIndices.put(entry.artifactID, entry.category, id);
                 this.voteEntries.put(id, entry);
             }
