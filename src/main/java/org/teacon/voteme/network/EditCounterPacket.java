@@ -7,6 +7,8 @@ import net.minecraft.network.PacketBuffer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.network.NetworkEvent;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
@@ -23,34 +25,42 @@ import java.util.function.Supplier;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class EditCounterPacket {
-    public final int inventoryIndex;
+    public final int invIndex;
     public final UUID artifactUUID;
     public final String artifactName;
-    public final ResourceLocation current;
-    public final ImmutableList<Info> info;
+    public final ResourceLocation category;
+    public final ImmutableList<Info> infos;
 
-    public EditCounterPacket(int inventoryIndex, UUID artifactID, String artifactName, ResourceLocation category, ImmutableList<Info> infos) {
-        this.inventoryIndex = inventoryIndex;
-        this.artifactName = artifactName;
-        this.artifactUUID = artifactID;
-        this.current = category;
-        this.info = infos;
+    public EditCounterPacket(int invIndex, UUID uuid, String name, ResourceLocation category, ImmutableList<Info> infos) {
+        this.invIndex = invIndex;
+        this.artifactName = name;
+        this.artifactUUID = uuid;
+        this.category = category;
+        this.infos = infos;
     }
 
     public void handle(Supplier<NetworkEvent.Context> supplier) {
-        if (!this.info.isEmpty()) {
-            CounterScreen gui = new CounterScreen(this.artifactUUID, this.artifactName, this.inventoryIndex, this.current, this.info);
-            supplier.get().enqueueWork(() -> Minecraft.getInstance().displayGuiScreen(gui));
+        if (!this.infos.isEmpty()) {
+            // forge needs a separate class
+            // noinspection Convert2Lambda
+            DistExecutor.safeRunWhenOn(Dist.CLIENT, () -> new DistExecutor.SafeRunnable() {
+                @Override
+                public void run() {
+                    EditCounterPacket p = EditCounterPacket.this;
+                    CounterScreen gui = new CounterScreen(p.artifactUUID, p.artifactName, p.invIndex, p.category, p.infos);
+                    supplier.get().enqueueWork(() -> Minecraft.getInstance().displayGuiScreen(gui));
+                }
+            });
         }
         supplier.get().setPacketHandled(true);
     }
 
     public void write(PacketBuffer buffer) {
-        buffer.writeInt(this.inventoryIndex);
+        buffer.writeInt(this.invIndex);
         buffer.writeString(this.artifactName);
         buffer.writeUniqueId(this.artifactUUID);
-        buffer.writeResourceLocation(this.current);
-        for (Info info : this.info) {
+        buffer.writeResourceLocation(this.category);
+        for (Info info : this.infos) {
             buffer.writeDouble(info.score);
             buffer.writeTextComponent(info.name);
             buffer.writeTextComponent(info.desc);
