@@ -1,9 +1,0 @@
-{
-  "name": "Players",
-  "selector": "@a",
-  "categories": {
-    "voteme:general": {
-      "weight": 1.0
-    }
-  }
-}

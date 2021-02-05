@@ -176,3 +176,31 @@ The example response shows two different types of voting statistics.
 * The other is from `voteme:professional_judges`, with `0` vote (in which `0` is effective), and the score is `6.0` (default value).
 
 The final score is the weighted average score of voting statistics whose weight is calculated by `effective * weight`. So in this example it is `(1 * 1.0 * 10.0 + 0 * 2.0 * 6.0) / (1 * 1.0 + 0 * 2.0) = 10.0`
+
+### `GET /v1/roles`
+
+Fetch a collection of different roles for voting. Example Response:
+
+```json
+[
+  {
+    "id": "voteme:general_players",
+    "name": "Players"
+  },
+  {
+    "id": "voteme:professional_judges",
+    "name": "Professional Judges"
+  }
+]
+```
+
+### `GET /v1/roles/<id>`
+
+Fetch a particular role for voting by its id. Example Response:
+
+```json
+{
+  "id": "voteme:general_players",
+  "name": "Players"
+}
+```

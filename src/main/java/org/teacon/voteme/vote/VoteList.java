@@ -1,12 +1,16 @@
 package org.teacon.voteme.vote;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.INBT;
 import net.minecraft.nbt.ListNBT;
+import net.minecraft.nbt.StringNBT;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.Util;
 import net.minecraft.util.math.MathHelper;
 import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.common.util.INBTSerializable;
@@ -27,7 +31,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
 
     private final Runnable onVoteChange;
     private final Map<ResourceLocation, int[]> countMap;
-    private final Map<UUID, Triple<Integer, ResourceLocation, Instant>> votes;
+    private final Map<UUID, Triple<Integer, ImmutableSet<ResourceLocation>, Instant>> votes;
 
     public VoteList(Runnable onChange) {
         this.votes = new HashMap<>();
@@ -45,28 +49,34 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
 
     public void set(ServerPlayerEntity player, int level) {
         Preconditions.checkArgument(level >= 0 && level <= 5);
-        VoteRoleHandler.getRole(player).ifPresent(role -> this.set(player.getUniqueID(), level, role, Instant.now()));
+        this.set(player.getUniqueID(), level, VoteRoleHandler.getRole(player), Instant.now());
     }
 
-    public void set(UUID uuid, int level, ResourceLocation role, Instant voteTime) {
+    public void set(UUID uuid, int level, Collection<? extends ResourceLocation> roles, Instant voteTime) {
         if (level > 0) {
-            Triple<Integer, ResourceLocation, Instant> old = this.votes.put(uuid, Triple.of(level, role, voteTime));
-            int[] newCountsByLevel = this.countMap.computeIfAbsent(role, k -> new int[1 + 5]);
-            ++newCountsByLevel[level];
-            --newCountsByLevel[0];
+            Triple<Integer, ImmutableSet<ResourceLocation>, Instant> old = this.votes.put(uuid, Triple.of(level, ImmutableSet.copyOf(roles), voteTime));
+            for (ResourceLocation role : roles) {
+                int[] newCountsByLevel = this.countMap.computeIfAbsent(role, k -> new int[1 + 5]);
+                ++newCountsByLevel[level];
+                --newCountsByLevel[0];
+            }
             if (old != null) {
-                int[] oldCountsByLevel = Objects.requireNonNull(this.countMap.get(old.getMiddle()));
-                --oldCountsByLevel[old.getLeft()];
-                ++oldCountsByLevel[0];
+                for (ResourceLocation role : old.getMiddle()) {
+                    int[] oldCountsByLevel = Objects.requireNonNull(this.countMap.get(role));
+                    --oldCountsByLevel[old.getLeft()];
+                    ++oldCountsByLevel[0];
+                }
             }
             this.onVoteChange.run();
         } else {
-            Triple<Integer, ResourceLocation, Instant> old = this.votes.remove(uuid);
+            Triple<Integer, ImmutableSet<ResourceLocation>, Instant> old = this.votes.remove(uuid);
             if (old != null) {
-                int[] oldCountsByLevel = Objects.requireNonNull(this.countMap.get(old.getMiddle()));
-                --oldCountsByLevel[old.getLeft()];
-                ++oldCountsByLevel[0];
-                this.onVoteChange.run();
+                for (ResourceLocation role : old.getMiddle()) {
+                    int[] oldCountsByLevel = Objects.requireNonNull(this.countMap.get(role));
+                    --oldCountsByLevel[old.getLeft()];
+                    ++oldCountsByLevel[0];
+                    this.onVoteChange.run();
+                }
             }
         }
     }
@@ -105,11 +115,15 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     @Override
     public CompoundNBT serializeNBT() {
         ListNBT nbt = new ListNBT();
-        for (Map.Entry<UUID, Triple<Integer, ResourceLocation, Instant>> entry : this.votes.entrySet()) {
+        for (Map.Entry<UUID, Triple<Integer, ImmutableSet<ResourceLocation>, Instant>> entry : this.votes.entrySet()) {
             CompoundNBT child = new CompoundNBT();
             child.putUniqueId("UUID", entry.getKey());
             child.putInt("Level", entry.getValue().getLeft());
-            child.putString("VoteRole", entry.getValue().getMiddle().toString());
+            child.put("VoteRoles", Util.make(new ListNBT(), roles -> {
+                for (ResourceLocation r : entry.getValue().getMiddle()) {
+                    roles.add(StringNBT.valueOf(r.toString()));
+                }
+            }));
             child.putLong("VoteTime", entry.getValue().getRight().toEpochMilli());
             nbt.add(child);
         }
@@ -125,12 +139,21 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
         for (int i = 0, size = nbt.size(); i < size; ++i) {
             CompoundNBT child = nbt.getCompound(i);
             int level = MathHelper.clamp(child.getInt("Level"), 1, 5);
-            ResourceLocation role = new ResourceLocation(child.getString("VoteRole"));
-            Instant voteTime = child.contains("VoteTime", Constants.NBT.TAG_LONG) ? Instant.ofEpochMilli(child.getLong("VoteTime")) : DEFAULT_VOTE_TIME;
-            int[] countsByLevel = this.countMap.computeIfAbsent(role, k -> new int[1 + 5]);
-            this.votes.put(child.getUniqueId("UUID"), Triple.of(level, role, voteTime));
-            ++countsByLevel[level];
-            --countsByLevel[0];
+            ImmutableSet.Builder<ResourceLocation> roleBuilder = ImmutableSet.builder();
+            for (INBT roleNBT : child.getList("VoteRoles", Constants.NBT.TAG_STRING)) {
+                roleBuilder.add(new ResourceLocation(roleNBT.getString()));
+            }
+            ImmutableSet<ResourceLocation> roles = roleBuilder.build();
+            for (ResourceLocation role : roles) {
+                int[] countsByLevel = this.countMap.computeIfAbsent(role, k -> new int[1 + 5]);
+                ++countsByLevel[level];
+                --countsByLevel[0];
+            }
+            Instant voteTime = DEFAULT_VOTE_TIME;
+            if (child.contains("VoteTime", Constants.NBT.TAG_LONG)) {
+                voteTime = Instant.ofEpochMilli(child.getLong("VoteTime"));
+            }
+            this.votes.put(child.getUniqueId("UUID"), Triple.of(level, roles, voteTime));
         }
         this.onVoteChange.run();
     }

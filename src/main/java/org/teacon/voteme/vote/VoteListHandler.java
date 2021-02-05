@@ -1,5 +1,6 @@
 package org.teacon.voteme.vote;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Table;
 import com.google.common.collect.TreeBasedTable;
 import com.google.gson.JsonArray;
@@ -44,7 +45,7 @@ public final class VoteListHandler extends WorldSavedData {
 
         // initialize default values
         Instant voteTime = VoteList.DEFAULT_VOTE_TIME;
-        ResourceLocation role = new ResourceLocation("voteme:00_general_players");
+        ResourceLocation role = new ResourceLocation("voteme:general_players");
         UUID artifactID = UUID.fromString("8898dd9a-23cd-4f5f-80db-f66a32fd5e66");
         UUID userID = UUID.fromString("7c5faf44-24b0-4496-b91a-147fb781fae9"); // zzzz_ustc
 
@@ -52,7 +53,7 @@ public final class VoteListHandler extends WorldSavedData {
         this.voteArtifactNames.put(artifactID, "VoteMe");
         VoteCategoryHandler.getIds().stream()
                 .mapToInt(category -> this.getIdOrCreate(artifactID, category))
-                .forEach(id -> this.voteEntries.get(id).votes.set(userID, 5, role, voteTime));
+                .forEach(id -> this.voteEntries.get(id).votes.set(userID, 5, ImmutableSet.of(role), voteTime));
     }
 
     public int getIdOrCreate(UUID artifactID, ResourceLocation category) {

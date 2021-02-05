@@ -1,0 +1,11 @@
+{
+  "name": {
+    "text": "Players"
+  },
+  "selector": "@a[tag=!voteme_judges]",
+  "categories": {
+    "voteme:general": {
+      "weight": 1.0
+    }
+  }
+}

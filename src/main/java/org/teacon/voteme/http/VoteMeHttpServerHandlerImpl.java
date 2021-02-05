@@ -15,6 +15,8 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Util;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
+import org.teacon.voteme.roles.VoteRole;
+import org.teacon.voteme.roles.VoteRoleHandler;
 import org.teacon.voteme.vote.VoteListEntry;
 import org.teacon.voteme.vote.VoteListHandler;
 
@@ -52,6 +54,12 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
         }
         if (path.startsWith("/v1/vote_lists/")) {
             return this.handleVoteList(buf, path.substring("/v1/vote_lists/".length()));
+        }
+        if ("/v1/roles".equals(path) || "/v1/roles/".equals(path)) {
+            return this.handleRoles(buf);
+        }
+        if (path.startsWith("/v1/roles/")) {
+            return this.handleRole(buf, path.substring("/v1/roles/".length()));
         }
         return this.handleBadRequest(buf);
     }
@@ -122,6 +130,26 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
             if (entryOptional.isPresent()) {
                 return this.handleOK(buf, entryOptional.get().toHTTPJson(id));
             }
+        }
+        return this.handleNotFound(buf);
+    }
+
+    private HttpResponseStatus handleRoles(ByteBuf buf) {
+        return this.handleOK(buf, Util.make(new JsonArray(), result -> VoteRoleHandler.getIds().forEach(id -> {
+            Optional<VoteRole> roleOptional = VoteRoleHandler.getRole(id);
+            if (roleOptional.isPresent()) {
+                VoteRole role = roleOptional.get();
+                JsonElement child = role.toHTTPJson(id);
+                result.add(child);
+            }
+        })));
+    }
+
+    private HttpResponseStatus handleRole(ByteBuf buf, String id) {
+        Optional<VoteRole> roleOptional = VoteRoleHandler.getRole(new ResourceLocation(id));
+        if (roleOptional.isPresent()) {
+            VoteRole role = roleOptional.get();
+            return this.handleOK(buf, role.toHTTPJson(new ResourceLocation(id)));
         }
         return this.handleNotFound(buf);
     }

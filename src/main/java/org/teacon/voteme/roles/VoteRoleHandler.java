@@ -1,5 +1,6 @@
 package org.teacon.voteme.roles;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
@@ -34,19 +35,20 @@ public final class VoteRoleHandler extends JsonReloadListener {
         super(GSON, "vote_roles");
     }
 
-    public static Optional<ResourceLocation> getRole(ServerPlayerEntity player) {
+    public static Collection<? extends ResourceLocation> getRole(ServerPlayerEntity player) {
+        ImmutableSet.Builder<ResourceLocation> builder = ImmutableSet.builder();
         for (Map.Entry<ResourceLocation, VoteRole> entry : reversedRoleMap.entrySet()) {
             try {
                 EntitySelector selector = entry.getValue().selector;
                 List<ServerPlayerEntity> selected = selector.selectPlayers(player.server.getCommandSource());
                 if (selected.contains(player)) {
-                    return Optional.of(entry.getKey());
+                    builder.add(entry.getKey());
                 }
             } catch (CommandSyntaxException ignored) {
                 // continue
             }
         }
-        return Optional.empty();
+        return builder.build();
     }
 
     public static Optional<VoteRole> getRole(ResourceLocation id) {

@@ -44,7 +44,7 @@ public final class VoteMeCommand {
         } else {
             context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.list.roles.success", roles.size(), TextComponentUtils.func_240649_b_(roles, elem -> {
                 VoteRole role = VoteRoleHandler.getRole(elem).orElseThrow(NullPointerException::new);
-                ITextComponent hover = new StringTextComponent(role.name).appendString("\n");
+                ITextComponent hover = new StringTextComponent("").append(role.name).appendString("\n");
                 return TextComponentUtils.wrapWithSquareBrackets(new StringTextComponent(elem.toString()))
                         .modifyStyle(style -> style.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover)));
             })), false);

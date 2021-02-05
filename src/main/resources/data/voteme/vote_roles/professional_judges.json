@@ -1,5 +1,7 @@
 {
-  "name": "Professional Judges",
+  "name": {
+    "text": "Professional Judges"
+  },
   "selector": "@a[tag=voteme_judges]",
   "categories": {
     "voteme:general": {

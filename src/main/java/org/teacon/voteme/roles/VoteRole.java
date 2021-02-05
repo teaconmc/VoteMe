@@ -11,6 +11,8 @@ import net.minecraft.command.arguments.EntitySelector;
 import net.minecraft.command.arguments.EntitySelectorParser;
 import net.minecraft.util.JSONUtils;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.Util;
+import net.minecraft.util.text.ITextComponent;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Map;
@@ -19,11 +21,11 @@ import java.util.SortedMap;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class VoteRole {
-    public final String name;
+    public final ITextComponent name;
     public final EntitySelector selector;
     public final SortedMap<ResourceLocation, Category> categories;
 
-    public VoteRole(String name, EntitySelector selector, SortedMap<ResourceLocation, Category> categories) {
+    public VoteRole(ITextComponent name, EntitySelector selector, SortedMap<ResourceLocation, Category> categories) {
         this.name = name;
         this.selector = selector;
         this.categories = ImmutableSortedMap.copyOf(categories);
@@ -31,7 +33,10 @@ public final class VoteRole {
 
     public static VoteRole fromJson(JsonElement json) {
         JsonObject jsonObject = json.getAsJsonObject();
-        String name = JSONUtils.getString(jsonObject, "name");
+        ITextComponent name = ITextComponent.Serializer.getComponentFromJson(jsonObject.get("name"));
+        if (name == null) {
+            throw new JsonSyntaxException("The name is expected in a role for voting");
+        }
         ImmutableSortedMap.Builder<ResourceLocation, Category> builder = ImmutableSortedMap.naturalOrder();
         for (Map.Entry<String, JsonElement> category : JSONUtils.getJsonObject(jsonObject, "categories").entrySet()) {
             ResourceLocation resourceLocation = new ResourceLocation(category.getKey());
@@ -52,6 +57,13 @@ public final class VoteRole {
             String msg = "Expected selector to be an entity selector, was unknown string '" + s + "'";
             throw new JsonSyntaxException(msg);
         }
+    }
+
+    public JsonElement toHTTPJson(ResourceLocation id) {
+        return Util.make(new JsonObject(), result -> {
+            result.addProperty("id", id.toString());
+            result.addProperty("name", name.getString());
+        });
     }
 
     @MethodsReturnNonnullByDefault
