@@ -3,13 +3,13 @@
     "text": "Professional Judges"
   },
   "selector": "@a[tag=voteme_judges]",
-  "categories": {
-    "voteme:general": {
-      "weight": 2.0
-    },
-    "voteme:professional": {
-      "weight": 1.0,
-      "truncation": 1
-    }
-  }
+  "participations": [{
+    "category": "voteme:general",
+    "subgroup": "professional",
+    "weight": 0.2
+  }, {
+    "category": "voteme:professional",
+    "truncation": 1,
+    "weight": 1.0
+  }]
 }

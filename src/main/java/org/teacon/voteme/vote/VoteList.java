@@ -1,8 +1,10 @@
 package org.teacon.voteme.vote;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ListMultimap;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.nbt.CompoundNBT;
@@ -81,15 +83,14 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
         }
     }
 
-    public SortedMap<ResourceLocation, Stats> buildFinalScore(ResourceLocation category) {
-        ImmutableSortedMap.Builder<ResourceLocation, Stats> resultBuilder = ImmutableSortedMap.naturalOrder();
+    public SortedMap<String, Stats> buildFinalScore(ResourceLocation category) {
+        ListMultimap<String, Stats> results = ArrayListMultimap.create();
         VoteRoleHandler.getIds().forEach(location -> {
             VoteRole role = VoteRoleHandler.getRole(location).orElseThrow(NullPointerException::new);
-            VoteRole.Category roleCategory = role.categories.get(category);
-            if (roleCategory != null) {
-                int[] countsByLevel = this.countMap.computeIfAbsent(location, k -> new int[1 + 5]);
-                float weight = roleCategory.weight, finalScore = 6F;
-                int count = -countsByLevel[0], truncation = roleCategory.truncation;
+            int[] countsByLevel = this.countMap.computeIfAbsent(location, k -> new int[1 + 5]);
+            for (VoteRole.Participation participation : role.categories.get(category)) {
+                float weight = participation.weight, finalScore = Float.NaN;
+                int count = -countsByLevel[0], truncation = participation.truncation;
                 int effectiveCount = Math.max(0, count - truncation * 2);
                 if (effectiveCount > 0) {
                     int[] counts = countsByLevel.clone();
@@ -106,10 +107,15 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
                     float sum = 2F * counts[1] + 4F * counts[2] + 6F * counts[3] + 8F * counts[4] + 10F * counts[5];
                     finalScore = sum / effectiveCount;
                 }
-                resultBuilder.put(location, new Stats(weight, finalScore, effectiveCount, countsByLevel));
+                results.put(participation.subgroup, new Stats(weight, finalScore, effectiveCount, countsByLevel));
             }
         });
-        return resultBuilder.build();
+        ImmutableSortedMap.Builder<String, Stats> result = ImmutableSortedMap.naturalOrder();
+        for (Map.Entry<String, Collection<Stats>> entry : results.asMap().entrySet()) {
+            Stats stats = Stats.combine(entry.getValue(), s -> s.getEffectiveCount() * s.getWeight());
+            result.put(entry.getKey(), stats);
+        }
+        return result.build();
     }
 
     @Override
@@ -173,6 +179,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
             this.countsByLevel = countsByLevel.clone();
             Preconditions.checkArgument(countsByLevel.length == 1 + 5);
             Preconditions.checkArgument(IntStream.of(countsByLevel).sum() == 0);
+            Preconditions.checkArgument(effectiveCount > 0 || Float.isNaN(finalScore));
         }
 
         public int getEffectiveCount() {
@@ -192,29 +199,37 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
             return this.weight;
         }
 
-        public float getFinalScore() {
-            return this.finalScore;
+        public float getFinalScore(float defaultScore) {
+            return Float.isNaN(this.finalScore) ? defaultScore : this.finalScore;
         }
 
-        public static Stats combine(Iterable<Stats> iterable) {
-            int effectiveCount = 0;
-            float weightedCount = 0F;
-            float weightedFinalScore = 0F;
+        public static Stats combine(Iterable<? extends Stats> iterable, ScoreWeightFunction scoreWeightFunction) {
+            int effectiveCountSum = 0;
             int[] countsByLevel = new int[1 + 5];
+            float weightSum = 0F, scoreDivisor = 0F, scoreSum = 0F;
             for (Stats stats : iterable) {
-                effectiveCount += stats.effectiveCount;
+                weightSum += stats.weight;
+                effectiveCountSum += stats.effectiveCount;
                 countsByLevel[0] += stats.countsByLevel[0];
                 countsByLevel[1] += stats.countsByLevel[1];
                 countsByLevel[2] += stats.countsByLevel[2];
                 countsByLevel[3] += stats.countsByLevel[3];
                 countsByLevel[4] += stats.countsByLevel[4];
                 countsByLevel[5] += stats.countsByLevel[5];
-                weightedCount += stats.weight * stats.effectiveCount;
-                weightedFinalScore += stats.weight * stats.effectiveCount * stats.finalScore;
+                if (!Float.isNaN(stats.finalScore)) {
+                    scoreDivisor += scoreWeightFunction.calculateWeight(stats);
+                    scoreSum += scoreWeightFunction.calculateWeight(stats) * stats.finalScore;
+                }
             }
-            float finalScore = weightedCount > 0F ? weightedFinalScore / weightedCount : 6F;
-            float weight = effectiveCount > 0 ? weightedCount / effectiveCount : 1F;
-            return new Stats(weight, finalScore, effectiveCount, countsByLevel);
+            float finalScore = scoreDivisor > 0F && effectiveCountSum > 0F ? scoreSum / scoreDivisor : Float.NaN;
+            return new Stats(weightSum, finalScore, effectiveCountSum, countsByLevel);
+        }
+
+        @FunctionalInterface
+        @MethodsReturnNonnullByDefault
+        @ParametersAreNonnullByDefault
+        public interface ScoreWeightFunction {
+            float calculateWeight(Stats stats);
         }
     }
 }

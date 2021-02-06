@@ -3,9 +3,9 @@
     "text": "Players"
   },
   "selector": "@a[tag=!voteme_judges]",
-  "categories": {
-    "voteme:general": {
-      "weight": 1.0
-    }
-  }
+  "participations": [{
+    "category": "voteme:general",
+    "subgroup": "general",
+    "weight": 0.8
+  }]
 }

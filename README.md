@@ -6,7 +6,7 @@ The default port of http server is `19970`.
 
 ### `GET /v1/categories`
 
-Fetch vote categories. Example Response:
+Fetch vote categories. Example response:
 
 ```json
 [
@@ -27,7 +27,7 @@ Fetch vote categories. Example Response:
 
 ### `GET /v1/categories/<id>`
 
-Fetch a particular vote category. Example Response:
+Fetch a particular vote category. Example response:
 
 ```json
 {
@@ -40,7 +40,7 @@ Fetch a particular vote category. Example Response:
 
 ### `GET /v1/artifacts`
 
-Fetch artifacts for voting. Example Response:
+Fetch artifacts for voting. Example response:
 
 ```json
 [
@@ -56,7 +56,7 @@ The artifact id is guaranteed to be a UUID.
 
 ### `GET /v1/artifacts/<id>`
 
-Fetch an artifact for voting by its UUID. Example Response:
+Fetch an artifact for voting by its UUID. Example response:
 
 ```json
 {
@@ -68,7 +68,7 @@ Fetch an artifact for voting by its UUID. Example Response:
 
 ### `GET /v1/vote_lists`
 
-Fetch a collection of all the vote lists. Example Response:
+Fetch a collection of all the vote lists. Example response:
 
 ```json
 [
@@ -76,53 +76,70 @@ Fetch a collection of all the vote lists. Example Response:
     "id": 1,
     "category": "voteme:general",
     "artifact": "8898dd9a-23cd-4f5f-80db-f66a32fd5e66",
-    "vote_counts": [
-      {
-        "role": "voteme:general_players",
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 0,
-        "5": 1,
-        "sum": 1,
-        "effective": 1,
-        "weight": 1.0,
-        "score": 10.0
-      },
-      {
-        "role": "voteme:professional_judges",
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 0,
-        "5": 0,
-        "sum": 0,
-        "effective": 0,
-        "weight": 2.0,
-        "score": 6.0
+    "vote_stats": {
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 1,
+      "sum": 1,
+      "effective": 1,
+      "weight": 1.0,
+      "score": 10.0,
+      "subgroups": {
+        "general": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 1,
+          "sum": 1,
+          "effective": 1,
+          "weight": 0.8,
+          "score": 10.0
+        },
+        "professional": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "sum": 0,
+          "effective": 0,
+          "weight": 0.2,
+          "score": 10.0
+        }
       }
-    ],
-    "final_score": 10.0
+    }
   },
   {
     "id": 2,
     "category": "voteme:professional",
     "artifact": "8898dd9a-23cd-4f5f-80db-f66a32fd5e66",
-    "vote_counts": [
-      {
-        "role": "voteme:professional_judges",
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 0,
-        "5": 0,
-        "sum": 0,
-        "effective": 0,
-        "weight": 1.0,
-        "score": 6.0
+    "vote_stats": {
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0,
+      "sum": 0,
+      "effective": 0,
+      "weight": 1.0,
+      "score": 6.0,
+      "subgroups": {
+        "default": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "sum": 0,
+          "effective": 0,
+          "weight": 1.0,
+          "score": 6.0
+        }
       }
-    ],
-    "final_score": 6.0
+    }
   }
 ]
 ```
@@ -133,53 +150,61 @@ The ids are guaranteed to be integers, which are positive numbers in common case
 
 ### `GET /v1/vote_lists/<id>`
 
-Fetch a vote list by its integer id. Example Response:
+Fetch a vote list by its integer id. Example response:
 
 ```json
 {
   "id": 1,
   "category": "voteme:general",
   "artifact": "8898dd9a-23cd-4f5f-80db-f66a32fd5e66",
-  "vote_counts": [
-    {
-      "role": "voteme:general_players",
-      "1": 0,
-      "2": 0,
-      "3": 0,
-      "4": 0,
-      "5": 1,
-      "sum": 1,
-      "effective": 1,
-      "weight": 1.0,
-      "score": 10.0
-    },
-    {
-      "role": "voteme:professional_judges",
-      "1": 0,
-      "2": 0,
-      "3": 0,
-      "4": 0,
-      "5": 0,
-      "sum": 0,
-      "effective": 0,
-      "weight": 2.0,
-      "score": 6.0
+  "vote_stats": {
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 1,
+    "sum": 1,
+    "effective": 1,
+    "weight": 1.0,
+    "score": 10.0,
+    "subgroups": {
+      "general": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 1,
+        "sum": 1,
+        "effective": 1,
+        "weight": 0.8,
+        "score": 10.0
+      },
+      "professional": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "sum": 0,
+        "effective": 0,
+        "weight": 0.2,
+        "score": 10.0
+      }
     }
-  ],
-  "final_score": 10.0
+  }
 }
 ```
 
-The example response shows two different types of voting statistics.
+The example response shows two different subgroups of voting statistics.
 
-* The one is from `voteme:general_players`, with `1` vote of five stars (in which `1` is effective), and the score is `10.0`.
-* The other is from `voteme:professional_judges`, with `0` vote (in which `0` is effective), and the score is `6.0` (default value).
+* The one is called `general`, with `1` vote of five stars (in which `1` is effective), and the `score` is `10.0`.
+* The other is called `professional`, with `0` vote (in which `0` is effective), and the score is undefined, then following the final `score`, `10.0`.
 
-The final score is the weighted average score of voting statistics whose weight is calculated by `effective * weight`. So in this example it is `(1 * 1.0 * 10.0 + 0 * 2.0 * 6.0) / (1 * 1.0 + 0 * 2.0) = 10.0`
+The final `score` is the weighted average score of voting statistics, so in this example it is `(0.8 * 10.0 + 0.2 * 10.0) / (0.8 + 0.2) = 10.0`.
 
 ### `GET /v1/roles`
 
-Fetch a collection of different roles for voting. Example Response:
+Fetch a collection of different roles for voting. Example response:
 
 ```json
 [
@@ -196,7 +221,7 @@ Fetch a collection of different roles for voting. Example Response:
 
 ### `GET /v1/roles/<id>`
 
-Fetch a particular role for voting by its id. Example Response:
+Fetch a particular role for voting by its id. Example response:
 
 ```json
 {

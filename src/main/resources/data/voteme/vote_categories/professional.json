@@ -2,7 +2,11 @@
   "name": {
     "text": "Professional"
   },
+  "enabled": {
+    "default": true,
+    "modifiable": true
+  },
   "description": {
-    "text": "Professional judgement of the work. You can edit this category by loading a datapack and modifying 'data/voteme/vote_categories/professional.json'."
+    "text": "Professional judgement of the work. The final result is 100% from professional judges. One of the highest and one of the lowest will be removed. You can edit this category by modifying 'data/voteme/vote_categories/professional.json'."
   }
 }

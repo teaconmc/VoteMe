@@ -18,6 +18,7 @@ import org.teacon.voteme.vote.VoteListEntry;
 import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -84,19 +85,20 @@ public final class EditCounterPacket {
     }
 
     public static Optional<EditCounterPacket> create(int id, int inventoryId, MinecraftServer server) {
-        VoteListHandler voteListHandler = VoteListHandler.get(server);
-        Optional<VoteListEntry> entryOptional = voteListHandler.getEntry(id);
+        VoteListHandler handler = VoteListHandler.get(server);
+        Optional<VoteListEntry> entryOptional = handler.getEntry(id);
         if (entryOptional.isPresent()) {
-            ImmutableList.Builder<Info> builder = ImmutableList.builder();
             UUID artifactID = entryOptional.get().artifactID;
-            String artifactName = voteListHandler.getArtifactName(artifactID);
+            String artifactName = handler.getArtifactName(artifactID);
+            ImmutableList.Builder<Info> builder = ImmutableList.builder();
             VoteCategoryHandler.getIds().forEach(location -> {
                 // noinspection OptionalGetWithoutIsPresent
                 VoteCategory category = VoteCategoryHandler.getCategory(location).get();
                 // noinspection OptionalGetWithoutIsPresent
-                VoteListEntry entry = voteListHandler.getEntry(voteListHandler.getIdOrCreate(artifactID, location)).get();
-                VoteList.Stats stats = VoteList.Stats.combine(entry.votes.buildFinalScore(location).values());
-                builder.add(new Info(location, category.name, category.description, stats.getFinalScore()));
+                VoteListEntry entry = handler.getEntry(handler.getIdOrCreate(artifactID, location)).get();
+                Collection<VoteList.Stats> statsCollection = entry.votes.buildFinalScore(location).values();
+                VoteList.Stats finalStats = VoteList.Stats.combine(statsCollection, VoteList.Stats::getWeight);
+                builder.add(new Info(location, category.name, category.description, finalStats.getFinalScore(6.0F)));
             });
             ImmutableList<Info> infos = builder.build();
             if (!infos.isEmpty()) {
