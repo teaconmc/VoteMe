@@ -77,39 +77,47 @@ Fetch a collection of all the vote lists. Example response:
     "category": "voteme:general",
     "artifact": "8898dd9a-23cd-4f5f-80db-f66a32fd5e66",
     "vote_stats": {
-      "1": 0,
-      "2": 0,
-      "3": 0,
-      "4": 0,
-      "5": 1,
-      "sum": 1,
-      "effective": 1,
-      "weight": 1.0,
       "score": 10.0,
-      "subgroups": {
-        "general": {
-          "1": 0,
-          "2": 0,
-          "3": 0,
-          "4": 0,
-          "5": 1,
-          "sum": 1,
-          "effective": 1,
+      "weight": 1.0,
+      "counts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 1,
+        "sum": 1,
+        "effective": 1
+      },
+      "subgroups": [
+        {
+          "id": "voteme:general_players",
+          "score": 10.0,
           "weight": 0.8,
-          "score": 10.0
+          "counts": {
+            "1": 0,
+            "2": 0,
+            "3": 0,
+            "4": 0,
+            "5": 1,
+            "sum": 1,
+            "effective": 1
+          }
         },
-        "professional": {
-          "1": 0,
-          "2": 0,
-          "3": 0,
-          "4": 0,
-          "5": 0,
-          "sum": 0,
-          "effective": 0,
+        {
+          "id": "voteme:professional_judges",
+          "score": 10.0,
           "weight": 0.2,
-          "score": 10.0
+          "counts": {
+            "1": 0,
+            "2": 0,
+            "3": 0,
+            "4": 0,
+            "5": 0,
+            "sum": 0,
+            "effective": 0
+          }
         }
-      }
+      ]
     }
   },
   {
@@ -117,28 +125,33 @@ Fetch a collection of all the vote lists. Example response:
     "category": "voteme:professional",
     "artifact": "8898dd9a-23cd-4f5f-80db-f66a32fd5e66",
     "vote_stats": {
-      "1": 0,
-      "2": 0,
-      "3": 0,
-      "4": 0,
-      "5": 0,
-      "sum": 0,
-      "effective": 0,
-      "weight": 1.0,
       "score": 6.0,
-      "subgroups": {
-        "default": {
-          "1": 0,
-          "2": 0,
-          "3": 0,
-          "4": 0,
-          "5": 0,
-          "sum": 0,
-          "effective": 0,
+      "weight": 1.0,
+      "counts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "sum": 0,
+        "effective": 0
+      },
+      "subgroups": [
+        {
+          "id": "voteme:professional_judges",
+          "score": 6.0,
           "weight": 1.0,
-          "score": 6.0
+          "counts": {
+            "1": 0,
+            "2": 0,
+            "3": 0,
+            "4": 0,
+            "5": 0,
+            "sum": 0,
+            "effective": 0
+          }
         }
-      }
+      ]
     }
   }
 ]
@@ -158,47 +171,55 @@ Fetch a vote list by its integer id. Example response:
   "category": "voteme:general",
   "artifact": "8898dd9a-23cd-4f5f-80db-f66a32fd5e66",
   "vote_stats": {
-    "1": 0,
-    "2": 0,
-    "3": 0,
-    "4": 0,
-    "5": 1,
-    "sum": 1,
-    "effective": 1,
-    "weight": 1.0,
     "score": 10.0,
-    "subgroups": {
-      "general": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 0,
-        "5": 1,
-        "sum": 1,
-        "effective": 1,
+    "weight": 1.0,
+    "counts": {
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 1,
+      "sum": 1,
+      "effective": 1
+    },
+    "subgroups": [
+      {
+        "id": "voteme:general_players",
+        "score": 10.0,
         "weight": 0.8,
-        "score": 10.0
+        "counts": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 1,
+          "sum": 1,
+          "effective": 1
+        }
       },
-      "professional": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 0,
-        "5": 0,
-        "sum": 0,
-        "effective": 0,
+      {
+        "id": "voteme:professional_judges",
+        "score": 10.0,
         "weight": 0.2,
-        "score": 10.0
+        "counts": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "sum": 0,
+          "effective": 0
+        }
       }
-    }
+    ]
   }
 }
 ```
 
 The example response shows two different subgroups of voting statistics.
 
-* The one is called `general`, with `1` vote of five stars (in which `1` is effective), and the `score` is `10.0`.
-* The other is called `professional`, with `0` vote (in which `0` is effective), and the score is undefined, then following the final `score`, `10.0`.
+* The one is called `voteme:general_players`, with `1` vote of five stars (in which `1` is effective), and the `score` is `10.0`.
+* The other is called `voteme:professional_judges`, with `0` vote (in which `0` is effective), and the score is undefined, then following the final `score`, `10.0`.
 
 The final `score` is the weighted average score of voting statistics, so in this example it is `(0.8 * 10.0 + 0.2 * 10.0) / (0.8 + 0.2) = 10.0`.
 

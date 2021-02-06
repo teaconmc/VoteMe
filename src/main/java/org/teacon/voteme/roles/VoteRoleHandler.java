@@ -61,7 +61,7 @@ public final class VoteRoleHandler extends JsonReloadListener {
 
     @Override
     protected void apply(Map<ResourceLocation, JsonElement> objects, IResourceManager manager, IProfiler profiler) {
-        reversedRoleMap = ImmutableSortedMap.copyOf(Maps.transformValues(objects, VoteRole::fromJson), Comparator.reverseOrder());
+        reversedRoleMap = ImmutableSortedMap.copyOf(Maps.transformEntries(objects, VoteRole::fromJson), Comparator.reverseOrder());
         roleIds = ImmutableSortedSet.<ResourceLocation>naturalOrder().addAll(reversedRoleMap.keySet()).build();
     }
 

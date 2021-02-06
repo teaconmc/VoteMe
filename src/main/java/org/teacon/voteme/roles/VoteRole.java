@@ -22,8 +22,6 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class VoteRole {
-    private static final String SUBGROUP_FALLBACK = "default";
-
     public final ITextComponent name;
     public final EntitySelector selector;
     public final ListMultimap<ResourceLocation, Participation> categories;
@@ -34,21 +32,21 @@ public final class VoteRole {
         this.categories = ImmutableListMultimap.copyOf(participations);
     }
 
-    public static VoteRole fromJson(JsonElement json) {
+    public static VoteRole fromJson(ResourceLocation id, JsonElement json) {
         JsonObject jsonObject = json.getAsJsonObject();
         ITextComponent name = parseName(jsonObject.get("name"));
         JsonArray participationsRaw = JSONUtils.getJsonArray(jsonObject, "participations");
         EntitySelector selector = parseSelector(JSONUtils.getString(jsonObject, "selector", "@a"));
-        ListMultimap<ResourceLocation, Participation> participations = parseParticipations(participationsRaw);
+        Multimap<ResourceLocation, Participation> participations = parseParticipations(id, participationsRaw);
         return new VoteRole(name, selector, participations);
     }
 
-    private static ListMultimap<ResourceLocation, Participation> parseParticipations(JsonArray array) {
+    private static Multimap<ResourceLocation, Participation> parseParticipations(ResourceLocation id, JsonArray array) {
         ImmutableListMultimap.Builder<ResourceLocation, Participation> builder = ImmutableListMultimap.builder();
         for (JsonElement child : array) {
             JsonObject participationObject = JSONUtils.getJsonObject(child, "participations");
             ResourceLocation category = new ResourceLocation(JSONUtils.getString(participationObject, "category"));
-            String subgroup = JSONUtils.getString(participationObject, "subgroup", SUBGROUP_FALLBACK);
+            String subgroup = JSONUtils.getString(participationObject, "subgroup", id.toString());
             int truncation = JSONUtils.getInt(participationObject, "truncation", 0);
             float weight = JSONUtils.getFloat(participationObject, "weight", 1.0F);
             builder.put(category, new Participation(weight, truncation, subgroup));
