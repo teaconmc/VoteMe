@@ -9,5 +9,7 @@
   "commands.voteme.list.roles.none": "There are no roles for voting",
   "commands.voteme.list.roles.success": "There are %s different roles for voting: %s",
   "commands.voteme.list.categories.none": "There are no vote categories",
-  "commands.voteme.list.categories.success": "There are %s voteme categories: %s"
+  "commands.voteme.list.categories.success": "There are %s voteme categories: %s",
+  "commands.voteme.list.artifacts.none": "There are no artifacts for voting",
+  "commands.voteme.list.artifacts.success": "There are %s artifacts for voting: %s"
 }

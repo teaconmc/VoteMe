@@ -17,9 +17,11 @@ import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.roles.VoteRole;
 import org.teacon.voteme.roles.VoteRoleHandler;
+import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Collection;
+import java.util.UUID;
 
 import static net.minecraft.command.Commands.literal;
 
@@ -34,7 +36,8 @@ public final class VoteMeCommand {
                 .requires(source -> source.hasPermissionLevel(2))
                 .then(literal("list")
                         .then(literal("roles").executes(VoteMeCommand::listRoles))
-                        .then(literal("categories").executes(VoteMeCommand::listCategories))));
+                        .then(literal("categories").executes(VoteMeCommand::listCategories))
+                        .then(literal("artifacts").executes(VoteMeCommand::listArtifacts))));
     }
 
     private static int listRoles(CommandContext<CommandSource> context) throws CommandSyntaxException {
@@ -65,5 +68,21 @@ public final class VoteMeCommand {
             })), false);
         }
         return categories.size();
+    }
+
+    private static int listArtifacts(CommandContext<CommandSource> context) throws CommandSyntaxException {
+        VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
+        Collection<? extends UUID> artifactUUIDs = handler.getArtifacts();
+        if (artifactUUIDs.isEmpty()) {
+            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.list.artifacts.none"), false);
+        } else {
+            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.list.artifacts.success", artifactUUIDs.size(), TextComponentUtils.func_240649_b_(artifactUUIDs, elem -> {
+                String artifactName = handler.getArtifactName(elem);
+                ITextComponent hover = new StringTextComponent(elem.toString());
+                return new StringTextComponent(artifactName)
+                        .modifyStyle(style -> style.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover)));
+            })), false);
+        }
+        return artifactUUIDs.size();
     }
 }
