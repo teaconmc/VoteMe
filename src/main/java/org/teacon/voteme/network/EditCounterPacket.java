@@ -66,6 +66,8 @@ public final class EditCounterPacket {
             buffer.writeTextComponent(info.name);
             buffer.writeTextComponent(info.desc);
             buffer.writeResourceLocation(info.id);
+            buffer.writeBoolean(info.enabledCurrently);
+            buffer.writeBoolean(info.enabledModifiable);
         }
         buffer.writeDouble(Double.NaN);
     }
@@ -79,7 +81,9 @@ public final class EditCounterPacket {
         for (double score = buffer.readDouble(); !Double.isNaN(score); score = buffer.readDouble()) {
             ITextComponent name = buffer.readTextComponent();
             ITextComponent desc = buffer.readTextComponent();
-            builder.add(new Info(buffer.readResourceLocation(), name, desc, score));
+            ResourceLocation id = buffer.readResourceLocation();
+            boolean enabledCurrently = buffer.readBoolean(), enabledModifiable = buffer.readBoolean();
+            builder.add(new Info(id, name, desc, score, enabledCurrently, enabledModifiable));
         }
         return new EditCounterPacket(inventoryIndex, artifactUUID, artifactName, category, builder.build());
     }
@@ -92,13 +96,14 @@ public final class EditCounterPacket {
             String artifactName = handler.getArtifactName(artifactID);
             ImmutableList.Builder<Info> builder = ImmutableList.builder();
             VoteCategoryHandler.getIds().forEach(location -> {
-                // noinspection OptionalGetWithoutIsPresent
-                VoteCategory category = VoteCategoryHandler.getCategory(location).get();
-                // noinspection OptionalGetWithoutIsPresent
-                VoteListEntry entry = handler.getEntry(handler.getIdOrCreate(artifactID, location)).get();
-                Collection<VoteList.Stats> statsCollection = entry.votes.buildFinalScore(location).values();
-                VoteList.Stats finalStats = VoteList.Stats.combine(statsCollection, VoteList.Stats::getWeight);
-                builder.add(new Info(location, category.name, category.description, finalStats.getFinalScore(6.0F)));
+                VoteCategory category = VoteCategoryHandler.getCategory(location).orElseThrow(IllegalStateException::new);
+                VoteListEntry entry = handler.getEntry(handler.getIdOrCreate(artifactID, location)).orElseThrow(IllegalStateException::new);
+                if (category.enabledDefault || category.enabledModifiable || entry.votes.isEnabled()) {
+                    Collection<VoteList.Stats> statsCollection = entry.votes.buildFinalScore(location).values();
+                    VoteList.Stats finalStats = VoteList.Stats.combine(statsCollection, VoteList.Stats::getWeight);
+                    boolean enabledCurrently = entry.votes.isEnabled(), enabledModifiable = category.enabledModifiable;
+                    builder.add(new Info(location, category.name, category.description, finalStats.getFinalScore(6.0F), enabledCurrently, enabledModifiable));
+                }
             });
             ImmutableList<Info> infos = builder.build();
             if (!infos.isEmpty()) {
@@ -112,9 +117,11 @@ public final class EditCounterPacket {
     public static Optional<EditCounterPacket> create(int inventoryId, MinecraftServer server) {
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
         VoteCategoryHandler.getIds().forEach(location -> {
-            // noinspection OptionalGetWithoutIsPresent
-            VoteCategory category = VoteCategoryHandler.getCategory(location).get();
-            builder.add(new Info(location, category.name, category.description, 6.0));
+            VoteCategory category = VoteCategoryHandler.getCategory(location).orElseThrow(IllegalStateException::new);
+            if (category.enabledDefault || category.enabledModifiable) {
+                boolean enabledCurrently = category.enabledDefault, enabledModifiable = category.enabledModifiable;
+                builder.add(new Info(location, category.name, category.description, 6.0, enabledCurrently, enabledModifiable));
+            }
         });
         ImmutableList<Info> infos = builder.build();
         if (!infos.isEmpty()) {
@@ -128,21 +135,23 @@ public final class EditCounterPacket {
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     public static final class Info {
-        public final ITextComponent name;
-        public final ITextComponent desc;
         public final double score;
         public final ResourceLocation id;
+        public final ITextComponent name, desc;
+        public final boolean enabledCurrently, enabledModifiable;
 
-        public Info(ResourceLocation id, ITextComponent name, ITextComponent desc, double score) {
+        public Info(ResourceLocation id, ITextComponent name, ITextComponent desc, double score, boolean enabledCurrently, boolean enabledModifiable) {
             this.id = id;
             this.name = name;
             this.desc = desc;
             this.score = score;
+            this.enabledCurrently = enabledCurrently;
+            this.enabledModifiable = enabledModifiable;
         }
 
         @Override
         public String toString() {
-            return "EditCounterPacker.Info{id='" + this.id + "', name='" + this.name + "', desc=" + this.desc + ", score=" + this.score + "}";
+            return "EditCounterPacker.Info{id='" + this.id + "', name='" + this.name + "', desc=" + this.desc + ", score=" + this.score + ", enabled=" + this.enabledCurrently + "}";
         }
     }
 }

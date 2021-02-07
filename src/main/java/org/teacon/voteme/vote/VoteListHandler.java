@@ -16,6 +16,7 @@ import net.minecraft.util.Util;
 import net.minecraft.world.storage.DimensionSavedDataManager;
 import net.minecraft.world.storage.WorldSavedData;
 import net.minecraftforge.common.util.Constants;
+import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -61,7 +62,9 @@ public final class VoteListHandler extends WorldSavedData {
         if (oldId == null) {
             int id = this.nextIndex++;
             this.voteListIndices.put(artifactID, category, id);
-            this.voteEntries.put(id, new VoteListEntry(artifactID, category, new VoteList(this::markDirty)));
+            VoteList newVoteList = new VoteList(this::markDirty);
+            this.voteEntries.put(id, new VoteListEntry(artifactID, category, newVoteList));
+            VoteCategoryHandler.getCategory(category).ifPresent(c -> newVoteList.setEnabled(c.enabledDefault));
             this.markDirty();
             return id;
         }
@@ -90,13 +93,15 @@ public final class VoteListHandler extends WorldSavedData {
         return Optional.ofNullable(this.voteEntries.get(id));
     }
 
-    public JsonObject toHTTPJson(UUID artifactID) {
+    public JsonObject toArtifactHTTPJson(UUID artifactID) {
         return Util.make(new JsonObject(), result -> {
             result.addProperty("id", artifactID.toString());
             result.addProperty("name", this.getArtifactName(artifactID));
             result.add("vote_lists", Util.make(new JsonArray(), array -> {
                 for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
-                    array.add(this.getIdOrCreate(artifactID, categoryID));
+                    int id = this.getIdOrCreate(artifactID, categoryID);
+                    Optional<VoteListEntry> entryOptional = this.getEntry(id);
+                    entryOptional.filter(e -> e.votes.isEnabled()).ifPresent(e -> array.add(id));
                 }
             }));
         });

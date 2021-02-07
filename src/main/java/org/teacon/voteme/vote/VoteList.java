@@ -31,14 +31,27 @@ import java.util.stream.IntStream;
 public final class VoteList implements INBTSerializable<CompoundNBT> {
     public static final Instant DEFAULT_VOTE_TIME = DateTimeFormatter.RFC_1123_DATE_TIME.parse("Sat, 9 Jan 2021 02:00:00 +0800", Instant::from);
 
+    private boolean disabled;
     private final Runnable onVoteChange;
     private final Map<ResourceLocation, int[]> countMap;
     private final Map<UUID, Triple<Integer, ImmutableSet<ResourceLocation>, Instant>> votes;
 
     public VoteList(Runnable onChange) {
+        this.disabled = false;
         this.votes = new HashMap<>();
         this.countMap = new HashMap<>();
         this.onVoteChange = onChange;
+    }
+
+    public boolean isEnabled() {
+        return !this.disabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        if (this.disabled == enabled) {
+            this.disabled = !enabled;
+            this.onVoteChange.run();
+        }
     }
 
     public int get(ServerPlayerEntity player) {
@@ -134,6 +147,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
             nbt.add(child);
         }
         CompoundNBT result = new CompoundNBT();
+        result.putBoolean("Disabled", this.disabled);
         result.put("Votes", nbt);
         return result;
     }
@@ -141,6 +155,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     @Override
     public void deserializeNBT(CompoundNBT compound) {
         this.votes.clear();
+        this.disabled = compound.getBoolean("Disabled");
         ListNBT nbt = compound.getList("Votes", Constants.NBT.TAG_COMPOUND);
         for (int i = 0, size = nbt.size(); i < size; ++i) {
             CompoundNBT child = nbt.getCompound(i);

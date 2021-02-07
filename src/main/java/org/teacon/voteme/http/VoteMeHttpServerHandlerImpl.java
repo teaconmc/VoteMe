@@ -69,7 +69,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
         Collection<? extends UUID> artifacts = handler.getArtifacts();
         return this.handleOK(buf, Util.make(new JsonArray(), result -> {
             for (UUID artifactID : artifacts) {
-                result.add(handler.toHTTPJson(artifactID));
+                result.add(handler.toArtifactHTTPJson(artifactID));
             }
         }));
     }
@@ -80,7 +80,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
             VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
             Collection<? extends UUID> artifacts = handler.getArtifacts();
             Preconditions.checkArgument(artifacts.contains(artifactID));
-            return this.handleOK(buf, handler.toHTTPJson(artifactID));
+            return this.handleOK(buf, handler.toArtifactHTTPJson(artifactID));
         } catch (IllegalArgumentException ignored) {
             return this.handleNotFound(buf);
         }
@@ -112,7 +112,8 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
         IntCollection ids = new IntRBTreeSet();
         handler.getArtifacts().forEach(artifactID -> {
             for (ResourceLocation categoryID : categories) {
-                ids.add(handler.getIdOrCreate(artifactID, categoryID));
+                int id = handler.getIdOrCreate(artifactID, categoryID);
+                handler.getEntry(id).filter(e -> e.votes.isEnabled()).ifPresent(e -> ids.add(id));
             }
         });
         return this.handleOK(buf, Util.make(new JsonArray(), result -> ids.forEach((int id) -> {
@@ -127,7 +128,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
         if (id != null) {
             VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
             Optional<VoteListEntry> entryOptional = handler.getEntry(id);
-            if (entryOptional.isPresent()) {
+            if (entryOptional.isPresent() && entryOptional.get().votes.isEnabled()) {
                 return this.handleOK(buf, entryOptional.get().toHTTPJson(id));
             }
         }
