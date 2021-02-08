@@ -1,5 +1,27 @@
 # Vote Me
 
+## Commands
+
+All the commands start with `/voteme`.
+
+Moderator commands (available to ops by default):
+
+* `/voteme list roles`
+* `/voteme list categories`
+* `/voteme list artifacts`
+* `/voteme clear <artifact> <category>`
+* `/voteme unset <targets> <artifact> <category>`
+* `/voteme set <targets> <artifact> <category>`
+* `/voteme enable <artifact> <category>`
+* `/voteme disable <artifact> <category>`
+
+Admin commands (available to nobody by default):
+
+* `/voteme admin enable <artifact> <category>`
+* `/voteme admin disable <artifact> <category>`
+* `/voteme admin rename <artifact> <name>`
+* `/voteme admin remove <artifact>`
+
 ## HTTP API
 
 The default port of http server is `19970`.
