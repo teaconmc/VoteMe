@@ -71,46 +71,46 @@ public final class VoteMeCommand {
         event.getDispatcher().register(literal("voteme")
                 .then(literal("admin")
                         .then(literal("remove")
-                                .requires(permission("voteme", "voteme.admin", "voteme.admin.remove"))
+                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.remove"))
                                 .then(argument("artifact", UUIDArgument.func_239194_a_())
                                         .suggests(ARTIFACT_SUGGESTION)
                                         .executes(VoteMeCommand::adminRemoveArtifact)))
                         .then(literal("rename")
-                                .requires(permission("voteme", "voteme.admin", "voteme.admin.rename"))
+                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.rename"))
                                 .then(argument("artifact", UUIDArgument.func_239194_a_())
                                         .suggests(ARTIFACT_SUGGESTION)
                                         .then(argument("name", StringArgumentType.greedyString())
                                                 .executes(VoteMeCommand::adminRenameArtifact))))
                         .then(literal("disable")
-                                .requires(permission("voteme", "voteme.admin", "voteme.admin.disable"))
+                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.disable"))
                                 .then(argument("artifact", UUIDArgument.func_239194_a_())
                                         .suggests(ARTIFACT_SUGGESTION)
                                         .then(argument("category", ResourceLocationArgument.resourceLocation())
                                                 .suggests(CATEGORY_SUGGESTION)
                                                 .executes(VoteMeCommand::adminDisableVotes))))
                         .then(literal("enable")
-                                .requires(permission("voteme", "voteme.admin", "voteme.admin.enable"))
+                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.enable"))
                                 .then(argument("artifact", UUIDArgument.func_239194_a_())
                                         .suggests(ARTIFACT_SUGGESTION)
                                         .then(argument("category", ResourceLocationArgument.resourceLocation())
                                                 .suggests(CATEGORY_SUGGESTION)
                                                 .executes(VoteMeCommand::adminEnableVotes)))))
                 .then(literal("disable")
-                        .requires(permission("voteme", "voteme.disable", "voteme.admin", "voteme.admin.disable"))
+                        .requires(permission(3, "voteme", "voteme.disable", "voteme.admin", "voteme.admin.disable"))
                         .then(argument("artifact", UUIDArgument.func_239194_a_())
                                 .suggests(ARTIFACT_SUGGESTION)
                                 .then(argument("category", ResourceLocationArgument.resourceLocation())
                                         .suggests(CATEGORY_SUGGESTION_MODIFIABLE)
                                         .executes(VoteMeCommand::disableVotes))))
                 .then(literal("enable")
-                        .requires(permission("voteme", "voteme.enable", "voteme.admin", "voteme.admin.enable"))
+                        .requires(permission(3, "voteme", "voteme.enable", "voteme.admin", "voteme.admin.enable"))
                         .then(argument("artifact", UUIDArgument.func_239194_a_())
                                 .suggests(ARTIFACT_SUGGESTION)
                                 .then(argument("category", ResourceLocationArgument.resourceLocation())
                                         .suggests(CATEGORY_SUGGESTION_MODIFIABLE)
                                         .executes(VoteMeCommand::enableVotes))))
                 .then(literal("set")
-                        .requires(permission("voteme", "voteme.set"))
+                        .requires(permission(3, "voteme", "voteme.set"))
                         .then(argument("targets", EntityArgument.players())
                                 .then(argument("artifact", UUIDArgument.func_239194_a_())
                                         .suggests(ARTIFACT_SUGGESTION)
@@ -120,7 +120,7 @@ public final class VoteMeCommand {
                                                         .suggests(STAR_SUGGESTION)
                                                         .executes(VoteMeCommand::setVotes))))))
                 .then(literal("unset")
-                        .requires(permission("voteme", "voteme.unset"))
+                        .requires(permission(3, "voteme", "voteme.unset"))
                         .then(argument("targets", EntityArgument.players())
                                 .then(argument("artifact", UUIDArgument.func_239194_a_())
                                         .suggests(ARTIFACT_SUGGESTION)
@@ -128,7 +128,7 @@ public final class VoteMeCommand {
                                                 .suggests(CATEGORY_SUGGESTION_ENABLED)
                                                 .executes(VoteMeCommand::unsetVotes)))))
                 .then(literal("clear")
-                        .requires(permission("voteme", "voteme.clear"))
+                        .requires(permission(3, "voteme", "voteme.clear"))
                         .then(argument("artifact", UUIDArgument.func_239194_a_())
                                 .suggests(ARTIFACT_SUGGESTION)
                                 .then(argument("category", ResourceLocationArgument.resourceLocation())
@@ -136,24 +136,24 @@ public final class VoteMeCommand {
                                         .executes(VoteMeCommand::clearVotes))))
                 .then(literal("list")
                         .then(literal("artifacts")
-                                .requires(permission("voteme", "voteme.list", "voteme.list.artifacts"))
+                                .requires(permission(2, "voteme", "voteme.list", "voteme.list.artifacts"))
                                 .executes(VoteMeCommand::listArtifacts))
                         .then(literal("categories")
-                                .requires(permission("voteme", "voteme.list", "voteme.list.categories"))
+                                .requires(permission(2, "voteme", "voteme.list", "voteme.list.categories"))
                                 .executes(VoteMeCommand::listCategories))
                         .then(literal("roles")
-                                .requires(permission("voteme", "voteme.list", "voteme.list.roles"))
+                                .requires(permission(2, "voteme", "voteme.list", "voteme.list.roles"))
                                 .executes(VoteMeCommand::listRoles))));
     }
 
-    private static Predicate<CommandSource> permission(String... permissionNodes) {
+    private static Predicate<CommandSource> permission(int level, String... permissionNodes) {
         Preconditions.checkArgument(permissionNodes.length > 0, "permission nodes should not be empty");
         return source -> {
-            if (source.getEntity() instanceof ServerPlayerEntity) {
-                ServerPlayerEntity player = (ServerPlayerEntity) source.getEntity();
+            if (source.source instanceof ServerPlayerEntity) {
+                ServerPlayerEntity player = (ServerPlayerEntity) source.source;
                 return Arrays.stream(permissionNodes).anyMatch(n -> PermissionAPI.hasPermission(player, n));
             }
-            return source.hasPermissionLevel(3);
+            return source.hasPermissionLevel(level);
         };
     }
 
