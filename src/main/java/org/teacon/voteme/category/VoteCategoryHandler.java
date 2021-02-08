@@ -10,15 +10,20 @@ import net.minecraft.client.resources.JsonReloadListener;
 import net.minecraft.profiler.IProfiler;
 import net.minecraft.resources.IResourceManager;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.*;
+import net.minecraft.util.text.event.HoverEvent;
 import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import org.jline.utils.Colors;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
+
+import static net.minecraft.util.text.TextComponentUtils.wrapWithSquareBrackets;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -48,5 +53,16 @@ public final class VoteCategoryHandler extends JsonReloadListener {
     @SubscribeEvent
     public static void addReloadListener(AddReloadListenerEvent event) {
         event.addListener(new VoteCategoryHandler());
+    }
+
+    public static IFormattableTextComponent getText(ResourceLocation id) {
+        Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(id);
+        if (categoryOptional.isPresent()) {
+            ITextComponent name = categoryOptional.get().name, desc = categoryOptional.get().description;
+            ITextComponent hover = new StringTextComponent("").append(name).appendString("\n").append(desc);
+            IFormattableTextComponent base = wrapWithSquareBrackets(new StringTextComponent(id.toString()));
+            return base.modifyStyle(style -> style.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover)));
+        }
+        return new StringTextComponent("");
     }
 }

@@ -15,12 +15,18 @@ import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.profiler.IProfiler;
 import net.minecraft.resources.IResourceManager;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.IFormattableTextComponent;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.event.HoverEvent;
 import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
+
+import static net.minecraft.util.text.TextComponentUtils.wrapWithSquareBrackets;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -68,5 +74,15 @@ public final class VoteRoleHandler extends JsonReloadListener {
     @SubscribeEvent
     public static void addReloadListener(AddReloadListenerEvent event) {
         event.addListener(new VoteRoleHandler());
+    }
+
+    public static IFormattableTextComponent getText(ResourceLocation id) {
+        Optional<VoteRole> roleOptional = VoteRoleHandler.getRole(id);
+        if (roleOptional.isPresent()) {
+            IFormattableTextComponent base = wrapWithSquareBrackets(new StringTextComponent(id.toString()));
+            ITextComponent hover = new StringTextComponent("").append(roleOptional.get().name).appendString("\n");
+            return base.modifyStyle(style -> style.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover)));
+        }
+        return new StringTextComponent("");
     }
 }

@@ -13,10 +13,13 @@ import net.minecraft.nbt.ListNBT;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Util;
+import net.minecraft.util.text.IFormattableTextComponent;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.event.HoverEvent;
 import net.minecraft.world.storage.DimensionSavedDataManager;
 import net.minecraft.world.storage.WorldSavedData;
 import net.minecraftforge.common.util.Constants;
-import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -47,8 +50,8 @@ public final class VoteListHandler extends WorldSavedData {
         // initialize default values
         Instant voteTime = VoteList.DEFAULT_VOTE_TIME;
         ResourceLocation role = new ResourceLocation("voteme:general_players");
-        UUID artifactID = UUID.fromString("8898dd9a-23cd-4f5f-80db-f66a32fd5e66");
         UUID userID = UUID.fromString("7c5faf44-24b0-4496-b91a-147fb781fae9"); // zzzz_ustc
+        UUID artifactID = UUID.fromString("888891b2-7326-42da-9ed2-a36a8f301410"); // do you believe it is generated randomly?
 
         // create default entries
         this.voteArtifactNames.put(artifactID, "VoteMe");
@@ -71,6 +74,10 @@ public final class VoteListHandler extends WorldSavedData {
         return oldId;
     }
 
+    public Optional<VoteListEntry> getEntry(int id) {
+        return Optional.ofNullable(this.voteEntries.get(id));
+    }
+
     public Collection<? extends UUID> getArtifacts() {
         return Collections.unmodifiableSet(this.voteArtifactNames.keySet());
     }
@@ -89,8 +96,12 @@ public final class VoteListHandler extends WorldSavedData {
         }
     }
 
-    public Optional<VoteListEntry> getEntry(int id) {
-        return Optional.ofNullable(this.voteEntries.get(id));
+    public IFormattableTextComponent getArtifactText(UUID artifactID) {
+        String uuidShort = artifactID.toString().substring(0, 4);
+        ITextComponent hover = new StringTextComponent(artifactID.toString());
+        HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover);
+        String base = String.format("%s (%s...)", this.getArtifactName(artifactID), uuidShort);
+        return new StringTextComponent(base).modifyStyle(style -> style.setHoverEvent(hoverEvent));
     }
 
     public JsonObject toArtifactHTTPJson(UUID artifactID) {

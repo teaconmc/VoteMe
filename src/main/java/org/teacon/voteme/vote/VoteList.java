@@ -96,6 +96,12 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
         }
     }
 
+    public void clear() {
+        this.votes.clear();
+        this.countMap.clear();
+        this.onVoteChange.run();
+    }
+
     public SortedMap<String, Stats> buildFinalScore(ResourceLocation category) {
         ListMultimap<String, Stats> results = ArrayListMultimap.create();
         VoteRoleHandler.getIds().forEach(location -> {
@@ -155,6 +161,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     @Override
     public void deserializeNBT(CompoundNBT compound) {
         this.votes.clear();
+        this.countMap.clear();
         this.disabled = compound.getBoolean("Disabled");
         ListNBT nbt = compound.getList("Votes", Constants.NBT.TAG_COMPOUND);
         for (int i = 0, size = nbt.size(); i < size; ++i) {
