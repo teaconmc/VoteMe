@@ -60,6 +60,11 @@ public final class VoteListHandler extends WorldSavedData {
                 .forEach(id -> this.voteEntries.get(id).votes.set(userID, 5, ImmutableSet.of(role), voteTime));
     }
 
+    public boolean hasEnabled(ResourceLocation category) {
+        return this.voteArtifactNames.keySet().stream()
+                .map(id -> this.voteEntries.get(this.getIdOrCreate(id, category))).anyMatch(e -> e.votes.isEnabled());
+    }
+
     public int getIdOrCreate(UUID artifactID, ResourceLocation category) {
         Integer oldId = this.voteListIndices.get(artifactID, category);
         if (oldId == null) {
