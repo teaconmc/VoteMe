@@ -35,13 +35,13 @@ Fetch vote categories. Example response:
   {
     "id": "voteme:general",
     "name": "General",
-    "description": "General judgement of the work. You can edit this category by loading a datapack and modifying \u0027data/voteme/vote_categories/general.json\u0027.",
+    "description": "General judgement of the work. The final result is 80% from players and 20% from professional judges. You can edit this category by modifying 'data/voteme/vote_categories/general.json'.",
     "vote_lists": [ 1 ]
   },
   {
     "id": "voteme:professional",
     "name": "Professional",
-    "description": "Professional judgement of the work. You can edit this category by loading a datapack and modifying \u0027data/voteme/vote_categories/professional.json\u0027.",
+    "description": "Professional judgement of the work. The final result is 100% from professional judges. One of the highest and one of the lowest will be removed. You can edit this category by modifying 'data/voteme/vote_categories/professional.json'.",
     "vote_lists": [ 2 ]
   }
 ]
@@ -67,7 +67,7 @@ Fetch artifacts for voting. Example response:
 ```json
 [
   {
-    "id": "8898dd9a-23cd-4f5f-80db-f66a32fd5e66",
+    "id": "888891b2-7326-42da-9ed2-a36a8f301410",
     "name": "VoteMe",
     "vote_lists": [ 1, 2 ]
   }
@@ -82,7 +82,7 @@ Fetch an artifact for voting by its UUID. Example response:
 
 ```json
 {
-  "id": "8898dd9a-23cd-4f5f-80db-f66a32fd5e66",
+  "id": "888891b2-7326-42da-9ed2-a36a8f301410",
   "name": "VoteMe",
   "vote_lists": [ 1, 2 ]
 }
@@ -97,7 +97,7 @@ Fetch a collection of all the vote lists. Example response:
   {
     "id": 1,
     "category": "voteme:general",
-    "artifact": "8898dd9a-23cd-4f5f-80db-f66a32fd5e66",
+    "artifact": "888891b2-7326-42da-9ed2-a36a8f301410",
     "vote_stats": {
       "score": 10.0,
       "weight": 1.0,
@@ -145,7 +145,7 @@ Fetch a collection of all the vote lists. Example response:
   {
     "id": 2,
     "category": "voteme:professional",
-    "artifact": "8898dd9a-23cd-4f5f-80db-f66a32fd5e66",
+    "artifact": "888891b2-7326-42da-9ed2-a36a8f301410",
     "vote_stats": {
       "score": 6.0,
       "weight": 1.0,
@@ -191,7 +191,7 @@ Fetch a vote list by its integer id. Example response:
 {
   "id": 1,
   "category": "voteme:general",
-  "artifact": "8898dd9a-23cd-4f5f-80db-f66a32fd5e66",
+  "artifact": "888891b2-7326-42da-9ed2-a36a8f301410",
   "vote_stats": {
     "score": 10.0,
     "weight": 1.0,
