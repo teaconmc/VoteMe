@@ -143,25 +143,33 @@ public final class CounterScreen extends Screen {
     private void drawGuiContainerForegroundLayer(MatrixStack matrixStack, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
         EditCounterPacket.Info info = this.infoCollection.iterator().next();
+        this.drawCategoryName(matrixStack, info, mc.fontRenderer);
+        this.drawCategoryDescription(matrixStack, info, mc.fontRenderer);
+        this.drawCategoryScore(matrixStack, info, mc.fontRenderer);
+        this.drawArtifactName(matrixStack, mc.fontRenderer);
+    }
 
-        // step 1: draw category name
+    private void drawCategoryName(MatrixStack matrixStack, EditCounterPacket.Info info, FontRenderer font) {
         int x0 = this.width / 2 - 52, y0 = this.height / 2 - 14;
-        mc.fontRenderer.func_243248_b(matrixStack, info.name, x0, y0, TEXT_COLOR);
+        font.func_243248_b(matrixStack, info.name, x0, y0, TEXT_COLOR);
+    }
 
-        // step 2: draw category description
-        List<IReorderingProcessor> descriptions = mc.fontRenderer.trimStringToWidth(info.desc, 191);
+    private void drawCategoryDescription(MatrixStack matrixStack, EditCounterPacket.Info info, FontRenderer font) {
+        List<IReorderingProcessor> descriptions = font.trimStringToWidth(info.desc, 191);
         for (int size = Math.min(7, descriptions.size()), i = 0; i < size; ++i) {
             IReorderingProcessor description = descriptions.get(i);
             int x1 = this.width / 2 - 95, y1 = 9 * i + this.height / 2 + 6;
-            mc.fontRenderer.func_238422_b_(matrixStack, description, x1, y1, TEXT_COLOR);
+            font.func_238422_b_(matrixStack, description, x1, y1, TEXT_COLOR);
         }
+    }
 
-        // step 3: draw category score
+    private void drawCategoryScore(MatrixStack matrixStack, EditCounterPacket.Info info, FontRenderer font) {
         ITextComponent score = new StringTextComponent(String.format("%.1f", info.score));
-        int x2 = this.width / 2 - mc.fontRenderer.getStringPropertyWidth(score) / 2 + 87, y2 = this.height / 2 - 14;
-        mc.fontRenderer.func_243248_b(matrixStack, score, x2, y2, TEXT_COLOR);
+        int x2 = this.width / 2 - font.getStringPropertyWidth(score) / 2 + 87, y2 = this.height / 2 - 14;
+        font.func_243248_b(matrixStack, score, x2, y2, TEXT_COLOR);
+    }
 
-        // step 4: draw artifact name
+    private void drawArtifactName(MatrixStack matrixStack, FontRenderer font) {
         matrixStack.push();
         float scale = ARTIFACT_SCALE_FACTOR;
         matrixStack.scale(scale, scale, scale);
@@ -169,21 +177,21 @@ public final class CounterScreen extends Screen {
         int start = this.artifactInput.getStartIndex(), end = this.artifactInput.getEndIndex();
         if (this.artifact.isEmpty()) {
             // draw hint text
-            int dx0 = mc.fontRenderer.getStringPropertyWidth(EMPTY_ARTIFACT_TEXT) / 2;
-            mc.fontRenderer.func_243248_b(matrixStack, EMPTY_ARTIFACT_TEXT, x3 / scale - dx0, y3 / scale, SUGGESTION_COLOR);
+            int dx0 = font.getStringPropertyWidth(EMPTY_ARTIFACT_TEXT) / 2;
+            font.func_243248_b(matrixStack, EMPTY_ARTIFACT_TEXT, x3 / scale - dx0, y3 / scale, SUGGESTION_COLOR);
         } else {
             // draw actual text
-            int dx = mc.fontRenderer.getStringWidth(this.artifact) / 2;
+            int dx = font.getStringWidth(this.artifact) / 2;
             boolean renderArtifactCursor = this.artifactCursorTick / 6 % 2 == 0;
-            mc.fontRenderer.func_243248_b(matrixStack, new StringTextComponent(this.artifact), x3 / scale - dx, y3 / scale, TEXT_COLOR);
+            font.func_243248_b(matrixStack, new StringTextComponent(this.artifact), x3 / scale - dx, y3 / scale, TEXT_COLOR);
             if (end >= 0) {
                 // draw cursor
                 if (renderArtifactCursor) {
                     if (end >= this.artifact.length()) {
-                        int dx1 = mc.fontRenderer.getStringWidth(this.artifact);
-                        mc.fontRenderer.func_243248_b(matrixStack, new StringTextComponent("_"), x3 / scale - dx + dx1, y3 / scale, TEXT_COLOR);
+                        int dx1 = font.getStringWidth(this.artifact);
+                        font.func_243248_b(matrixStack, new StringTextComponent("_"), x3 / scale - dx + dx1, y3 / scale, TEXT_COLOR);
                     } else {
-                        int dx1 = mc.fontRenderer.getStringWidth(this.artifact.substring(0, end));
+                        int dx1 = font.getStringWidth(this.artifact.substring(0, end));
                         fill(matrixStack, (int) (x3 / scale - dx + dx1), (int) (y3 / scale) - 1, (int) (x3 / scale - dx + dx1) + 1, (int) (y3 / scale) + 9, TEXT_COLOR);
                     }
                 }
@@ -192,8 +200,8 @@ public final class CounterScreen extends Screen {
                     RenderSystem.disableTexture();
                     RenderSystem.enableColorLogicOp();
                     RenderSystem.logicOp(GlStateManager.LogicOp.OR_REVERSE);
-                    int dx2 = mc.fontRenderer.getStringWidth(this.artifact.substring(0, end));
-                    int dx3 = mc.fontRenderer.getStringWidth(this.artifact.substring(0, start));
+                    int dx2 = font.getStringWidth(this.artifact.substring(0, end));
+                    int dx3 = font.getStringWidth(this.artifact.substring(0, start));
                     fill(matrixStack, (int) (x3 / scale - dx + dx2), (int) (y3 / scale), (int) (x3 / scale - dx + dx3), (int) (y3 / scale) + 9, SELECTION_COLOR);
                     RenderSystem.disableColorLogicOp();
                     RenderSystem.enableTexture();
