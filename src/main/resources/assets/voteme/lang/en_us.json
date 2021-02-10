@@ -5,6 +5,7 @@
   "argument.voteme.vote_list.disabled": "The vote list for vote category %s and artifact %s has been disabled.",
   "argument.voteme.vote_list.enabled": "The vote list for vote category %s and artifact %s has been enabled.",
   "argument.voteme.vote_list.unmodifiable": "It is set to be unable to enable or disable voting for category %s. Use \"admin enable / admin disable\" instead of \"enable / disable\" and retry if you have related permissions.",
+  "block.voteme.board": "Voting Board",
   "commands.voteme.clear.success": "Successfully cleared votes for category %s and artifact %s.",
   "commands.voteme.disable.success": "Successfully disabled voting for category %s and artifact %s.",
   "commands.voteme.enable.success": "Successfully enabled voting for category %s and artifact %s.",

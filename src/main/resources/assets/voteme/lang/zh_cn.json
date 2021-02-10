@@ -5,6 +5,7 @@
   "argument.voteme.vote_list.disabled": "投票分类 %s 和作品 %s 对应的投票已被禁用。",
   "argument.voteme.vote_list.enabled": "投票分类 %s 和作品 %s 对应的投票已被启用。",
   "argument.voteme.vote_list.unmodifiable": "投票分类为 %s 的作品被设置为无法更改启用或禁用状态。如果你拥有相关权限，请用 \"admin enable / admin disable\" 代替 \"enable / disable\" 并重试。",
+  "block.voteme.board": "投票面板",
   "commands.voteme.clear.success": "成功为投票分类 %s 和作品 %s 清空投票。",
   "commands.voteme.disable.success": "成功禁用了投票分类 %s 和作品 %s 所对应的投票。",
   "commands.voteme.enable.success": "成功启用了投票分类 %s 和作品 %s 所对应的投票。",
