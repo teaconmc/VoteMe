@@ -1,0 +1,484 @@
+{
+  "variants": {
+    "facing=east,size=0,state=single": {
+      "model": "voteme:block/board_0",
+      "y": 90
+    },
+    "facing=east,size=0,state=left": {
+      "model": "voteme:block/board_0_left",
+      "y": 90
+    },
+    "facing=east,size=0,state=middle": {
+      "model": "voteme:block/board_0_middle",
+      "y": 90
+    },
+    "facing=east,size=0,state=right": {
+      "model": "voteme:block/board_0_right",
+      "y": 90
+    },
+    "facing=east,size=1,state=single": {
+      "model": "voteme:block/board_1",
+      "y": 90
+    },
+    "facing=east,size=1,state=left": {
+      "model": "voteme:block/board_1_left",
+      "y": 90
+    },
+    "facing=east,size=1,state=middle": {
+      "model": "voteme:block/board_1_middle",
+      "y": 90
+    },
+    "facing=east,size=1,state=right": {
+      "model": "voteme:block/board_1_right",
+      "y": 90
+    },
+    "facing=east,size=2,state=single": {
+      "model": "voteme:block/board_2",
+      "y": 90
+    },
+    "facing=east,size=2,state=left": {
+      "model": "voteme:block/board_2_left",
+      "y": 90
+    },
+    "facing=east,size=2,state=middle": {
+      "model": "voteme:block/board_2_middle",
+      "y": 90
+    },
+    "facing=east,size=2,state=right": {
+      "model": "voteme:block/board_2_right",
+      "y": 90
+    },
+    "facing=east,size=3,state=single": {
+      "model": "voteme:block/board_3",
+      "y": 90
+    },
+    "facing=east,size=3,state=left": {
+      "model": "voteme:block/board_3_left",
+      "y": 90
+    },
+    "facing=east,size=3,state=middle": {
+      "model": "voteme:block/board_3_middle",
+      "y": 90
+    },
+    "facing=east,size=3,state=right": {
+      "model": "voteme:block/board_3_right",
+      "y": 90
+    },
+    "facing=east,size=4,state=single": {
+      "model": "voteme:block/board_4",
+      "y": 90
+    },
+    "facing=east,size=4,state=left": {
+      "model": "voteme:block/board_4_left",
+      "y": 90
+    },
+    "facing=east,size=4,state=middle": {
+      "model": "voteme:block/board_4_middle",
+      "y": 90
+    },
+    "facing=east,size=4,state=right": {
+      "model": "voteme:block/board_4_right",
+      "y": 90
+    },
+    "facing=east,size=5,state=single": {
+      "model": "voteme:block/board_5",
+      "y": 90
+    },
+    "facing=east,size=5,state=left": {
+      "model": "voteme:block/board_5_left",
+      "y": 90
+    },
+    "facing=east,size=5,state=middle": {
+      "model": "voteme:block/board_5_middle",
+      "y": 90
+    },
+    "facing=east,size=5,state=right": {
+      "model": "voteme:block/board_5_right",
+      "y": 90
+    },
+    "facing=east,size=6,state=single": {
+      "model": "voteme:block/board_6",
+      "y": 90
+    },
+    "facing=east,size=6,state=left": {
+      "model": "voteme:block/board_6_left",
+      "y": 90
+    },
+    "facing=east,size=6,state=middle": {
+      "model": "voteme:block/board_6_middle",
+      "y": 90
+    },
+    "facing=east,size=6,state=right": {
+      "model": "voteme:block/board_6_right",
+      "y": 90
+    },
+    "facing=east,size=7,state=single": {
+      "model": "voteme:block/board_7",
+      "y": 90
+    },
+    "facing=east,size=7,state=left": {
+      "model": "voteme:block/board_7_left",
+      "y": 90
+    },
+    "facing=east,size=7,state=middle": {
+      "model": "voteme:block/board_7_middle",
+      "y": 90
+    },
+    "facing=east,size=7,state=right": {
+      "model": "voteme:block/board_7_right",
+      "y": 90
+    },
+    "facing=north,size=0,state=single": {
+      "model": "voteme:block/board_0"
+    },
+    "facing=north,size=0,state=left": {
+      "model": "voteme:block/board_0_left"
+    },
+    "facing=north,size=0,state=middle": {
+      "model": "voteme:block/board_0_middle"
+    },
+    "facing=north,size=0,state=right": {
+      "model": "voteme:block/board_0_right"
+    },
+    "facing=north,size=1,state=single": {
+      "model": "voteme:block/board_1"
+    },
+    "facing=north,size=1,state=left": {
+      "model": "voteme:block/board_1_left"
+    },
+    "facing=north,size=1,state=middle": {
+      "model": "voteme:block/board_1_middle"
+    },
+    "facing=north,size=1,state=right": {
+      "model": "voteme:block/board_1_right"
+    },
+    "facing=north,size=2,state=single": {
+      "model": "voteme:block/board_2"
+    },
+    "facing=north,size=2,state=left": {
+      "model": "voteme:block/board_2_left"
+    },
+    "facing=north,size=2,state=middle": {
+      "model": "voteme:block/board_2_middle"
+    },
+    "facing=north,size=2,state=right": {
+      "model": "voteme:block/board_2_right"
+    },
+    "facing=north,size=3,state=single": {
+      "model": "voteme:block/board_3"
+    },
+    "facing=north,size=3,state=left": {
+      "model": "voteme:block/board_3_left"
+    },
+    "facing=north,size=3,state=middle": {
+      "model": "voteme:block/board_3_middle"
+    },
+    "facing=north,size=3,state=right": {
+      "model": "voteme:block/board_3_right"
+    },
+    "facing=north,size=4,state=single": {
+      "model": "voteme:block/board_4"
+    },
+    "facing=north,size=4,state=left": {
+      "model": "voteme:block/board_4_left"
+    },
+    "facing=north,size=4,state=middle": {
+      "model": "voteme:block/board_4_middle"
+    },
+    "facing=north,size=4,state=right": {
+      "model": "voteme:block/board_4_right"
+    },
+    "facing=north,size=5,state=single": {
+      "model": "voteme:block/board_5"
+    },
+    "facing=north,size=5,state=left": {
+      "model": "voteme:block/board_5_left"
+    },
+    "facing=north,size=5,state=middle": {
+      "model": "voteme:block/board_5_middle"
+    },
+    "facing=north,size=5,state=right": {
+      "model": "voteme:block/board_5_right"
+    },
+    "facing=north,size=6,state=single": {
+      "model": "voteme:block/board_6"
+    },
+    "facing=north,size=6,state=left": {
+      "model": "voteme:block/board_6_left"
+    },
+    "facing=north,size=6,state=middle": {
+      "model": "voteme:block/board_6_middle"
+    },
+    "facing=north,size=6,state=right": {
+      "model": "voteme:block/board_6_right"
+    },
+    "facing=north,size=7,state=single": {
+      "model": "voteme:block/board_7"
+    },
+    "facing=north,size=7,state=left": {
+      "model": "voteme:block/board_7_left"
+    },
+    "facing=north,size=7,state=middle": {
+      "model": "voteme:block/board_7_middle"
+    },
+    "facing=north,size=7,state=right": {
+      "model": "voteme:block/board_7_right"
+    },
+    "facing=south,size=0,state=single": {
+      "model": "voteme:block/board_0",
+      "y": 180
+    },
+    "facing=south,size=0,state=left": {
+      "model": "voteme:block/board_0_left",
+      "y": 180
+    },
+    "facing=south,size=0,state=middle": {
+      "model": "voteme:block/board_0_middle",
+      "y": 180
+    },
+    "facing=south,size=0,state=right": {
+      "model": "voteme:block/board_0_right",
+      "y": 180
+    },
+    "facing=south,size=1,state=single": {
+      "model": "voteme:block/board_1",
+      "y": 180
+    },
+    "facing=south,size=1,state=left": {
+      "model": "voteme:block/board_1_left",
+      "y": 180
+    },
+    "facing=south,size=1,state=middle": {
+      "model": "voteme:block/board_1_middle",
+      "y": 180
+    },
+    "facing=south,size=1,state=right": {
+      "model": "voteme:block/board_1_right",
+      "y": 180
+    },
+    "facing=south,size=2,state=single": {
+      "model": "voteme:block/board_2",
+      "y": 180
+    },
+    "facing=south,size=2,state=left": {
+      "model": "voteme:block/board_2_left",
+      "y": 180
+    },
+    "facing=south,size=2,state=middle": {
+      "model": "voteme:block/board_2_middle",
+      "y": 180
+    },
+    "facing=south,size=2,state=right": {
+      "model": "voteme:block/board_2_right",
+      "y": 180
+    },
+    "facing=south,size=3,state=single": {
+      "model": "voteme:block/board_3",
+      "y": 180
+    },
+    "facing=south,size=3,state=left": {
+      "model": "voteme:block/board_3_left",
+      "y": 180
+    },
+    "facing=south,size=3,state=middle": {
+      "model": "voteme:block/board_3_middle",
+      "y": 180
+    },
+    "facing=south,size=3,state=right": {
+      "model": "voteme:block/board_3_right",
+      "y": 180
+    },
+    "facing=south,size=4,state=single": {
+      "model": "voteme:block/board_4",
+      "y": 180
+    },
+    "facing=south,size=4,state=left": {
+      "model": "voteme:block/board_4_left",
+      "y": 180
+    },
+    "facing=south,size=4,state=middle": {
+      "model": "voteme:block/board_4_middle",
+      "y": 180
+    },
+    "facing=south,size=4,state=right": {
+      "model": "voteme:block/board_4_right",
+      "y": 180
+    },
+    "facing=south,size=5,state=single": {
+      "model": "voteme:block/board_5",
+      "y": 180
+    },
+    "facing=south,size=5,state=left": {
+      "model": "voteme:block/board_5_left",
+      "y": 180
+    },
+    "facing=south,size=5,state=middle": {
+      "model": "voteme:block/board_5_middle",
+      "y": 180
+    },
+    "facing=south,size=5,state=right": {
+      "model": "voteme:block/board_5_right",
+      "y": 180
+    },
+    "facing=south,size=6,state=single": {
+      "model": "voteme:block/board_6",
+      "y": 180
+    },
+    "facing=south,size=6,state=left": {
+      "model": "voteme:block/board_6_left",
+      "y": 180
+    },
+    "facing=south,size=6,state=middle": {
+      "model": "voteme:block/board_6_middle",
+      "y": 180
+    },
+    "facing=south,size=6,state=right": {
+      "model": "voteme:block/board_6_right",
+      "y": 180
+    },
+    "facing=south,size=7,state=single": {
+      "model": "voteme:block/board_7",
+      "y": 180
+    },
+    "facing=south,size=7,state=left": {
+      "model": "voteme:block/board_7_left",
+      "y": 180
+    },
+    "facing=south,size=7,state=middle": {
+      "model": "voteme:block/board_7_middle",
+      "y": 180
+    },
+    "facing=south,size=7,state=right": {
+      "model": "voteme:block/board_7_right",
+      "y": 180
+    },
+    "facing=west,size=0,state=single": {
+      "model": "voteme:block/board_0",
+      "y": 270
+    },
+    "facing=west,size=0,state=left": {
+      "model": "voteme:block/board_0_left",
+      "y": 270
+    },
+    "facing=west,size=0,state=middle": {
+      "model": "voteme:block/board_0_middle",
+      "y": 270
+    },
+    "facing=west,size=0,state=right": {
+      "model": "voteme:block/board_0_right",
+      "y": 270
+    },
+    "facing=west,size=1,state=single": {
+      "model": "voteme:block/board_1",
+      "y": 270
+    },
+    "facing=west,size=1,state=left": {
+      "model": "voteme:block/board_1_left",
+      "y": 270
+    },
+    "facing=west,size=1,state=middle": {
+      "model": "voteme:block/board_1_middle",
+      "y": 270
+    },
+    "facing=west,size=1,state=right": {
+      "model": "voteme:block/board_1_right",
+      "y": 270
+    },
+    "facing=west,size=2,state=single": {
+      "model": "voteme:block/board_2",
+      "y": 270
+    },
+    "facing=west,size=2,state=left": {
+      "model": "voteme:block/board_2_left",
+      "y": 270
+    },
+    "facing=west,size=2,state=middle": {
+      "model": "voteme:block/board_2_middle",
+      "y": 270
+    },
+    "facing=west,size=2,state=right": {
+      "model": "voteme:block/board_2_right",
+      "y": 270
+    },
+    "facing=west,size=3,state=single": {
+      "model": "voteme:block/board_3",
+      "y": 270
+    },
+    "facing=west,size=3,state=left": {
+      "model": "voteme:block/board_3_left",
+      "y": 270
+    },
+    "facing=west,size=3,state=middle": {
+      "model": "voteme:block/board_3_middle",
+      "y": 270
+    },
+    "facing=west,size=3,state=right": {
+      "model": "voteme:block/board_3_right",
+      "y": 270
+    },
+    "facing=west,size=4,state=single": {
+      "model": "voteme:block/board_4",
+      "y": 270
+    },
+    "facing=west,size=4,state=left": {
+      "model": "voteme:block/board_4_left",
+      "y": 270
+    },
+    "facing=west,size=4,state=middle": {
+      "model": "voteme:block/board_4_middle",
+      "y": 270
+    },
+    "facing=west,size=4,state=right": {
+      "model": "voteme:block/board_4_right",
+      "y": 270
+    },
+    "facing=west,size=5,state=single": {
+      "model": "voteme:block/board_5",
+      "y": 270
+    },
+    "facing=west,size=5,state=left": {
+      "model": "voteme:block/board_5_left",
+      "y": 270
+    },
+    "facing=west,size=5,state=middle": {
+      "model": "voteme:block/board_5_middle",
+      "y": 270
+    },
+    "facing=west,size=5,state=right": {
+      "model": "voteme:block/board_5_right",
+      "y": 270
+    },
+    "facing=west,size=6,state=single": {
+      "model": "voteme:block/board_6",
+      "y": 270
+    },
+    "facing=west,size=6,state=left": {
+      "model": "voteme:block/board_6_left",
+      "y": 270
+    },
+    "facing=west,size=6,state=middle": {
+      "model": "voteme:block/board_6_middle",
+      "y": 270
+    },
+    "facing=west,size=6,state=right": {
+      "model": "voteme:block/board_6_right",
+      "y": 270
+    },
+    "facing=west,size=7,state=single": {
+      "model": "voteme:block/board_7",
+      "y": 270
+    },
+    "facing=west,size=7,state=left": {
+      "model": "voteme:block/board_7_left",
+      "y": 270
+    },
+    "facing=west,size=7,state=middle": {
+      "model": "voteme:block/board_7_middle",
+      "y": 270
+    },
+    "facing=west,size=7,state=right": {
+      "model": "voteme:block/board_7_right",
+      "y": 270
+    }
+  }
+}
