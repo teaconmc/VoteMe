@@ -15,6 +15,7 @@ import net.minecraft.client.gui.widget.button.ImageButton;
 import net.minecraft.item.DyeColor;
 import net.minecraft.util.IReorderingProcessor;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
@@ -27,7 +28,9 @@ import org.teacon.voteme.network.VoteMePacketManager;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
+import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @OnlyIn(Dist.CLIENT)
@@ -50,9 +53,11 @@ public final class CounterScreen extends Screen {
 
     private final UUID artifactUUID;
     private final int inventoryIndex;
+    private final SortedSet<ResourceLocation> enabledInfos;
     private final List<EditCounterPacket.Info> infoCollection;
 
     private BottomButton renameButton;
+    private BottomSwitch bottomSwitch;
     private TextInputUtil artifactInput;
 
     public CounterScreen(UUID artifactUUID, String artifactName, int inventoryIndex,
@@ -63,6 +68,7 @@ public final class CounterScreen extends Screen {
         this.artifact = this.oldArtifact = artifactName;
         Preconditions.checkArgument(infos.size() > 0);
         this.infoCollection = rotateAsFirst(infos, info -> category.equals(info.id));
+        this.enabledInfos = infos.stream().filter(i -> i.enabledCurrently).map(i -> i.id).collect(Collectors.toCollection(TreeSet::new));
     }
 
     @Override
@@ -71,7 +77,8 @@ public final class CounterScreen extends Screen {
         this.addButton(new ImageButton(this.width / 2 - 99, this.height / 2 - 20, 18, 19, 12, 207, 0, TEXTURE, this::onPrevButtonClick));
         this.addButton(new ImageButton(this.width / 2 - 79, this.height / 2 - 20, 18, 19, 32, 207, 0, TEXTURE, this::onNextButtonClick));
         this.addButton(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onOKButtonClick, new TranslationTextComponent("gui.voteme.counter.ok")));
-        this.renameButton = this.addButton(new BottomButton(CounterScreen.this.width / 2 + 19, CounterScreen.this.height / 2 + 77, CounterScreen.this::onRenameButtonClick, new TranslationTextComponent("gui.voteme.counter.rename")));
+        this.renameButton = this.addButton(new BottomButton(CounterScreen.this.width / 2 + 19, CounterScreen.this.height / 2 + 77, this::onRenameButtonClick, new TranslationTextComponent("gui.voteme.counter.rename")));
+        this.bottomSwitch = this.addButton(new BottomSwitch(this.width / 2 - 98, this.height / 2 + 76, () -> this.enabledInfos.contains(this.infoCollection.iterator().next().id), this::onSwitchClick, new TranslationTextComponent("gui.voteme.counter.switch")));
         this.artifactInput = new TextInputUtil(() -> this.artifact, text -> this.artifact = text, TextInputUtil.getClipboardTextSupplier(mc), TextInputUtil.getClipboardTextSetter(mc), text -> mc.fontRenderer.getStringWidth(text) * ARTIFACT_SCALE_FACTOR <= 199);
     }
 
@@ -86,6 +93,7 @@ public final class CounterScreen extends Screen {
     @Override
     public void tick() {
         ++this.artifactCursorTick;
+        this.bottomSwitch.visible = this.infoCollection.iterator().next().enabledModifiable;
         this.renameButton.visible = !this.artifact.isEmpty() && !Objects.equals(this.artifact, this.oldArtifact);
     }
 
@@ -109,9 +117,13 @@ public final class CounterScreen extends Screen {
     @Override
     public void onClose() {
         if (!this.oldArtifact.isEmpty()) {
-            ResourceLocation categoryID = this.infoCollection.iterator().next().id;
-            ApplyCounterPacket packet = ApplyCounterPacket.create(this.inventoryIndex, this.artifactUUID, categoryID);
-            VoteMePacketManager.CHANNEL.sendToServer(packet);
+            EditCounterPacket.Info info = this.infoCollection.iterator().next();
+            Iterable<ResourceLocation> enabled = () -> this.infoCollection.stream()
+                    .filter(i -> !i.enabledCurrently && this.enabledInfos.contains(i.id)).map(i -> i.id).iterator();
+            Iterable<ResourceLocation> disabled = () -> this.infoCollection.stream()
+                    .filter(i -> i.enabledCurrently && !this.enabledInfos.contains(i.id)).map(i -> i.id).iterator();
+            VoteMePacketManager.CHANNEL.sendToServer(ApplyCounterPacket.create(
+                    this.inventoryIndex, this.artifactUUID, info.id, enabled, disabled));
         }
     }
 
@@ -130,6 +142,13 @@ public final class CounterScreen extends Screen {
     private void onRenameButtonClick(Button button) {
         EditNamePacket packet = EditNamePacket.create(this.artifactUUID, this.oldArtifact = this.artifact);
         VoteMePacketManager.CHANNEL.sendToServer(packet);
+    }
+
+    private void onSwitchClick(Button button) {
+        ResourceLocation id = this.infoCollection.iterator().next().id;
+        if (!this.enabledInfos.add(id)) {
+            this.enabledInfos.remove(id);
+        }
     }
 
     @SuppressWarnings("deprecation")
@@ -164,7 +183,7 @@ public final class CounterScreen extends Screen {
     }
 
     private void drawCategoryScore(MatrixStack matrixStack, EditCounterPacket.Info info, FontRenderer font) {
-        ITextComponent score = new StringTextComponent(String.format("%.1f", info.score));
+        ITextComponent score = new StringTextComponent(this.enabledInfos.contains(info.id) ? String.format("%.1f", info.score) : "--");
         int x2 = this.width / 2 - font.getStringPropertyWidth(score) / 2 + 87, y2 = this.height / 2 - 14;
         font.func_243248_b(matrixStack, score, x2, y2, TEXT_COLOR);
     }
@@ -230,6 +249,46 @@ public final class CounterScreen extends Screen {
             float dx = fontRenderer.getStringPropertyWidth(this.getMessage()) / 2F;
             float x = this.x + (this.width + 1) / 2F - dx, y = this.y + (this.height - 9) / 2F;
             fontRenderer.func_243248_b(matrixStack, this.getMessage(), x, y, BUTTON_TEXT_COLOR);
+        }
+    }
+
+    private static class BottomSwitch extends Button {
+        private final BooleanSupplier enabled;
+        private float ticksFromPressing;
+
+        public BottomSwitch(int x, int y, BooleanSupplier enabled, IPressable onPress, ITextComponent title) {
+            super(x, y, 37, 20, title, onPress);
+            this.ticksFromPressing = Float.POSITIVE_INFINITY;
+            this.enabled = enabled;
+        }
+
+        @Override
+        public void onPress() {
+            super.onPress();
+            this.ticksFromPressing = 0F;
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public void renderButton(MatrixStack matrixStack, int mouseX, int mouseY, float partialTicks) {
+            // calculate offset and alpha
+            double progress = Math.tanh((this.ticksFromPressing += partialTicks) / 5);
+            double transition = this.enabled.getAsBoolean() ? progress : 1 - progress;
+            int offset = (int) Math.ceil(17 * transition);
+            float alpha = (float) transition;
+
+            // render background and switch-off button
+            RenderSystem.enableDepthTest();
+            Minecraft mc = Minecraft.getInstance();
+            mc.getTextureManager().bindTexture(CounterScreen.TEXTURE);
+            blit(matrixStack, this.x, this.y, 13, 228, this.width, this.height, 256, 256);
+            blit(matrixStack, this.x + offset + 2, this.y + 2, 69, 230, 16, 16, 256, 256);
+
+            // render switch-on button with blend
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.color4f(1F, 1F, 1F, alpha);
+            blit(matrixStack, this.x + offset + 2, this.y + 2, 52, 230, 16, 16, 256, 256);
         }
     }
 }

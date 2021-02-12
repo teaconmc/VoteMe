@@ -1,5 +1,6 @@
 package org.teacon.voteme.item;
 
+import com.google.common.collect.ImmutableList;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
@@ -18,6 +19,8 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.network.PacketDistributor;
 import net.minecraftforge.registries.ObjectHolder;
+import org.teacon.voteme.VoteMe;
+import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.network.EditCounterPacket;
 import org.teacon.voteme.network.VoteMePacketManager;
 import org.teacon.voteme.vote.VoteListEntry;
@@ -70,19 +73,36 @@ public final class CounterItem extends Item {
         return ActionResult.func_233538_a_(itemStack, world.isRemote());
     }
 
-    public void modifyVoteId(ServerPlayerEntity sender, ItemStack stack, UUID artifactID, ResourceLocation category) {
+    public void applyChanges(ServerPlayerEntity sender, ItemStack stack, UUID artifactID, ResourceLocation currentCategory,
+                             ImmutableList<ResourceLocation> enabledCategories, ImmutableList<ResourceLocation> disabledCategories) {
         boolean matchArtifact = true;
         CompoundNBT tag = stack.getTag();
-        VoteListHandler voteListHandler = VoteListHandler.get(Objects.requireNonNull(sender.getServer()));
+        VoteListHandler handler = VoteListHandler.get(Objects.requireNonNull(sender.getServer()));
         if (tag != null && tag.contains("CurrentVoteId", Constants.NBT.TAG_INT)) {
-            Optional<VoteListEntry> entryOptional = voteListHandler.getEntry(tag.getInt("CurrentVoteId"));
+            Optional<VoteListEntry> entryOptional = handler.getEntry(tag.getInt("CurrentVoteId"));
             if (entryOptional.isPresent()) {
                 matchArtifact = entryOptional.get().artifactID.equals(artifactID);
             }
         }
         if (matchArtifact) {
-            int id = voteListHandler.getIdOrCreate(artifactID, category);
-            stack.getOrCreateTag().putInt("CurrentVoteId", id);
+            int currentEntryID = handler.getIdOrCreate(artifactID, currentCategory);
+            stack.getOrCreateTag().putInt("CurrentVoteId", currentEntryID);
+            for (ResourceLocation category : enabledCategories) {
+                if (VoteCategoryHandler.getCategory(category).filter(c -> c.enabledModifiable).isPresent()) {
+                    int entryID = handler.getIdOrCreate(artifactID, category);
+                    handler.getEntry(entryID).ifPresent(entry -> entry.votes.setEnabled(true));
+                } else {
+                    VoteMe.LOGGER.warn("Unmodifiable vote category {} submitted by {}.", category, sender.getGameProfile());
+                }
+            }
+            for (ResourceLocation category : disabledCategories) {
+                if (VoteCategoryHandler.getCategory(category).filter(c -> c.enabledModifiable).isPresent()) {
+                    int entryID = handler.getIdOrCreate(artifactID, category);
+                    handler.getEntry(entryID).ifPresent(entry -> entry.votes.setEnabled(false));
+                } else {
+                    VoteMe.LOGGER.warn("Unmodifiable vote category {} submitted by {}.", category, sender.getGameProfile());
+                }
+            }
         }
     }
 }
