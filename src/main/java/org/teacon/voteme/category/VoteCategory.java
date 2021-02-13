@@ -54,7 +54,7 @@ public final class VoteCategory {
             for (UUID artifactID : voteListHandler.getArtifacts()) {
                 int id = voteListHandler.getIdOrCreate(artifactID, categoryID);
                 Optional<VoteListEntry> entryOptional = voteListHandler.getEntry(id);
-                entryOptional.filter(e -> e.votes.isEnabled()).ifPresent(e -> array.add(id));
+                entryOptional.filter(e -> e.votes.getEnabled().orElse(this.enabledDefault)).ifPresent(e -> array.add(id));
             }
         }));
         return jsonObject;

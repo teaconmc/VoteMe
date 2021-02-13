@@ -98,10 +98,10 @@ public final class EditCounterPacket {
             VoteCategoryHandler.getIds().forEach(location -> {
                 VoteCategory category = VoteCategoryHandler.getCategory(location).orElseThrow(IllegalStateException::new);
                 VoteListEntry entry = handler.getEntry(handler.getIdOrCreate(artifactID, location)).orElseThrow(IllegalStateException::new);
-                if (category.enabledDefault || category.enabledModifiable || entry.votes.isEnabled()) {
+                boolean enabledCurrently = entry.votes.getEnabled().orElse(category.enabledDefault), enabledModifiable = category.enabledModifiable;
+                if (category.enabledDefault || category.enabledModifiable || enabledCurrently) {
                     Collection<VoteList.Stats> statsCollection = entry.votes.buildFinalScore(location).values();
                     VoteList.Stats finalStats = VoteList.Stats.combine(statsCollection, VoteList.Stats::getWeight);
-                    boolean enabledCurrently = entry.votes.isEnabled(), enabledModifiable = category.enabledModifiable;
                     builder.add(new Info(location, category.name, category.description, finalStats.getFinalScore(6.0F), enabledCurrently, enabledModifiable));
                 }
             });

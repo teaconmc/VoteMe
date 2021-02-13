@@ -20,6 +20,7 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.teacon.voteme.roles.VoteRole;
 import org.teacon.voteme.roles.VoteRoleHandler;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
@@ -31,25 +32,32 @@ import java.util.stream.IntStream;
 public final class VoteList implements INBTSerializable<CompoundNBT> {
     public static final Instant DEFAULT_VOTE_TIME = DateTimeFormatter.RFC_1123_DATE_TIME.parse("Sat, 9 Jan 2021 02:00:00 +0800", Instant::from);
 
-    private boolean disabled;
+    private @Nullable Boolean enabled;
     private final Runnable onVoteChange;
     private final Map<ResourceLocation, int[]> countMap;
     private final Map<UUID, Triple<Integer, ImmutableSet<ResourceLocation>, Instant>> votes;
 
     public VoteList(Runnable onChange) {
-        this.disabled = false;
+        this.enabled = null;
         this.votes = new HashMap<>();
         this.countMap = new HashMap<>();
         this.onVoteChange = onChange;
     }
 
-    public boolean isEnabled() {
-        return !this.disabled;
+    public Optional<Boolean> getEnabled() {
+        return Optional.ofNullable(this.enabled);
     }
 
     public void setEnabled(boolean enabled) {
-        if (this.disabled == enabled) {
-            this.disabled = !enabled;
+        if (this.enabled != Boolean.valueOf(enabled)) {
+            this.enabled = enabled;
+            this.onVoteChange.run();
+        }
+    }
+
+    public void unsetEnabled() {
+        if (this.enabled != null) {
+            this.enabled = null;
             this.onVoteChange.run();
         }
     }
@@ -153,8 +161,10 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
             nbt.add(child);
         }
         CompoundNBT result = new CompoundNBT();
-        result.putBoolean("Disabled", this.disabled);
         result.put("Votes", nbt);
+        if (this.enabled != null) {
+            result.putBoolean("Disabled", !this.enabled);
+        }
         return result;
     }
 
@@ -162,7 +172,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     public void deserializeNBT(CompoundNBT compound) {
         this.votes.clear();
         this.countMap.clear();
-        this.disabled = compound.getBoolean("Disabled");
+        this.enabled = compound.contains("Disabled", Constants.NBT.TAG_ANY_NUMERIC) ? compound.getBoolean("Disabled") : null;
         ListNBT nbt = compound.getList("Votes", Constants.NBT.TAG_COMPOUND);
         for (int i = 0, size = nbt.size(); i < size; ++i) {
             CompoundNBT child = nbt.getCompound(i);

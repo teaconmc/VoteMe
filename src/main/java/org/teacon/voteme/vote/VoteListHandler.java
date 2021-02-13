@@ -61,8 +61,10 @@ public final class VoteListHandler extends WorldSavedData {
     }
 
     public boolean hasEnabled(ResourceLocation category) {
+        boolean enabledDefault = VoteCategoryHandler.getCategory(category).filter(c -> c.enabledDefault).isPresent();
         return this.voteArtifactNames.keySet().stream()
-                .map(id -> this.voteEntries.get(this.getIdOrCreate(id, category))).anyMatch(e -> e.votes.isEnabled());
+                .map(id -> this.voteEntries.get(this.getIdOrCreate(id, category)))
+                .anyMatch(entry -> entry.votes.getEnabled().orElse(enabledDefault));
     }
 
     public int getIdOrCreate(UUID artifactID, ResourceLocation category) {
@@ -70,9 +72,7 @@ public final class VoteListHandler extends WorldSavedData {
         if (oldId == null) {
             int id = this.nextIndex++;
             this.voteListIndices.put(artifactID, category, id);
-            VoteList newVoteList = new VoteList(this::markDirty);
-            this.voteEntries.put(id, new VoteListEntry(artifactID, category, newVoteList));
-            VoteCategoryHandler.getCategory(category).ifPresent(c -> newVoteList.setEnabled(c.enabledDefault));
+            this.voteEntries.put(id, new VoteListEntry(artifactID, category, new VoteList(this::markDirty)));
             this.markDirty();
             return id;
         }
@@ -117,7 +117,8 @@ public final class VoteListHandler extends WorldSavedData {
                 for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
                     int id = this.getIdOrCreate(artifactID, categoryID);
                     Optional<VoteListEntry> entryOptional = this.getEntry(id);
-                    entryOptional.filter(e -> e.votes.isEnabled()).ifPresent(e -> array.add(id));
+                    boolean enabledDefault = VoteCategoryHandler.getCategory(categoryID).filter(c -> c.enabledDefault).isPresent();
+                    entryOptional.filter(entry -> entry.votes.getEnabled().orElse(enabledDefault)).ifPresent(entry -> array.add(id));
                 }
             }));
         });

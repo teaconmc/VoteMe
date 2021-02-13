@@ -113,7 +113,8 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
         handler.getArtifacts().forEach(artifactID -> {
             for (ResourceLocation categoryID : categories) {
                 int id = handler.getIdOrCreate(artifactID, categoryID);
-                handler.getEntry(id).filter(e -> e.votes.isEnabled()).ifPresent(e -> ids.add(id));
+                boolean enabledDefault = VoteCategoryHandler.getCategory(categoryID).filter(c -> c.enabledDefault).isPresent();
+                handler.getEntry(id).filter(entry -> entry.votes.getEnabled().orElse(enabledDefault)).ifPresent(entry -> ids.add(id));
             }
         });
         return this.handleOK(buf, Util.make(new JsonArray(), result -> ids.forEach((int id) -> {
@@ -128,8 +129,12 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
         if (id != null) {
             VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
             Optional<VoteListEntry> entryOptional = handler.getEntry(id);
-            if (entryOptional.isPresent() && entryOptional.get().votes.isEnabled()) {
-                return this.handleOK(buf, entryOptional.get().toHTTPJson(id));
+            if (entryOptional.isPresent()) {
+                VoteListEntry entry = entryOptional.get();
+                Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(entry.category);
+                if (entry.votes.getEnabled().orElse(categoryOptional.filter(c -> c.enabledDefault).isPresent())) {
+                    return this.handleOK(buf, entry.toHTTPJson(id));
+                }
             }
         }
         return this.handleNotFound(buf);
