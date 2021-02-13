@@ -9,18 +9,22 @@ Moderator commands (available to ops by default):
 * `/voteme list roles`
 * `/voteme list categories`
 * `/voteme list artifacts`
-* `/voteme clear <artifact> <category>`
-* `/voteme unset <targets> <artifact> <category>`
-* `/voteme set <targets> <artifact> <category>`
-* `/voteme enable <artifact> <category>`
-* `/voteme disable <artifact> <category>`
+* `/voteme select <artifact>`
+* `/voteme clear <category>`
+* `/voteme unset <targets> <category>`
+* `/voteme set <targets> <category>`
+* `/voteme switch <category> on`
+* `/voteme switch <category> off`
+* `/voteme switch <category> unset`
 
 Admin commands (available to nobody by default):
 
-* `/voteme admin enable <artifact> <category>`
-* `/voteme admin disable <artifact> <category>`
-* `/voteme admin rename <artifact> <name>`
-* `/voteme admin remove <artifact>`
+* `/voteme admin switch <category> on`
+* `/voteme admin switch <category> off`
+* `/voteme admin switch <category> unset`
+* `/voteme admin rename <name>`
+* `/voteme admin remove`
+* `/voteme admin create <name>`
 
 ## HTTP API
 
