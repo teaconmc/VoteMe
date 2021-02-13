@@ -272,9 +272,9 @@ public final class CounterScreen extends Screen {
         @SuppressWarnings("deprecation")
         public void renderButton(MatrixStack matrixStack, int mouseX, int mouseY, float partialTicks) {
             // calculate offset and alpha
-            double progress = Math.tanh((this.ticksFromPressing += partialTicks) / 5);
+            double progress = Math.tanh((this.ticksFromPressing += partialTicks) / 3);
             double transition = this.enabled.getAsBoolean() ? progress : 1 - progress;
-            int offset = (int) Math.ceil(17 * transition);
+            int offset = (int) Math.round(17 * transition);
             float alpha = (float) transition;
 
             // render background and switch-off button
