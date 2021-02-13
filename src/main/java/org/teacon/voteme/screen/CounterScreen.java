@@ -15,7 +15,6 @@ import net.minecraft.client.gui.widget.button.ImageButton;
 import net.minecraft.item.DyeColor;
 import net.minecraft.util.IReorderingProcessor;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
@@ -88,6 +87,7 @@ public final class CounterScreen extends Screen {
         this.drawGuiContainerBackgroundLayer(matrixStack, partialTicks, mouseX, mouseY);
         super.render(matrixStack, mouseX, mouseY, partialTicks);
         this.drawGuiContainerForegroundLayer(matrixStack, partialTicks, mouseX, mouseY);
+        this.drawTooltips(matrixStack, partialTicks, mouseX, mouseY);
     }
 
     @Override
@@ -148,6 +148,22 @@ public final class CounterScreen extends Screen {
         ResourceLocation id = this.infoCollection.iterator().next().id;
         if (!this.enabledInfos.add(id)) {
             this.enabledInfos.remove(id);
+        }
+    }
+
+    private void drawTooltips(MatrixStack matrixStack, float partialTicks, int mouseX, int mouseY) {
+        int dx = mouseX - this.width / 2, dy = mouseY - this.height / 2;
+        if (dx >= -79 && dy >= -20 && dx < -61 && dy < -1) {
+            this.renderTooltip(matrixStack, new TranslationTextComponent("gui.voteme.counter.next"), mouseX, mouseY);
+        }
+        if (dx >= -99 && dy >= -20 && dx < -81 && dy < -1) {
+            this.renderTooltip(matrixStack, new TranslationTextComponent("gui.voteme.counter.prev"), mouseX, mouseY);
+        }
+        if (dx >= 73 && dy >= -19 && dx < 99 && dy < -2) {
+            this.renderTooltip(matrixStack, new TranslationTextComponent("gui.voteme.counter.score"), mouseX, mouseY);
+        }
+        if (dx >= -98 && dy >= 76 && dx < -61 && dy < 96) {
+            this.renderTooltip(matrixStack, new TranslationTextComponent("gui.voteme.counter.switch"), mouseX, mouseY);
         }
     }
 

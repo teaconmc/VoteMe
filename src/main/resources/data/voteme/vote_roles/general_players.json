@@ -1,6 +1,6 @@
 {
   "name": {
-    "text": "Players"
+    "translate": "vote_roles.voteme.general_players.name"
   },
   "selector": "@a[tag=!voteme_judges]",
   "participations": [{

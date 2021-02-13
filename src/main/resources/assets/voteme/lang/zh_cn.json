@@ -24,10 +24,18 @@
   "commands.voteme.switch.unset": "成功重置了投票分类 %s 和作品 %s 所对应的投票的开关状态。",
   "commands.voteme.unset.success": "成功为投票分类 %2$s 和作品 %3$s 取消设置了 %1$s 个玩家的投票。",
   "gui.voteme.counter.empty_artifact": "请输入作品名",
-  "gui.voteme.counter.next": "下一个",
+  "gui.voteme.counter.next": "下一个分类",
   "gui.voteme.counter.ok": "确认",
-  "gui.voteme.counter.prev": "上一个",
+  "gui.voteme.counter.prev": "上一个分类",
   "gui.voteme.counter.rename": "更名",
+  "gui.voteme.counter.score": "投票分数",
+  "gui.voteme.counter.switch": "启用/禁用作品在该分类下的投票",
   "item.voteme.counter": "投票计数器",
-  "item.voteme.voter": "投票表决器"
+  "item.voteme.voter": "投票表决器",
+  "vote_categories.voteme.general.name": "总体评价",
+  "vote_categories.voteme.general.description": "- 80% 来自玩家的投票\n- 20% 来自专业评审员的投票\n\n相关信息定义在：\n'data/voteme/vote_categories/general.json'",
+  "vote_categories.voteme.professional.name": "专业评价",
+  "vote_categories.voteme.professional.description": "- 100% 来自专业评审员的投票 (评价最高和最低的投票会各自去除一个) 。\n\n相关信息定义在：\n'data/voteme/vote_categories/professional.json'",
+  "vote_roles.voteme.general_players.name": "玩家",
+  "vote_roles.voteme.professional_judges.name": "专业评审员"
 }

@@ -1,12 +1,12 @@
 {
   "name": {
-    "text": "General"
+    "translate": "vote_categories.voteme.general.name"
   },
   "enabled": {
     "default": true,
     "modifiable": false
   },
   "description": {
-    "text": "General judgement of the work. The final result is 80% from players and 20% from professional judges. You can edit this category by modifying 'data/voteme/vote_categories/general.json'."
+    "translate": "vote_categories.voteme.general.description"
   }
 }

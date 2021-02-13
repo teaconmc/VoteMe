@@ -1,6 +1,6 @@
 {
   "name": {
-    "text": "Professional Judges"
+    "translate": "vote_roles.voteme.professional_judges.name"
   },
   "selector": "@a[tag=voteme_judges]",
   "participations": [{

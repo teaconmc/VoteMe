@@ -1,12 +1,12 @@
 {
   "name": {
-    "text": "Professional"
+    "translate": "vote_categories.voteme.professional.name"
   },
   "enabled": {
     "default": true,
     "modifiable": true
   },
   "description": {
-    "text": "Professional judgement of the work. The final result is 100% from professional judges. One of the highest and one of the lowest will be removed. You can edit this category by modifying 'data/voteme/vote_categories/professional.json'."
+    "translate": "vote_categories.voteme.professional.description"
   }
 }
