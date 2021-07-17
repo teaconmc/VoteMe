@@ -72,7 +72,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
 
     public void set(ServerPlayerEntity player, int level) {
         Preconditions.checkArgument(level >= 0 && level <= 5);
-        this.set(player.getUniqueID(), level, VoteRoleHandler.getRole(player), Instant.now());
+        this.set(player.getUniqueID(), level, VoteRoleHandler.getRoles(player), Instant.now());
     }
 
     public void set(UUID uuid, int level, Collection<? extends ResourceLocation> roles, Instant voteTime) {

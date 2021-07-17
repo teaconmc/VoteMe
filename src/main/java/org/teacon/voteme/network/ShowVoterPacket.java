@@ -5,18 +5,23 @@ import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.network.NetworkEvent;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
+import org.teacon.voteme.roles.VoteRole;
+import org.teacon.voteme.roles.VoteRoleHandler;
 import org.teacon.voteme.screen.VoterScreen;
 import org.teacon.voteme.vote.VoteListEntry;
 import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -72,14 +77,19 @@ public final class ShowVoterPacket {
         VoteListHandler handler = VoteListHandler.get(player.server);
         String artifactName = handler.getArtifactName(artifactID);
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
-        VoteCategoryHandler.getIds().forEach(location -> {
-            int id = handler.getIdOrCreate(artifactID, location);
+        Set<ResourceLocation> categoryIDs = new LinkedHashSet<>();
+        for (ResourceLocation roleID : VoteRoleHandler.getRoles(player)) {
+            VoteRole rule = VoteRoleHandler.getRole(roleID).orElseThrow(IllegalStateException::new);
+            categoryIDs.addAll(rule.categories.keySet());
+        }
+        for (ResourceLocation categoryID : categoryIDs) {
+            int id = handler.getIdOrCreate(artifactID, categoryID);
             VoteListEntry entry = handler.getEntry(id).orElseThrow(IllegalStateException::new);
-            VoteCategory category = VoteCategoryHandler.getCategory(location).orElseThrow(IllegalStateException::new);
+            VoteCategory category = VoteCategoryHandler.getCategory(categoryID).orElseThrow(IllegalStateException::new);
             if (entry.votes.getEnabled().orElse(category.enabledDefault)) {
                 builder.add(new Info(id, category.name, category.description, entry.votes.get(player)));
             }
-        });
+        };
         ImmutableList<Info> infos = builder.build();
         if (!infos.isEmpty()) {
             return Optional.of(new ShowVoterPacket(artifactName, infos));

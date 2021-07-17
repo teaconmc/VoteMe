@@ -41,7 +41,7 @@ public final class VoteRoleHandler extends JsonReloadListener {
         super(GSON, "vote_roles");
     }
 
-    public static Collection<? extends ResourceLocation> getRole(ServerPlayerEntity player) {
+    public static Collection<? extends ResourceLocation> getRoles(ServerPlayerEntity player) {
         ImmutableSet.Builder<ResourceLocation> builder = ImmutableSet.builder();
         for (Map.Entry<ResourceLocation, VoteRole> entry : reversedRoleMap.entrySet()) {
             try {
