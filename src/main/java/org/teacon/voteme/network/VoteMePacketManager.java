@@ -26,5 +26,9 @@ public final class VoteMePacketManager {
                 ApplyCounterPacket::write, ApplyCounterPacket::read, ApplyCounterPacket::handle);
         CHANNEL.registerMessage(2, EditNamePacket.class,
                 EditNamePacket::write, EditNamePacket::read, EditNamePacket::handle);
+        CHANNEL.registerMessage(3, ShowVoterPacket.class,
+                ShowVoterPacket::write, ShowVoterPacket::read, ShowVoterPacket::handle);
+        CHANNEL.registerMessage(4, SubmitVotePacket.class,
+                SubmitVotePacket::write, SubmitVotePacket::read, SubmitVotePacket::handle);
     }
 }
