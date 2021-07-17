@@ -1,6 +1,5 @@
 package org.teacon.voteme.vote;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Table;
 import com.google.common.collect.TreeBasedTable;
 import com.google.gson.JsonArray;
@@ -23,7 +22,6 @@ import net.minecraftforge.common.util.Constants;
 import org.teacon.voteme.category.VoteCategoryHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.time.Instant;
 import java.util.*;
 
 @MethodsReturnNonnullByDefault
@@ -46,18 +44,6 @@ public final class VoteListHandler extends WorldSavedData {
         this.voteArtifactNames = new TreeMap<>();
         this.voteListIndices = TreeBasedTable.create();
         this.voteEntries = new Int2ObjectRBTreeMap<>();
-
-        // initialize default values
-        Instant voteTime = VoteList.DEFAULT_VOTE_TIME;
-        ResourceLocation role = new ResourceLocation("voteme:general_players");
-        UUID userID = UUID.fromString("7c5faf44-24b0-4496-b91a-147fb781fae9"); // zzzz_ustc
-        UUID artifactID = UUID.fromString("888891b2-7326-42da-9ed2-a36a8f301410"); // do you believe it is generated randomly?
-
-        // create default entries
-        this.voteArtifactNames.put(artifactID, "VoteMe");
-        VoteCategoryHandler.getIds().stream()
-                .mapToInt(category -> this.getIdOrCreate(artifactID, category))
-                .forEach(id -> this.voteEntries.get(id).votes.set(userID, 5, ImmutableSet.of(role), voteTime));
     }
 
     public boolean hasEnabled(ResourceLocation category) {
