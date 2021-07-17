@@ -1,7 +1,6 @@
 package org.teacon.voteme.network;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.ItemStack;

@@ -21,13 +21,15 @@ import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.fml.network.NetworkInstance;
 import org.teacon.voteme.network.ShowVoterPacket;
 import org.teacon.voteme.network.SubmitVotePacket;
 import org.teacon.voteme.network.VoteMePacketManager;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @OnlyIn(Dist.CLIENT)
 @MethodsReturnNonnullByDefault
