@@ -13,7 +13,7 @@ import java.util.function.Supplier;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public class EditNamePacket {
+public final class EditNamePacket {
     public final UUID artifactUUID;
     public final String newArtifactName;
 

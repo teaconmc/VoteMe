@@ -26,7 +26,7 @@ public final class ShowVoterPacket {
     public final String artifactName;
     public final ImmutableList<Info> infos;
 
-    public ShowVoterPacket(String name, ImmutableList<Info> infos) {
+    private ShowVoterPacket(String name, ImmutableList<Info> infos) {
         this.artifactName = name;
         this.infos = infos;
     }

@@ -18,7 +18,7 @@ import java.util.function.Supplier;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public class ApplyCounterPacket {
+public final class ApplyCounterPacket {
     public final int inventoryIndex;
     public final UUID artifactUUID;
     public final ResourceLocation categoryID;

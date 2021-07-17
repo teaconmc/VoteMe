@@ -17,7 +17,7 @@ import java.util.function.Supplier;
 public final class SubmitVotePacket {
     public final ImmutableMap<Integer, Integer> entries;
 
-    public SubmitVotePacket(ImmutableMap<Integer, Integer> entries) {
+    private SubmitVotePacket(ImmutableMap<Integer, Integer> entries) {
         this.entries = entries;
     }
 

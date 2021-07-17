@@ -32,7 +32,7 @@ public final class EditCounterPacket {
     public final ResourceLocation category;
     public final ImmutableList<Info> infos;
 
-    public EditCounterPacket(int invIndex, UUID uuid, String name, ResourceLocation category, ImmutableList<Info> infos) {
+    private EditCounterPacket(int invIndex, UUID uuid, String name, ResourceLocation category, ImmutableList<Info> infos) {
         this.invIndex = invIndex;
         this.artifactName = name;
         this.artifactUUID = uuid;
