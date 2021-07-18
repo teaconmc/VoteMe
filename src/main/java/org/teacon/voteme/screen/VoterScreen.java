@@ -34,7 +34,6 @@ import java.util.*;
 @ParametersAreNonnullByDefault
 public final class VoterScreen extends Screen {
     private static final ResourceLocation TEXTURE = new ResourceLocation("voteme:textures/gui/voter.png");
-    private static final ITextComponent EMPTY_ARTIFACT_TEXT = new TranslationTextComponent("gui.voteme.voter.empty_artifact").modifyStyle(style -> style.setItalic(true));
 
     private static final int BUTTON_TEXT_COLOR = 0xFFFFFFFF;
     private static final int TEXT_COLOR = 0xFF000000 | DyeColor.BLACK.getTextColor();
@@ -51,12 +50,12 @@ public final class VoterScreen extends Screen {
     private int slideBottom, slideTop;
     private BottomButton clearButton, unsetButton;
 
-    public VoterScreen(UUID artifactID, List<ShowVoterPacket.Info> infos) {
+    public VoterScreen(UUID artifactID, String artifactName, List<ShowVoterPacket.Info> infos) {
         super(NarratorChatListener.EMPTY);
         this.artifactID = artifactID;
+        this.artifact = artifactName;
         this.votes = new LinkedHashMap<>(infos.size());
         this.infoCollection = ImmutableList.copyOf(infos);
-        this.artifact = VoteListHandler.getArtifactName(artifactID);
     }
 
     @Override
@@ -184,16 +183,8 @@ public final class VoterScreen extends Screen {
         matrixStack.push();
         float scale = ARTIFACT_SCALE_FACTOR;
         matrixStack.scale(scale, scale, scale);
-        int x3 = this.width / 2 + 1, y3 = this.height / 2 - 82;
-        if (this.artifact.isEmpty()) {
-            // draw hint text
-            int dx0 = font.getStringPropertyWidth(EMPTY_ARTIFACT_TEXT) / 2;
-            font.func_243248_b(matrixStack, EMPTY_ARTIFACT_TEXT, x3 / scale - dx0, y3 / scale, SUGGESTION_COLOR);
-        } else {
-            // draw actual text
-            int dx = font.getStringWidth(this.artifact) / 2;
-            font.func_243248_b(matrixStack, new StringTextComponent(this.artifact), x3 / scale - dx, y3 / scale, TEXT_COLOR);
-        }
+        int x3 = this.width / 2 + 1, y3 = this.height / 2 - 82, dx = font.getStringWidth(this.artifact) / 2;
+        font.func_243248_b(matrixStack, new StringTextComponent(this.artifact), x3 / scale - dx, y3 / scale, TEXT_COLOR);
         matrixStack.pop();
     }
 

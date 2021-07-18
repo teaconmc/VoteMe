@@ -30,7 +30,7 @@ public final class BoardItem extends BlockItem {
 
     @SubscribeEvent
     public static void register(RegistryEvent.Register<Item> event) {
-        event.getRegistry().register(new BoardItem(new Properties().group(ItemGroup.MISC)));
+        event.getRegistry().register(new BoardItem(new Properties().group(VoteMeItemGroup.INSTANCE)));
     }
 
     @SubscribeEvent

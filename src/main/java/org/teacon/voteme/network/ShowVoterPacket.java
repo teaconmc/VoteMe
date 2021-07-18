@@ -43,8 +43,11 @@ public final class ShowVoterPacket {
                 @Override
                 public void run() {
                     ShowVoterPacket p = ShowVoterPacket.this;
-                    VoterScreen gui = new VoterScreen(p.artifactID, p.infos);
-                    supplier.get().enqueueWork(() -> Minecraft.getInstance().displayGuiScreen(gui));
+                    String artifactName = VoteListHandler.getArtifactName(p.artifactID);
+                    if (!artifactName.isEmpty()) {
+                        VoterScreen gui = new VoterScreen(p.artifactID, artifactName, p.infos);
+                        supplier.get().enqueueWork(() -> Minecraft.getInstance().displayGuiScreen(gui));
+                    }
                 }
             });
         }
@@ -74,24 +77,26 @@ public final class ShowVoterPacket {
     }
 
     public static Optional<ShowVoterPacket> create(UUID artifactID, ServerPlayerEntity player) {
-        VoteListHandler handler = VoteListHandler.get(player.server);
-        ImmutableList.Builder<Info> builder = ImmutableList.builder();
-        Set<ResourceLocation> categoryIDs = new LinkedHashSet<>();
-        for (ResourceLocation roleID : VoteRoleHandler.getRoles(player)) {
-            VoteRole rule = VoteRoleHandler.getRole(roleID).orElseThrow(IllegalStateException::new);
-            categoryIDs.addAll(rule.categories.keySet());
-        }
-        for (ResourceLocation categoryID : categoryIDs) {
-            int id = handler.getIdOrCreate(artifactID, categoryID);
-            VoteListEntry entry = handler.getEntry(id).orElseThrow(IllegalStateException::new);
-            VoteCategory category = VoteCategoryHandler.getCategory(categoryID).orElseThrow(IllegalStateException::new);
-            if (entry.votes.getEnabled().orElse(category.enabledDefault)) {
-                builder.add(new Info(categoryID, category, entry.votes.get(player)));
+        if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
+            VoteListHandler handler = VoteListHandler.get(player.server);
+            ImmutableList.Builder<Info> builder = ImmutableList.builder();
+            Set<ResourceLocation> categoryIDs = new LinkedHashSet<>();
+            for (ResourceLocation roleID : VoteRoleHandler.getRoles(player)) {
+                VoteRole rule = VoteRoleHandler.getRole(roleID).orElseThrow(IllegalStateException::new);
+                categoryIDs.addAll(rule.categories.keySet());
             }
-        }
-        ImmutableList<Info> infos = builder.build();
-        if (!infos.isEmpty()) {
-            return Optional.of(new ShowVoterPacket(artifactID, infos));
+            for (ResourceLocation categoryID : categoryIDs) {
+                int id = handler.getIdOrCreate(artifactID, categoryID);
+                VoteListEntry entry = handler.getEntry(id).orElseThrow(IllegalStateException::new);
+                VoteCategory category = VoteCategoryHandler.getCategory(categoryID).orElseThrow(IllegalStateException::new);
+                if (entry.votes.getEnabled().orElse(category.enabledDefault)) {
+                    builder.add(new Info(categoryID, category, entry.votes.get(player)));
+                }
+            }
+            ImmutableList<Info> infos = builder.build();
+            if (!infos.isEmpty()) {
+                return Optional.of(new ShowVoterPacket(artifactID, infos));
+            }
         }
         return Optional.empty();
     }

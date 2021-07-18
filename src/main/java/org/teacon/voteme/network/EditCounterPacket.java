@@ -82,26 +82,28 @@ public final class EditCounterPacket {
     }
 
     public static Optional<EditCounterPacket> create(int inventoryId, UUID artifactID, ResourceLocation categoryID, MinecraftServer server) {
-        boolean isValidCategoryID = false;
-        VoteListHandler handler = VoteListHandler.get(server);
-        ImmutableList.Builder<Info> builder = ImmutableList.builder();
-        for (ResourceLocation location : VoteCategoryHandler.getIds()) {
-            isValidCategoryID = isValidCategoryID || location.equals(categoryID);
-            VoteCategory category = VoteCategoryHandler.getCategory(location).orElseThrow(IllegalStateException::new);
-            VoteListEntry entry = handler.getEntry(handler.getIdOrCreate(artifactID, location)).orElseThrow(IllegalStateException::new);
-            boolean enabledCurrently = entry.votes.getEnabled().orElse(category.enabledDefault);
-            if (category.enabledDefault || category.enabledModifiable || enabledCurrently) {
-                Collection<VoteList.Stats> statsCollection = entry.votes.buildFinalScore(location).values();
-                VoteList.Stats finalStats = VoteList.Stats.combine(statsCollection, VoteList.Stats::getWeight);
-                builder.add(new Info(location, category, finalStats.getFinalScore(6.0F), enabledCurrently));
+        if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
+            boolean isValidCategoryID = false;
+            VoteListHandler handler = VoteListHandler.get(server);
+            ImmutableList.Builder<Info> builder = ImmutableList.builder();
+            for (ResourceLocation location : VoteCategoryHandler.getIds()) {
+                isValidCategoryID = isValidCategoryID || location.equals(categoryID);
+                VoteCategory category = VoteCategoryHandler.getCategory(location).orElseThrow(IllegalStateException::new);
+                VoteListEntry entry = handler.getEntry(handler.getIdOrCreate(artifactID, location)).orElseThrow(IllegalStateException::new);
+                boolean enabledCurrently = entry.votes.getEnabled().orElse(category.enabledDefault);
+                if (category.enabledDefault || category.enabledModifiable || enabledCurrently) {
+                    Collection<VoteList.Stats> statsCollection = entry.votes.buildFinalScore(location).values();
+                    VoteList.Stats finalStats = VoteList.Stats.combine(statsCollection, VoteList.Stats::getWeight);
+                    builder.add(new Info(location, category, finalStats.getFinalScore(6.0F), enabledCurrently));
+                }
             }
-        }
-        ImmutableList<Info> infos = builder.build();
-        if (!infos.isEmpty()) {
-            if (!isValidCategoryID) {
-                categoryID = infos.iterator().next().id;
+            ImmutableList<Info> infos = builder.build();
+            if (!infos.isEmpty()) {
+                if (!isValidCategoryID) {
+                    categoryID = infos.iterator().next().id;
+                }
+                return Optional.of(new EditCounterPacket(inventoryId, artifactID, categoryID, infos));
             }
-            return Optional.of(new EditCounterPacket(inventoryId, artifactID, categoryID, infos));
         }
         return Optional.empty();
     }

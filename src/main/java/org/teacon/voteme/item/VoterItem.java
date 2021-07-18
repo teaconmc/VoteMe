@@ -1,6 +1,7 @@
 package org.teacon.voteme.item;
 
 import mcp.MethodsReturnNonnullByDefault;
+import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.Item;
@@ -9,16 +10,25 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.*;
 import net.minecraft.world.World;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.network.PacketDistributor;
 import net.minecraftforge.registries.ObjectHolder;
+import org.teacon.voteme.category.VoteCategory;
+import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.network.ShowVoterPacket;
 import org.teacon.voteme.network.VoteMePacketManager;
+import org.teacon.voteme.vote.VoteListHandler;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.List;
 import java.util.Optional;
 
 @MethodsReturnNonnullByDefault
@@ -33,7 +43,7 @@ public final class VoterItem extends Item {
 
     @SubscribeEvent
     public static void register(RegistryEvent.Register<Item> event) {
-        event.getRegistry().register(new VoterItem(new Properties().maxStackSize(1).group(ItemGroup.MISC)));
+        event.getRegistry().register(new VoterItem(new Properties().maxStackSize(1).group(VoteMeItemGroup.INSTANCE)));
     }
 
     private VoterItem(Properties properties) {
@@ -42,10 +52,27 @@ public final class VoterItem extends Item {
     }
 
     @Override
+    @OnlyIn(Dist.CLIENT)
+    public void addInformation(ItemStack stack, @Nullable World world, List<ITextComponent> tooltip, ITooltipFlag flag) {
+        CompoundNBT tag = stack.getTag();
+        if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
+            String artifactName = VoteListHandler.getArtifactName(tag.getUniqueId("CurrentArtifact"));
+            if (!artifactName.isEmpty()) {
+                IFormattableTextComponent artifactText = new StringTextComponent(artifactName).mergeStyle(TextFormatting.GREEN);
+                tooltip.add(new TranslationTextComponent("gui.voteme.voter.current_artifact_hint", artifactText).mergeStyle(TextFormatting.GRAY));
+            } else {
+                tooltip.add(new TranslationTextComponent("gui.voteme.voter.empty_artifact_hint").mergeStyle(TextFormatting.GRAY));
+            }
+        } else {
+            tooltip.add(new TranslationTextComponent("gui.voteme.voter.empty_artifact_hint").mergeStyle(TextFormatting.GRAY));
+        }
+    }
+
+    @Override
     public ActionResult<ItemStack> onItemRightClick(World world, PlayerEntity player, Hand hand) {
         ItemStack itemStack = player.getHeldItem(hand);
+        CompoundNBT tag = itemStack.getTag();
         if (player instanceof ServerPlayerEntity) {
-            CompoundNBT tag = itemStack.getTag();
             Optional<ShowVoterPacket> packet = Optional.empty();
             ServerPlayerEntity serverPlayer = (ServerPlayerEntity) player;
             if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
@@ -54,8 +81,11 @@ public final class VoterItem extends Item {
             if (packet.isPresent()) {
                 PacketDistributor.PacketTarget target = PacketDistributor.PLAYER.with(() -> serverPlayer);
                 VoteMePacketManager.CHANNEL.send(target, packet.get());
+                return ActionResult.resultConsume(itemStack);
             }
+        } else if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
+            return ActionResult.resultSuccess(itemStack);
         }
-        return ActionResult.func_233538_a_(itemStack, world.isRemote());
+        return ActionResult.resultFail(itemStack);
     }
 }
