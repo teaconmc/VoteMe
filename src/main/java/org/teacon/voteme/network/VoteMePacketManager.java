@@ -30,5 +30,9 @@ public final class VoteMePacketManager {
                 ShowVoterPacket::write, ShowVoterPacket::read, ShowVoterPacket::handle);
         CHANNEL.registerMessage(4, SubmitVotePacket.class,
                 SubmitVotePacket::write, SubmitVotePacket::read, SubmitVotePacket::handle);
+        CHANNEL.registerMessage(5, SyncCategoryPacket.class,
+                SyncCategoryPacket::write, SyncCategoryPacket::read, SyncCategoryPacket::handle);
+        CHANNEL.registerMessage(6, SyncArtifactNamePacket.class,
+                SyncArtifactNamePacket::write, SyncArtifactNamePacket::read, SyncArtifactNamePacket::handle);
     }
 }

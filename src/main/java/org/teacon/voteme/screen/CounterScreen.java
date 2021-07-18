@@ -20,6 +20,8 @@ import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import org.teacon.voteme.category.VoteCategory;
+import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.network.ApplyCounterPacket;
 import org.teacon.voteme.network.EditCounterPacket;
 import org.teacon.voteme.network.EditNamePacket;
@@ -93,7 +95,7 @@ public final class CounterScreen extends Screen {
     @Override
     public void tick() {
         ++this.artifactCursorTick;
-        this.bottomSwitch.visible = this.infoCollection.iterator().next().enabledModifiable;
+        this.bottomSwitch.visible = this.infoCollection.iterator().next().category.enabledModifiable;
         this.renameButton.visible = !this.artifact.isEmpty() && !Objects.equals(this.artifact, this.oldArtifact);
     }
 
@@ -186,11 +188,11 @@ public final class CounterScreen extends Screen {
 
     private void drawCategoryName(MatrixStack matrixStack, EditCounterPacket.Info info, FontRenderer font) {
         int x0 = this.width / 2 - 52, y0 = this.height / 2 - 14;
-        font.func_243248_b(matrixStack, info.name, x0, y0, TEXT_COLOR);
+        font.func_243248_b(matrixStack, info.category.name, x0, y0, TEXT_COLOR);
     }
 
     private void drawCategoryDescription(MatrixStack matrixStack, EditCounterPacket.Info info, FontRenderer font) {
-        List<IReorderingProcessor> descriptions = font.trimStringToWidth(info.desc, 191);
+        List<IReorderingProcessor> descriptions = font.trimStringToWidth(info.category.description, 191);
         for (int size = Math.min(7, descriptions.size()), i = 0; i < size; ++i) {
             IReorderingProcessor description = descriptions.get(i);
             int x1 = this.width / 2 - 95, y1 = 9 * i + this.height / 2 + 6;

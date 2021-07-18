@@ -26,7 +26,7 @@ public final class EditNamePacket {
         supplier.get().enqueueWork(() -> {
             ServerPlayerEntity sender = Objects.requireNonNull(supplier.get().getSender());
             VoteListHandler voteListHandler = VoteListHandler.get(Objects.requireNonNull(sender.getServer()));
-            voteListHandler.putArtifactName(this.artifactUUID, this.newArtifactName);
+            VoteListHandler.putArtifactName(voteListHandler, this.artifactUUID, this.newArtifactName);
         });
         supplier.get().setPacketHandled(true);
     }

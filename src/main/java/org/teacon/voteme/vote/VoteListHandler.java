@@ -7,6 +7,8 @@ import com.google.gson.JsonObject;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 import mcp.MethodsReturnNonnullByDefault;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.nbt.ListNBT;
 import net.minecraft.server.MinecraftServer;
@@ -18,18 +20,28 @@ import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.event.HoverEvent;
 import net.minecraft.world.storage.DimensionSavedDataManager;
 import net.minecraft.world.storage.WorldSavedData;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.common.util.Constants;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.network.PacketDistributor;
 import org.teacon.voteme.category.VoteCategoryHandler;
+import org.teacon.voteme.network.SyncArtifactNamePacket;
+import org.teacon.voteme.network.VoteMePacketManager;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
+@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class VoteListHandler extends WorldSavedData {
+    private static final Map<UUID, String> voteArtifactNames = new TreeMap<>();
+
     private int nextIndex;
 
-    private final Map<UUID, String> voteArtifactNames;
     private final Int2ObjectMap<VoteListEntry> voteEntries;
     private final Table<UUID, ResourceLocation, Integer> voteListIndices;
 
@@ -41,14 +53,13 @@ public final class VoteListHandler extends WorldSavedData {
     public VoteListHandler(String name) {
         super(name);
         this.nextIndex = 1;
-        this.voteArtifactNames = new TreeMap<>();
         this.voteListIndices = TreeBasedTable.create();
         this.voteEntries = new Int2ObjectRBTreeMap<>();
     }
 
     public boolean hasEnabled(ResourceLocation category) {
         boolean enabledDefault = VoteCategoryHandler.getCategory(category).filter(c -> c.enabledDefault).isPresent();
-        return this.voteArtifactNames.keySet().stream()
+        return voteArtifactNames.keySet().stream()
                 .map(id -> this.voteEntries.get(this.getIdOrCreate(id, category)))
                 .anyMatch(entry -> entry.votes.getEnabled().orElse(enabledDefault));
     }
@@ -69,36 +80,38 @@ public final class VoteListHandler extends WorldSavedData {
         return Optional.ofNullable(this.voteEntries.get(id));
     }
 
-    public Collection<? extends UUID> getArtifacts() {
-        return Collections.unmodifiableSet(this.voteArtifactNames.keySet());
+    public static Collection<? extends UUID> getArtifacts() {
+        return Collections.unmodifiableSet(voteArtifactNames.keySet());
     }
 
-    public String getArtifactName(UUID uuid) {
-        return this.voteArtifactNames.getOrDefault(uuid, "");
+    public static String getArtifactName(UUID uuid) {
+        return voteArtifactNames.getOrDefault(uuid, "");
     }
 
-    public void putArtifactName(UUID uuid, String name) {
+    public static void putArtifactName(VoteListHandler handler, UUID uuid, String name) {
         if (!name.isEmpty()) {
-            this.voteArtifactNames.put(uuid, name);
-            this.markDirty();
-        } else if (this.voteArtifactNames.containsKey(uuid)) {
-            this.voteArtifactNames.remove(uuid);
-            this.markDirty();
+            handler.markDirty();
+            voteArtifactNames.put(uuid, name);
+            VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(), SyncArtifactNamePacket.create(voteArtifactNames));
+        } else if (voteArtifactNames.containsKey(uuid)) {
+            handler.markDirty();
+            voteArtifactNames.remove(uuid);
+            VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(), SyncArtifactNamePacket.create(voteArtifactNames));
         }
     }
 
-    public IFormattableTextComponent getArtifactText(UUID artifactID) {
+    public static IFormattableTextComponent getArtifactText(UUID artifactID) {
         String uuidShort = artifactID.toString().substring(0, 4);
         ITextComponent hover = new StringTextComponent(artifactID.toString());
         HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover);
-        String base = String.format("%s (%s...)", this.getArtifactName(artifactID), uuidShort);
+        String base = String.format("%s (%s...)", getArtifactName(artifactID), uuidShort);
         return new StringTextComponent(base).modifyStyle(style -> style.setHoverEvent(hoverEvent));
     }
 
     public JsonObject toArtifactHTTPJson(UUID artifactID) {
         return Util.make(new JsonObject(), result -> {
             result.addProperty("id", artifactID.toString());
-            result.addProperty("name", this.getArtifactName(artifactID));
+            result.addProperty("name", getArtifactName(artifactID));
             result.add("vote_lists", Util.make(new JsonArray(), array -> {
                 for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
                     int id = this.getIdOrCreate(artifactID, categoryID);
@@ -110,9 +123,24 @@ public final class VoteListHandler extends WorldSavedData {
         });
     }
 
+    @SubscribeEvent
+    public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        PlayerEntity player = event.getPlayer();
+        if (player instanceof ServerPlayerEntity) {
+            SyncArtifactNamePacket packet = SyncArtifactNamePacket.create(voteArtifactNames);
+            VoteMePacketManager.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (ServerPlayerEntity) player), packet);
+        }
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    public static void handleServerPacket(SyncArtifactNamePacket packet) {
+        voteArtifactNames.clear();
+        voteArtifactNames.putAll(packet.artifactNames);
+    }
+
     @Override
     public void read(CompoundNBT nbt) {
-        this.voteArtifactNames.clear();
+        voteArtifactNames.clear();
         this.voteEntries.clear();
         this.voteListIndices.clear();
         this.nextIndex = nbt.getInt("VoteListNextIndex");
@@ -132,7 +160,7 @@ public final class VoteListHandler extends WorldSavedData {
             UUID id = child.getUniqueId("UUID");
             String name = child.getString("Name");
             if (!name.isEmpty()) {
-                this.voteArtifactNames.put(id, name);
+                voteArtifactNames.put(id, name);
             }
         }
     }
@@ -149,7 +177,7 @@ public final class VoteListHandler extends WorldSavedData {
             }
         }
         ListNBT names = new ListNBT();
-        for (Map.Entry<UUID, String> entry : this.voteArtifactNames.entrySet()) {
+        for (Map.Entry<UUID, String> entry : voteArtifactNames.entrySet()) {
             CompoundNBT child = new CompoundNBT();
             child.putUniqueId("UUID", entry.getKey());
             child.putString("Name", entry.getValue());

@@ -6,7 +6,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.ITextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.network.NetworkEvent;
@@ -28,13 +27,11 @@ import java.util.function.Supplier;
 public final class EditCounterPacket {
     public final int invIndex;
     public final UUID artifactUUID;
-    public final String artifactName;
     public final ResourceLocation category;
     public final ImmutableList<Info> infos;
 
-    private EditCounterPacket(int invIndex, UUID uuid, String name, ResourceLocation category, ImmutableList<Info> infos) {
+    private EditCounterPacket(int invIndex, UUID uuid, ResourceLocation category, ImmutableList<Info> infos) {
         this.invIndex = invIndex;
-        this.artifactName = name;
         this.artifactUUID = uuid;
         this.category = category;
         this.infos = infos;
@@ -48,7 +45,8 @@ public final class EditCounterPacket {
                 @Override
                 public void run() {
                     EditCounterPacket p = EditCounterPacket.this;
-                    CounterScreen gui = new CounterScreen(p.artifactUUID, p.artifactName, p.invIndex, p.category, p.infos);
+                    String artifactName = VoteListHandler.getArtifactName(p.artifactUUID);
+                    CounterScreen gui = new CounterScreen(p.artifactUUID, artifactName, p.invIndex, p.category, p.infos);
                     supplier.get().enqueueWork(() -> Minecraft.getInstance().displayGuiScreen(gui));
                 }
             });
@@ -58,50 +56,44 @@ public final class EditCounterPacket {
 
     public void write(PacketBuffer buffer) {
         buffer.writeInt(this.invIndex);
-        buffer.writeString(this.artifactName);
         buffer.writeUniqueId(this.artifactUUID);
         buffer.writeResourceLocation(this.category);
         for (Info info : this.infos) {
             buffer.writeDouble(info.score);
-            buffer.writeTextComponent(info.name);
-            buffer.writeTextComponent(info.desc);
             buffer.writeResourceLocation(info.id);
             buffer.writeBoolean(info.enabledCurrently);
-            buffer.writeBoolean(info.enabledModifiable);
         }
         buffer.writeDouble(Double.NaN);
     }
 
     public static EditCounterPacket read(PacketBuffer buffer) {
         int inventoryIndex = buffer.readInt();
-        String artifactName = buffer.readString();
         UUID artifactUUID = buffer.readUniqueId();
         ResourceLocation category = buffer.readResourceLocation();
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
         for (double score = buffer.readDouble(); !Double.isNaN(score); score = buffer.readDouble()) {
-            ITextComponent name = buffer.readTextComponent();
-            ITextComponent desc = buffer.readTextComponent();
             ResourceLocation id = buffer.readResourceLocation();
-            boolean enabledCurrently = buffer.readBoolean(), enabledModifiable = buffer.readBoolean();
-            builder.add(new Info(id, name, desc, score, enabledCurrently, enabledModifiable));
+            Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(id);
+            if (categoryOptional.isPresent()) {
+                builder.add(new Info(id, categoryOptional.get(), score, buffer.readBoolean()));
+            }
         }
-        return new EditCounterPacket(inventoryIndex, artifactUUID, artifactName, category, builder.build());
+        return new EditCounterPacket(inventoryIndex, artifactUUID, category, builder.build());
     }
 
     public static Optional<EditCounterPacket> create(int inventoryId, UUID artifactID, ResourceLocation categoryID, MinecraftServer server) {
         boolean isValidCategoryID = false;
         VoteListHandler handler = VoteListHandler.get(server);
-        String artifactName = handler.getArtifactName(artifactID);
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
         for (ResourceLocation location : VoteCategoryHandler.getIds()) {
             isValidCategoryID = isValidCategoryID || location.equals(categoryID);
             VoteCategory category = VoteCategoryHandler.getCategory(location).orElseThrow(IllegalStateException::new);
             VoteListEntry entry = handler.getEntry(handler.getIdOrCreate(artifactID, location)).orElseThrow(IllegalStateException::new);
-            boolean enabledCurrently = entry.votes.getEnabled().orElse(category.enabledDefault), enabledModifiable = category.enabledModifiable;
+            boolean enabledCurrently = entry.votes.getEnabled().orElse(category.enabledDefault);
             if (category.enabledDefault || category.enabledModifiable || enabledCurrently) {
                 Collection<VoteList.Stats> statsCollection = entry.votes.buildFinalScore(location).values();
                 VoteList.Stats finalStats = VoteList.Stats.combine(statsCollection, VoteList.Stats::getWeight);
-                builder.add(new Info(location, category.name, category.description, finalStats.getFinalScore(6.0F), enabledCurrently, enabledModifiable));
+                builder.add(new Info(location, category, finalStats.getFinalScore(6.0F), enabledCurrently));
             }
         }
         ImmutableList<Info> infos = builder.build();
@@ -109,7 +101,7 @@ public final class EditCounterPacket {
             if (!isValidCategoryID) {
                 categoryID = infos.iterator().next().id;
             }
-            return Optional.of(new EditCounterPacket(inventoryId, artifactID, artifactName, categoryID, infos));
+            return Optional.of(new EditCounterPacket(inventoryId, artifactID, categoryID, infos));
         }
         return Optional.empty();
     }
@@ -119,15 +111,14 @@ public final class EditCounterPacket {
         VoteCategoryHandler.getIds().forEach(location -> {
             VoteCategory category = VoteCategoryHandler.getCategory(location).orElseThrow(IllegalStateException::new);
             if (category.enabledDefault || category.enabledModifiable) {
-                boolean enabledCurrently = category.enabledDefault, enabledModifiable = category.enabledModifiable;
-                builder.add(new Info(location, category.name, category.description, 6.0, enabledCurrently, enabledModifiable));
+                builder.add(new Info(location, category, 6.0, category.enabledDefault));
             }
         });
         ImmutableList<Info> infos = builder.build();
         if (!infos.isEmpty()) {
             UUID newArtifactUUID = UUID.randomUUID();
             ResourceLocation categoryID = infos.iterator().next().id;
-            return Optional.of(new EditCounterPacket(inventoryId, newArtifactUUID, "", categoryID, infos));
+            return Optional.of(new EditCounterPacket(inventoryId, newArtifactUUID, categoryID, infos));
         }
         return Optional.empty();
     }
@@ -137,21 +128,19 @@ public final class EditCounterPacket {
     public static final class Info {
         public final double score;
         public final ResourceLocation id;
-        public final ITextComponent name, desc;
-        public final boolean enabledCurrently, enabledModifiable;
+        public final VoteCategory category;
+        public final boolean enabledCurrently;
 
-        public Info(ResourceLocation id, ITextComponent name, ITextComponent desc, double score, boolean enabledCurrently, boolean enabledModifiable) {
+        public Info(ResourceLocation id, VoteCategory category, double score, boolean enabledCurrently) {
             this.id = id;
-            this.name = name;
-            this.desc = desc;
             this.score = score;
+            this.category = category;
             this.enabledCurrently = enabledCurrently;
-            this.enabledModifiable = enabledModifiable;
         }
 
         @Override
         public String toString() {
-            return "EditCounterPacker.Info{id='" + this.id + "', name='" + this.name + "', desc=" + this.desc + ", score=" + this.score + ", enabled=" + this.enabledCurrently + "}";
+            return "EditCounterPacker.Info{id='" + this.id + ", score=" + this.score + ", enabled=" + this.enabledCurrently + "}";
         }
     }
 }

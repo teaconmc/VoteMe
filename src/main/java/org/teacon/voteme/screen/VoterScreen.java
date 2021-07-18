@@ -24,12 +24,10 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 import org.teacon.voteme.network.ShowVoterPacket;
 import org.teacon.voteme.network.SubmitVotePacket;
 import org.teacon.voteme.network.VoteMePacketManager;
+import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 @OnlyIn(Dist.CLIENT)
 @MethodsReturnNonnullByDefault
@@ -44,19 +42,21 @@ public final class VoterScreen extends Screen {
 
     private static final float ARTIFACT_SCALE_FACTOR = 1.5F;
 
+    private final UUID artifactID;
     private final String artifact;
 
-    private final Map<Integer, Integer> votes;
+    private final Map<ResourceLocation, Integer> votes;
     private final List<ShowVoterPacket.Info> infoCollection;
 
     private int slideBottom, slideTop;
     private BottomButton clearButton, unsetButton;
 
-    public VoterScreen(String artifactName, List<ShowVoterPacket.Info> infos) {
+    public VoterScreen(UUID artifactID, List<ShowVoterPacket.Info> infos) {
         super(NarratorChatListener.EMPTY);
-        this.artifact = artifactName;
+        this.artifactID = artifactID;
         this.votes = new LinkedHashMap<>(infos.size());
         this.infoCollection = ImmutableList.copyOf(infos);
+        this.artifact = VoteListHandler.getArtifactName(artifactID);
     }
 
     @Override
@@ -91,7 +91,7 @@ public final class VoterScreen extends Screen {
     @Override
     public void onClose() {
         if (!this.votes.isEmpty()) {
-            SubmitVotePacket packet = SubmitVotePacket.create(this.votes);
+            SubmitVotePacket packet = SubmitVotePacket.create(this.artifactID, this.votes);
             VoteMePacketManager.CHANNEL.sendToServer(packet);
         }
     }
@@ -135,7 +135,7 @@ public final class VoterScreen extends Screen {
         if (dx >= -103 && dy >= -55 && dx < -6 && dy < 77) {
             int current = (this.slideTop + dy + 55) / 24;
             if (current >= 0 && current < this.infoCollection.size()) {
-                ITextComponent desc = this.infoCollection.get(current).desc;
+                ITextComponent desc = this.infoCollection.get(current).category.description;
                 List<IReorderingProcessor> descList = this.font.trimStringToWidth(desc, 191);
                 this.renderTooltip(matrixStack, descList.subList(0, Math.min(7, descList.size())), mouseX, mouseY);
             }
@@ -168,8 +168,8 @@ public final class VoterScreen extends Screen {
             this.blit(matrixStack, x0, y0, 8, 207, 192, 24);
             ShowVoterPacket.Info info = this.infoCollection.get(i);
             // draw category string
-            int x1 = x0 + 48 - font.getStringPropertyWidth(info.name) / 2, y1 = y0 + 8;
-            mc.fontRenderer.func_243248_b(matrixStack, info.name, x1, y1, TEXT_COLOR);
+            int x1 = x0 + 48 - font.getStringPropertyWidth(info.category.name) / 2, y1 = y0 + 8;
+            mc.fontRenderer.func_243248_b(matrixStack, info.category.name, x1, y1, TEXT_COLOR);
             // draw votes
             int voteLevel = this.votes.getOrDefault(info.id, info.level);
             mc.getTextureManager().bindTexture(TEXTURE);

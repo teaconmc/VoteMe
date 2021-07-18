@@ -6,7 +6,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.ITextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.network.NetworkEvent;
@@ -28,11 +27,11 @@ import java.util.function.Supplier;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ShowVoterPacket {
-    public final String artifactName;
+    public final UUID artifactID;
     public final ImmutableList<Info> infos;
 
-    private ShowVoterPacket(String name, ImmutableList<Info> infos) {
-        this.artifactName = name;
+    private ShowVoterPacket(UUID artifactID, ImmutableList<Info> infos) {
+        this.artifactID = artifactID;
         this.infos = infos;
     }
 
@@ -44,7 +43,7 @@ public final class ShowVoterPacket {
                 @Override
                 public void run() {
                     ShowVoterPacket p = ShowVoterPacket.this;
-                    VoterScreen gui = new VoterScreen(p.artifactName, p.infos);
+                    VoterScreen gui = new VoterScreen(p.artifactID, p.infos);
                     supplier.get().enqueueWork(() -> Minecraft.getInstance().displayGuiScreen(gui));
                 }
             });
@@ -53,29 +52,29 @@ public final class ShowVoterPacket {
     }
 
     public void write(PacketBuffer buffer) {
-        buffer.writeString(this.artifactName);
+        buffer.writeUniqueId(this.artifactID);
         for (Info info : this.infos) {
-            buffer.writeInt(info.level).writeInt(info.id);
-            buffer.writeTextComponent(info.name).writeTextComponent(info.desc);
+            buffer.writeInt(info.level);
+            buffer.writeResourceLocation(info.id);
         }
         buffer.writeInt(Integer.MIN_VALUE);
     }
 
     public static ShowVoterPacket read(PacketBuffer buffer) {
-        String artifactName = buffer.readString();
+        UUID artifactID = buffer.readUniqueId();
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
         for (int level = buffer.readInt(); level != Integer.MIN_VALUE; level = buffer.readInt()) {
-            int id = buffer.readInt();
-            ITextComponent name = buffer.readTextComponent();
-            ITextComponent desc = buffer.readTextComponent();
-            builder.add(new Info(id, name, desc, level));
+            ResourceLocation id = buffer.readResourceLocation();
+            Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(id);
+            if (categoryOptional.isPresent()) {
+                builder.add(new Info(id, categoryOptional.get(), level));
+            }
         }
-        return new ShowVoterPacket(artifactName, builder.build());
+        return new ShowVoterPacket(artifactID, builder.build());
     }
 
     public static Optional<ShowVoterPacket> create(UUID artifactID, ServerPlayerEntity player) {
         VoteListHandler handler = VoteListHandler.get(player.server);
-        String artifactName = handler.getArtifactName(artifactID);
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
         Set<ResourceLocation> categoryIDs = new LinkedHashSet<>();
         for (ResourceLocation roleID : VoteRoleHandler.getRoles(player)) {
@@ -87,12 +86,12 @@ public final class ShowVoterPacket {
             VoteListEntry entry = handler.getEntry(id).orElseThrow(IllegalStateException::new);
             VoteCategory category = VoteCategoryHandler.getCategory(categoryID).orElseThrow(IllegalStateException::new);
             if (entry.votes.getEnabled().orElse(category.enabledDefault)) {
-                builder.add(new Info(id, category.name, category.description, entry.votes.get(player)));
+                builder.add(new Info(categoryID, category, entry.votes.get(player)));
             }
-        };
+        }
         ImmutableList<Info> infos = builder.build();
         if (!infos.isEmpty()) {
-            return Optional.of(new ShowVoterPacket(artifactName, infos));
+            return Optional.of(new ShowVoterPacket(artifactID, infos));
         }
         return Optional.empty();
     }
@@ -100,20 +99,19 @@ public final class ShowVoterPacket {
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     public static final class Info {
-        public final int id;
         public final int level;
-        public final ITextComponent name, desc;
+        public final ResourceLocation id;
+        public final VoteCategory category;
 
-        public Info(int id, ITextComponent name, ITextComponent desc, int level) {
+        public Info(ResourceLocation id, VoteCategory category, int level) {
             this.id = id;
-            this.name = name;
-            this.desc = desc;
             this.level = level;
+            this.category = category;
         }
 
         @Override
         public String toString() {
-            return "ShowVoterPacket.Info{id=" + this.id + ", name='" + this.name + "', desc=" + this.desc + "', level=" + this.level + "}";
+            return "ShowVoterPacket.Info{id=" + this.id + "', level=" + this.level + "}";
         }
     }
 }
