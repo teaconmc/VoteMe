@@ -127,6 +127,7 @@ public final class VoteListHandler extends WorldSavedData {
     public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         PlayerEntity player = event.getPlayer();
         if (player instanceof ServerPlayerEntity) {
+            VoteListHandler.get(Objects.requireNonNull(player.getServer()));
             SyncArtifactNamePacket packet = SyncArtifactNamePacket.create(voteArtifactNames);
             VoteMePacketManager.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (ServerPlayerEntity) player), packet);
         }
