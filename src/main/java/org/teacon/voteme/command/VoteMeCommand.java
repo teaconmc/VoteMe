@@ -392,7 +392,7 @@ public final class VoteMeCommand {
             if (!handler.getArtifactName(artifactID).isEmpty()) {
                 int id = handler.getIdOrCreate(artifactID, categoryID);
                 if (categoryOptional.get().enabledModifiable || force) {
-                    handler.getEntry(id).orElseThrow(NullPointerException::new).votes.setEnabled(false);
+                    handler.getEntry(id).orElseThrow(NullPointerException::new).votes.unsetEnabled();
                     context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.switch.unset",
                             toCategoryText(categoryID), toArtifactText(artifactID, handler)), true);
                     return Command.SINGLE_SUCCESS;
