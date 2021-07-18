@@ -259,12 +259,21 @@ public final class VoterScreen extends Screen {
         public void renderButton(MatrixStack matrixStack, int mouseX, int mouseY, float partialTicks) {
             RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
             Minecraft.getInstance().getTextureManager().bindTexture(TEXTURE);
-            double dy = mouseY - this.y - this.slideCenter;
+            double dx = mouseX - this.x, dy = mouseY - this.y - this.slideCenter;
             int x0 = this.x + 192, y0 = Math.toIntExact(Math.round(mouseY - dy));
-            int v0 = this.isHovered && dy < this.halfSliderHeight && dy >= -this.halfSliderHeight ? 133 : 4;
+            int v0 = this.isHovered && dx >= 192 && dy < this.halfSliderHeight && dy >= -this.halfSliderHeight ? 133 : 4;
             this.blit(matrixStack, x0, y0 - this.halfSliderHeight, 239, v0, 13, this.halfSliderHeight - 8);
             this.blit(matrixStack, x0, y0 - 8, 239, v0 + 52, 13, 16);
             this.blit(matrixStack, x0, y0 + 8, 239, v0 + 128 - this.halfSliderHeight, 13, this.halfSliderHeight - 8);
+        }
+
+        @Override
+        public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+            if (delta != 0) {
+                this.changeSlideCenter(this.slideCenter - 12 * delta);
+                return true;
+            }
+            return false;
         }
 
         @Override
@@ -283,8 +292,8 @@ public final class VoterScreen extends Screen {
 
         @Override
         protected void onDrag(double mouseX, double mouseY, double dragX, double dragY) {
-            double dy = mouseY - this.y - this.slideCenter;
-            if (dy < this.halfSliderHeight && dy >= -this.halfSliderHeight) {
+            double dx = mouseX - this.x, dy = mouseY - this.y - this.slideCenter;
+            if (dx >= 192 && dy < this.halfSliderHeight && dy >= -this.halfSliderHeight) {
                 this.changeSlideCenter(this.slideCenter + dragY);
             }
         }
