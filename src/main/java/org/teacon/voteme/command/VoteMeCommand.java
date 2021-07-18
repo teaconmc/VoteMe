@@ -16,8 +16,10 @@ import net.minecraft.command.arguments.UUIDArgument;
 import net.minecraft.entity.item.ItemEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.Util;
 import net.minecraft.util.text.IFormattableTextComponent;
 import net.minecraft.util.text.TextComponentUtils;
 import net.minecraft.util.text.TextFormatting;
@@ -206,9 +208,9 @@ public final class VoteMeCommand {
         if (categoryOptional.isPresent()) {
             VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
             if (!handler.getArtifactName(artifactID).isEmpty()) {
-                int id = handler.getIdOrCreate(artifactID, categoryID);
                 ItemStack item = new ItemStack(CounterItem.INSTANCE);
-                item.getOrCreateTag().putInt("CurrentVoteId", id);
+                item.getOrCreateTag().putString("CurrentCategory", categoryID.toString());
+                item.getOrCreateTag().putUniqueId("CurrentArtifact", artifactID);
                 processGiveItemToPlayer(player, item);
                 return Command.SINGLE_SUCCESS;
             }

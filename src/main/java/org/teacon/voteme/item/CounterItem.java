@@ -27,6 +27,7 @@ import org.teacon.voteme.vote.VoteListEntry;
 import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -59,8 +60,9 @@ public final class CounterItem extends Item {
             Optional<EditCounterPacket> packet = Optional.empty();
             MinecraftServer server = Objects.requireNonNull(player.getServer());
             int inventoryId = hand == Hand.MAIN_HAND ? player.inventory.currentItem : 40;
-            if (tag != null && tag.contains("CurrentVoteId", Constants.NBT.TAG_INT)) {
-                packet = EditCounterPacket.create(tag.getInt("CurrentVoteId"), inventoryId, server);
+            if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
+                ResourceLocation category = new ResourceLocation(tag.getString("CurrentCategory"));
+                packet = EditCounterPacket.create(inventoryId, tag.getUniqueId("CurrentArtifact"), category, server);
             }
             if (!packet.isPresent()) {
                 packet = EditCounterPacket.create(inventoryId, server);
@@ -78,15 +80,13 @@ public final class CounterItem extends Item {
         boolean matchArtifact = true;
         CompoundNBT tag = stack.getTag();
         VoteListHandler handler = VoteListHandler.get(Objects.requireNonNull(sender.getServer()));
-        if (tag != null && tag.contains("CurrentVoteId", Constants.NBT.TAG_INT)) {
-            Optional<VoteListEntry> entryOptional = handler.getEntry(tag.getInt("CurrentVoteId"));
-            if (entryOptional.isPresent()) {
-                matchArtifact = entryOptional.get().artifactID.equals(artifactID);
-            }
+        if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
+            Collection<? extends UUID> artifacts = handler.getArtifacts();
+            matchArtifact = artifacts.contains(artifactID) && tag.getUniqueId("CurrentArtifact").equals(artifactID);
         }
         if (matchArtifact) {
-            int currentEntryID = handler.getIdOrCreate(artifactID, currentCategory);
-            stack.getOrCreateTag().putInt("CurrentVoteId", currentEntryID);
+            stack.getOrCreateTag().putString("CurrentCategory", currentCategory.toString());
+            stack.getOrCreateTag().putUniqueId("CurrentArtifact", artifactID);
             for (ResourceLocation category : enabledCategories) {
                 if (VoteCategoryHandler.getCategory(category).filter(c -> c.enabledModifiable).isPresent()) {
                     int entryID = handler.getIdOrCreate(artifactID, category);

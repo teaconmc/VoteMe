@@ -88,28 +88,28 @@ public final class EditCounterPacket {
         return new EditCounterPacket(inventoryIndex, artifactUUID, artifactName, category, builder.build());
     }
 
-    public static Optional<EditCounterPacket> create(int id, int inventoryId, MinecraftServer server) {
+    public static Optional<EditCounterPacket> create(int inventoryId, UUID artifactID, ResourceLocation categoryID, MinecraftServer server) {
+        boolean isValidCategoryID = false;
         VoteListHandler handler = VoteListHandler.get(server);
-        Optional<VoteListEntry> entryOptional = handler.getEntry(id);
-        if (entryOptional.isPresent()) {
-            UUID artifactID = entryOptional.get().artifactID;
-            String artifactName = handler.getArtifactName(artifactID);
-            ImmutableList.Builder<Info> builder = ImmutableList.builder();
-            VoteCategoryHandler.getIds().forEach(location -> {
-                VoteCategory category = VoteCategoryHandler.getCategory(location).orElseThrow(IllegalStateException::new);
-                VoteListEntry entry = handler.getEntry(handler.getIdOrCreate(artifactID, location)).orElseThrow(IllegalStateException::new);
-                boolean enabledCurrently = entry.votes.getEnabled().orElse(category.enabledDefault), enabledModifiable = category.enabledModifiable;
-                if (category.enabledDefault || category.enabledModifiable || enabledCurrently) {
-                    Collection<VoteList.Stats> statsCollection = entry.votes.buildFinalScore(location).values();
-                    VoteList.Stats finalStats = VoteList.Stats.combine(statsCollection, VoteList.Stats::getWeight);
-                    builder.add(new Info(location, category.name, category.description, finalStats.getFinalScore(6.0F), enabledCurrently, enabledModifiable));
-                }
-            });
-            ImmutableList<Info> infos = builder.build();
-            if (!infos.isEmpty()) {
-                ResourceLocation category = entryOptional.get().category;
-                return Optional.of(new EditCounterPacket(inventoryId, artifactID, artifactName, category, infos));
+        String artifactName = handler.getArtifactName(artifactID);
+        ImmutableList.Builder<Info> builder = ImmutableList.builder();
+        for (ResourceLocation location : VoteCategoryHandler.getIds()) {
+            isValidCategoryID = isValidCategoryID || location.equals(categoryID);
+            VoteCategory category = VoteCategoryHandler.getCategory(location).orElseThrow(IllegalStateException::new);
+            VoteListEntry entry = handler.getEntry(handler.getIdOrCreate(artifactID, location)).orElseThrow(IllegalStateException::new);
+            boolean enabledCurrently = entry.votes.getEnabled().orElse(category.enabledDefault), enabledModifiable = category.enabledModifiable;
+            if (category.enabledDefault || category.enabledModifiable || enabledCurrently) {
+                Collection<VoteList.Stats> statsCollection = entry.votes.buildFinalScore(location).values();
+                VoteList.Stats finalStats = VoteList.Stats.combine(statsCollection, VoteList.Stats::getWeight);
+                builder.add(new Info(location, category.name, category.description, finalStats.getFinalScore(6.0F), enabledCurrently, enabledModifiable));
             }
+        }
+        ImmutableList<Info> infos = builder.build();
+        if (!infos.isEmpty()) {
+            if (!isValidCategoryID) {
+                categoryID = infos.iterator().next().id;
+            }
+            return Optional.of(new EditCounterPacket(inventoryId, artifactID, artifactName, categoryID, infos));
         }
         return Optional.empty();
     }
@@ -126,8 +126,8 @@ public final class EditCounterPacket {
         ImmutableList<Info> infos = builder.build();
         if (!infos.isEmpty()) {
             UUID newArtifactUUID = UUID.randomUUID();
-            ResourceLocation category = infos.iterator().next().id;
-            return Optional.of(new EditCounterPacket(inventoryId, newArtifactUUID, "", category, infos));
+            ResourceLocation categoryID = infos.iterator().next().id;
+            return Optional.of(new EditCounterPacket(inventoryId, newArtifactUUID, "", categoryID, infos));
         }
         return Optional.empty();
     }
