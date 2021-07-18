@@ -11,15 +11,14 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.ISuggestionProvider;
+import net.minecraft.command.arguments.EntityArgument;
 import net.minecraft.command.arguments.ResourceLocationArgument;
 import net.minecraft.command.arguments.UUIDArgument;
 import net.minecraft.entity.item.ItemEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.Util;
 import net.minecraft.util.text.IFormattableTextComponent;
 import net.minecraft.util.text.TextComponentUtils;
 import net.minecraft.util.text.TextFormatting;
@@ -114,12 +113,13 @@ public final class VoteMeCommand {
                                         .executes(VoteMeCommand::switchOnVotes))))
                 .then(literal("give")
                         .requires(permission(3, "voteme", "voteme.give").and(VoteMeSelections::hasSelection))
-                        .then(literal("voter")
-                                .executes(VoteMeCommand::giveVoter))
-                        .then(literal("counter")
-                                .then(argument("category", ResourceLocationArgument.resourceLocation())
-                                        .suggests(CATEGORY_SUGGESTION)
-                                        .executes(VoteMeCommand::giveCounter))))
+                        .then(argument("targets", EntityArgument.players())
+                                .then(literal("voter")
+                                        .executes(VoteMeCommand::giveVoter))
+                                .then(literal("counter")
+                                        .then(argument("category", ResourceLocationArgument.resourceLocation())
+                                                .suggests(CATEGORY_SUGGESTION)
+                                                .executes(VoteMeCommand::giveCounter)))))
                 .then(literal("select")
                         .requires(permission(2, "voteme", "voteme.select"))
                         .then(argument("artifact", UUIDArgument.func_239194_a_())
@@ -201,18 +201,20 @@ public final class VoteMeCommand {
     }
 
     private static int giveCounter(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        ServerPlayerEntity player = context.getSource().asPlayer();
         UUID artifactID = VoteMeSelections.getSelection(context.getSource());
         ResourceLocation categoryID = ResourceLocationArgument.getResourceLocation(context, "category");
+        Collection<ServerPlayerEntity> targets = EntityArgument.getPlayers(context, "targets");
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
         if (categoryOptional.isPresent()) {
             VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
             if (!handler.getArtifactName(artifactID).isEmpty()) {
-                ItemStack item = new ItemStack(CounterItem.INSTANCE);
-                item.getOrCreateTag().putString("CurrentCategory", categoryID.toString());
-                item.getOrCreateTag().putUniqueId("CurrentArtifact", artifactID);
-                processGiveItemToPlayer(player, item);
-                return Command.SINGLE_SUCCESS;
+                for (ServerPlayerEntity player : targets) {
+                    ItemStack item = new ItemStack(CounterItem.INSTANCE);
+                    item.getOrCreateTag().putString("CurrentCategory", categoryID.toString());
+                    item.getOrCreateTag().putUniqueId("CurrentArtifact", artifactID);
+                    processGiveItemToPlayer(player, item);
+                }
+                return targets.size();
             }
             throw ARTIFACT_NOT_FOUND.create(artifactID);
         }
@@ -220,14 +222,16 @@ public final class VoteMeCommand {
     }
 
     private static int giveVoter(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        ServerPlayerEntity player = context.getSource().asPlayer();
         UUID artifactID = VoteMeSelections.getSelection(context.getSource());
         VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
+        Collection<ServerPlayerEntity> targets = EntityArgument.getPlayers(context, "targets");
         if (!handler.getArtifactName(artifactID).isEmpty()) {
-            ItemStack item = new ItemStack(VoterItem.INSTANCE);
-            item.getOrCreateTag().putUniqueId("CurrentArtifact", artifactID);
-            processGiveItemToPlayer(player, item);
-            return Command.SINGLE_SUCCESS;
+            for (ServerPlayerEntity player : targets) {
+                ItemStack item = new ItemStack(VoterItem.INSTANCE);
+                item.getOrCreateTag().putUniqueId("CurrentArtifact", artifactID);
+                processGiveItemToPlayer(player, item);
+            }
+            return targets.size();
         }
         throw ARTIFACT_NOT_FOUND.create(artifactID);
     }

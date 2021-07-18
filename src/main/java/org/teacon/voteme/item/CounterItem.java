@@ -81,8 +81,8 @@ public final class CounterItem extends Item {
         CompoundNBT tag = stack.getTag();
         VoteListHandler handler = VoteListHandler.get(Objects.requireNonNull(sender.getServer()));
         if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
-            Collection<? extends UUID> artifacts = handler.getArtifacts();
-            matchArtifact = artifacts.contains(artifactID) && tag.getUniqueId("CurrentArtifact").equals(artifactID);
+            String artifactName = handler.getArtifactName(artifactID);
+            matchArtifact = !artifactName.isEmpty() && tag.getUniqueId("CurrentArtifact").equals(artifactID);
         }
         if (matchArtifact) {
             stack.getOrCreateTag().putString("CurrentCategory", currentCategory.toString());
