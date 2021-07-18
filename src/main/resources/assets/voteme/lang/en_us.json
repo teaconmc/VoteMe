@@ -33,7 +33,7 @@
   "gui.voteme.voter.clear": "Clear",
   "gui.voteme.voter.close": "Close",
   "gui.voteme.voter.empty_artifact": "No artifact name specified",
-  "gui.voteme.voter.submit": "Submit",
+  "gui.voteme.voter.ok": "OK",
   "gui.voteme.voter.unset": "Unset",
   "item.voteme.counter": "Voting Counter",
   "item.voteme.voter": "Voting Machine",

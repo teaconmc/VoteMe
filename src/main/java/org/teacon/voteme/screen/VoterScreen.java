@@ -63,9 +63,9 @@ public final class VoterScreen extends Screen {
     protected void init() {
         Objects.requireNonNull(this.minecraft);
         this.addButton(new SideSlider(this.width / 2 - 103, this.height / 2 - 55, 24 * this.infoCollection.size(), this::onSlideClick, this::onSliderChange, new StringTextComponent("Slider")));
-        this.addButton(new BottomButton(this.width / 2 + 52, this.height / 2 + 82, false, this::onSubmitButtonClick, new TranslationTextComponent("gui.voteme.voter.submit")));
         this.clearButton = this.addButton(new BottomButton(this.width / 2 - 104, this.height / 2 + 82, true, this::onClearButtonClick, new TranslationTextComponent("gui.voteme.voter.clear")));
         this.unsetButton = this.addButton(new BottomButton(this.width / 2 - 104, this.height / 2 + 82, true, this::onUnsetButtonClick, new TranslationTextComponent("gui.voteme.voter.unset")));
+        this.addButton(new BottomButton(this.width / 2 + 52, this.height / 2 + 82, false, this::onOKButtonClick, new TranslationTextComponent("gui.voteme.voter.ok")));
     }
 
     @Override
@@ -88,11 +88,15 @@ public final class VoterScreen extends Screen {
         return false;
     }
 
-    private void onSubmitButtonClick(Button button) {
+    @Override
+    public void onClose() {
         if (!this.votes.isEmpty()) {
             SubmitVotePacket packet = SubmitVotePacket.create(this.votes);
             VoteMePacketManager.CHANNEL.sendToServer(packet);
         }
+    }
+
+    private void onOKButtonClick(Button button) {
         this.closeScreen();
     }
 

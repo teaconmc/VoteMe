@@ -33,7 +33,7 @@
   "gui.voteme.voter.clear": "清空",
   "gui.voteme.voter.close": "关闭",
   "gui.voteme.voter.empty_artifact": "未指定作品名称",
-  "gui.voteme.voter.submit": "提交",
+  "gui.voteme.voter.ok": "确认",
   "gui.voteme.voter.unset": "重置",
   "item.voteme.counter": "投票计数器",
   "item.voteme.voter": "投票表决器",
