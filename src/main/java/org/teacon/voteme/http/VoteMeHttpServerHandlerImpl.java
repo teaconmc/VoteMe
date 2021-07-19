@@ -66,7 +66,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
 
     private HttpResponseStatus handleArtifacts(ByteBuf buf) {
         VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
-        Collection<? extends UUID> artifacts = handler.getArtifacts();
+        Collection<? extends UUID> artifacts = VoteListHandler.getArtifacts();
         return this.handleOK(buf, Util.make(new JsonArray(), result -> {
             for (UUID artifactID : artifacts) {
                 result.add(handler.toArtifactHTTPJson(artifactID));
@@ -78,7 +78,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
         try {
             UUID artifactID = UUID.fromString(uuid);
             VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
-            Collection<? extends UUID> artifacts = handler.getArtifacts();
+            Collection<? extends UUID> artifacts = VoteListHandler.getArtifacts();
             Preconditions.checkArgument(artifacts.contains(artifactID));
             return this.handleOK(buf, handler.toArtifactHTTPJson(artifactID));
         } catch (IllegalArgumentException ignored) {

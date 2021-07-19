@@ -1,5 +1,8 @@
 package org.teacon.voteme.vote;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Table;
 import com.google.common.collect.TreeBasedTable;
 import com.google.gson.JsonArray;
@@ -39,6 +42,7 @@ import java.util.*;
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class VoteListHandler extends WorldSavedData {
     private static final Map<UUID, String> voteArtifactNames = new TreeMap<>();
+    private static final BiMap<UUID, String> voteArtifactAliases = HashBiMap.create();
 
     private int nextIndex;
 
@@ -84,34 +88,88 @@ public final class VoteListHandler extends WorldSavedData {
         return Collections.unmodifiableSet(voteArtifactNames.keySet());
     }
 
+    public static Collection<? extends String> getArtifactAliases() {
+        return Collections.unmodifiableSet(voteArtifactAliases.values());
+    }
+
     public static String getArtifactName(UUID uuid) {
         return voteArtifactNames.getOrDefault(uuid, "");
     }
 
+    public static String getArtifactAlias(UUID uuid) {
+        return voteArtifactAliases.getOrDefault(uuid, "");
+    }
+
+    public static Optional<UUID> getArtifactByAlias(String alias) {
+        return Optional.ofNullable(voteArtifactAliases.inverse().get(alias));
+    }
+
     public static void putArtifactName(VoteListHandler handler, UUID uuid, String name) {
         if (!name.isEmpty()) {
-            handler.markDirty();
-            voteArtifactNames.put(uuid, name);
-            VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(), SyncArtifactNamePacket.create(voteArtifactNames));
+            if (!name.equals(voteArtifactNames.put(uuid, name))) {
+                SyncArtifactNamePacket packet = SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases);
+                VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),packet);
+                handler.markDirty();
+            }
         } else if (voteArtifactNames.containsKey(uuid)) {
             handler.markDirty();
             voteArtifactNames.remove(uuid);
-            VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(), SyncArtifactNamePacket.create(voteArtifactNames));
+            voteArtifactAliases.remove(uuid);
+            VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),
+                    SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases));
+        }
+    }
+
+    public static void putArtifactAlias(VoteListHandler handler, UUID uuid, String alias) {
+        if (!alias.isEmpty()) {
+            Preconditions.checkArgument(voteArtifactNames.containsKey(uuid));
+            Preconditions.checkArgument(trimValidAlias(alias) == alias.length());
+            if (!alias.equals(voteArtifactAliases.put(uuid, alias))) {
+                handler.markDirty();
+                VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),
+                        SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases));
+            }
+        } else if (voteArtifactAliases.containsKey(uuid)) {
+            handler.markDirty();
+            voteArtifactAliases.remove(uuid);
+            VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),
+                    SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases));
         }
     }
 
     public static IFormattableTextComponent getArtifactText(UUID artifactID) {
-        String uuidShort = artifactID.toString().substring(0, 4);
+        String alias = getArtifactAlias(artifactID);
         ITextComponent hover = new StringTextComponent(artifactID.toString());
         HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover);
-        String base = String.format("%s (%s...)", getArtifactName(artifactID), uuidShort);
-        return new StringTextComponent(base).modifyStyle(style -> style.setHoverEvent(hoverEvent));
+        if (alias.isEmpty()) {
+            String shortID = artifactID.toString().substring(0, 8);
+            String base = String.format("%s (%s...)", getArtifactName(artifactID), shortID);
+            return new StringTextComponent(base).modifyStyle(style -> style.setHoverEvent(hoverEvent));
+        } else {
+            String shortID = artifactID.toString().substring(0, 8);
+            String base = String.format("%s (%s, %s...)", getArtifactName(artifactID), alias, shortID);
+            return new StringTextComponent(base).modifyStyle(style -> style.setHoverEvent(hoverEvent));
+        }
+    }
+
+    public static int trimValidAlias(String remaining) {
+        int index = 0, size = remaining.length();
+        if (remaining.charAt(0) == '#' && size > 1) {
+            while (++index < size) {
+                char current = remaining.charAt(index);
+                if (!ResourceLocation.validatePathChar(current)) {
+                    break;
+                }
+            }
+        }
+        return index;
     }
 
     public JsonObject toArtifactHTTPJson(UUID artifactID) {
         return Util.make(new JsonObject(), result -> {
             result.addProperty("id", artifactID.toString());
             result.addProperty("name", getArtifactName(artifactID));
+            Optional.of(getArtifactAlias(artifactID)).filter(s -> !s.isEmpty()).ifPresent(s -> result.addProperty("alias", s));
             result.add("vote_lists", Util.make(new JsonArray(), array -> {
                 for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
                     int id = this.getIdOrCreate(artifactID, categoryID);
@@ -128,7 +186,7 @@ public final class VoteListHandler extends WorldSavedData {
         PlayerEntity player = event.getPlayer();
         if (player instanceof ServerPlayerEntity) {
             VoteListHandler.get(Objects.requireNonNull(player.getServer()));
-            SyncArtifactNamePacket packet = SyncArtifactNamePacket.create(voteArtifactNames);
+            SyncArtifactNamePacket packet = SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases);
             VoteMePacketManager.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (ServerPlayerEntity) player), packet);
         }
     }
@@ -136,12 +194,15 @@ public final class VoteListHandler extends WorldSavedData {
     @OnlyIn(Dist.CLIENT)
     public static void handleServerPacket(SyncArtifactNamePacket packet) {
         voteArtifactNames.clear();
+        voteArtifactAliases.clear();
         voteArtifactNames.putAll(packet.artifactNames);
+        voteArtifactAliases.putAll(packet.artifactAliases);
     }
 
     @Override
     public void read(CompoundNBT nbt) {
         voteArtifactNames.clear();
+        voteArtifactAliases.clear();
         this.voteEntries.clear();
         this.voteListIndices.clear();
         this.nextIndex = nbt.getInt("VoteListNextIndex");
@@ -160,8 +221,12 @@ public final class VoteListHandler extends WorldSavedData {
             CompoundNBT child = names.getCompound(i);
             UUID id = child.getUniqueId("UUID");
             String name = child.getString("Name");
+            String alias = child.getString("Alias");
             if (!name.isEmpty()) {
                 voteArtifactNames.put(id, name);
+                if (!alias.isEmpty() && trimValidAlias(alias) == alias.length()) {
+                    voteArtifactAliases.put(id, alias);
+                }
             }
         }
     }
@@ -182,6 +247,7 @@ public final class VoteListHandler extends WorldSavedData {
             CompoundNBT child = new CompoundNBT();
             child.putUniqueId("UUID", entry.getKey());
             child.putString("Name", entry.getValue());
+            Optional.ofNullable(voteArtifactAliases.get(entry.getKey())).ifPresent(a -> child.putString("Alias", a));
             names.add(child);
         }
         CompoundNBT nbt = new CompoundNBT();

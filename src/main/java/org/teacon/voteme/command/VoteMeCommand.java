@@ -2,18 +2,15 @@ package org.teacon.voteme.command;
 
 import com.google.common.base.Preconditions;
 import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.Dynamic2CommandExceptionType;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.ISuggestionProvider;
-import net.minecraft.command.arguments.EntityArgument;
-import net.minecraft.command.arguments.ResourceLocationArgument;
-import net.minecraft.command.arguments.UUIDArgument;
 import net.minecraft.entity.item.ItemEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.ItemStack;
@@ -22,12 +19,12 @@ import net.minecraft.util.text.IFormattableTextComponent;
 import net.minecraft.util.text.TextComponentUtils;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.util.text.TranslationTextComponent;
-import net.minecraft.util.text.event.ClickEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.server.permission.DefaultPermissionLevel;
 import net.minecraftforge.server.permission.PermissionAPI;
+import org.apache.commons.lang3.tuple.Pair;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.item.CounterItem;
@@ -43,14 +40,26 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
 
+import static com.mojang.brigadier.arguments.StringArgumentType.getString;
+import static com.mojang.brigadier.arguments.StringArgumentType.greedyString;
 import static net.minecraft.command.Commands.argument;
 import static net.minecraft.command.Commands.literal;
+import static net.minecraft.command.arguments.EntityArgument.getPlayers;
+import static net.minecraft.command.arguments.EntityArgument.players;
+import static net.minecraft.command.arguments.ResourceLocationArgument.getResourceLocation;
+import static net.minecraft.command.arguments.ResourceLocationArgument.resourceLocation;
+import static org.teacon.voteme.command.AliasArgumentType.alias;
+import static org.teacon.voteme.command.AliasArgumentType.getAlias;
+import static org.teacon.voteme.command.ArtifactArgumentType.artifact;
+import static org.teacon.voteme.command.ArtifactArgumentType.getArtifact;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class VoteMeCommand {
+    public static final SimpleCommandExceptionType ARTIFACT_INVALID = new SimpleCommandExceptionType(new TranslationTextComponent("argument.voteme.artifact.invalid"));
     public static final DynamicCommandExceptionType ARTIFACT_NOT_FOUND = new DynamicCommandExceptionType(a -> new TranslationTextComponent("argument.voteme.artifact.notfound", a));
+    public static final Dynamic2CommandExceptionType ARTIFACT_SAME_ALIAS = new Dynamic2CommandExceptionType((a, b) -> new TranslationTextComponent("argument.voteme.artifact.samealias", a, b));
     public static final DynamicCommandExceptionType ARTIFACT_SAME_NAME = new DynamicCommandExceptionType(a -> new TranslationTextComponent("argument.voteme.artifact.samename", a));
     public static final DynamicCommandExceptionType CATEGORY_NOT_FOUND = new DynamicCommandExceptionType(c -> new TranslationTextComponent("argument.voteme.category.notfound", c));
     public static final Dynamic2CommandExceptionType VOTE_DISABLED = new Dynamic2CommandExceptionType((c, a) -> new TranslationTextComponent("argument.voteme.vote_list.disabled", c, a));
@@ -60,70 +69,84 @@ public final class VoteMeCommand {
     public static final SuggestionProvider<CommandSource> CATEGORY_SUGGESTION = (c, b) -> ISuggestionProvider.suggest(VoteCategoryHandler.getIds().stream().map(ResourceLocation::toString), b);
     public static final SuggestionProvider<CommandSource> CATEGORY_SUGGESTION_ENABLED = (c, b) -> ISuggestionProvider.suggest(VoteCategoryHandler.getIds().stream().filter(VoteListHandler.get(c.getSource().getServer())::hasEnabled).map(ResourceLocation::toString), b);
     public static final SuggestionProvider<CommandSource> CATEGORY_SUGGESTION_MODIFIABLE = (c, b) -> ISuggestionProvider.suggest(VoteCategoryHandler.getIds().stream().filter(id -> VoteCategoryHandler.getCategory(id).filter(e -> e.enabledModifiable).isPresent()).map(ResourceLocation::toString), b);
-    public static final SuggestionProvider<CommandSource> ARTIFACT_SUGGESTION = (c, b) -> ISuggestionProvider.suggest(VoteListHandler.getArtifacts().stream().map(UUID::toString), b);
 
     @SubscribeEvent
     public static void register(RegisterCommandsEvent event) {
         // register permission nodes
         PermissionAPI.registerNode("voteme.admin", DefaultPermissionLevel.NONE, "Admin operations");
-        PermissionAPI.registerNode("voteme.switch", DefaultPermissionLevel.OP, "Switch on/off votes");
+        PermissionAPI.registerNode("voteme.switch", DefaultPermissionLevel.OP, "Switch on or switch off votes");
+        PermissionAPI.registerNode("voteme.modify", DefaultPermissionLevel.OP, "Modify vote titles or aliases");
         PermissionAPI.registerNode("voteme.give", DefaultPermissionLevel.OP, "Give related items to players");
         PermissionAPI.registerNode("voteme.select", DefaultPermissionLevel.OP, "Select a particular artifact");
         PermissionAPI.registerNode("voteme.list", DefaultPermissionLevel.OP, "Listing thing related to votes");
         // register child commands
         event.getDispatcher().register(literal("voteme")
                 .then(literal("admin")
-                        .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.create", "voteme.admin.remove", "voteme.admin.rename", "voteme.admin.switch"))
+                        .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.create", "voteme.admin.remove", "voteme.admin.clear", "voteme.admin.switch"))
                         .then(literal("create")
                                 .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.create"))
-                                .then(argument("name", StringArgumentType.greedyString())
-                                        .executes(VoteMeCommand::adminCreateArtifact)))
+                                .then(literal("alias")
+                                        .then(argument("alias", alias())
+                                                .then(literal("title")
+                                                        .then(argument("title", greedyString())
+                                                                .executes(VoteMeCommand::adminCreateArtifactWithAlias)))))
+                                .then(literal("title")
+                                        .then(argument("title", greedyString())
+                                                .executes(VoteMeCommand::adminCreateArtifact))))
                         .then(literal("remove")
-                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.remove").and(VoteMeSelections::hasSelection))
-                                .executes(VoteMeCommand::adminRemoveArtifact))
-                        .then(literal("rename")
-                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.rename").and(VoteMeSelections::hasSelection))
-                                .then(argument("name", StringArgumentType.greedyString())
-                                        .executes(VoteMeCommand::adminRenameArtifact)))
+                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.remove"))
+                                .then(argument("artifact", artifact())
+                                        .executes(VoteMeCommand::adminRemoveArtifact)))
                         .then(literal("clear")
-                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.clear").and(VoteMeSelections::hasSelection))
-                                .then(argument("category", ResourceLocationArgument.resourceLocation())
-                                        .suggests(CATEGORY_SUGGESTION_ENABLED)
-                                        .executes(VoteMeCommand::adminClearVotes)))
+                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.clear"))
+                                .then(argument("artifact", artifact())
+                                        .then(argument("category", resourceLocation())
+                                                .suggests(CATEGORY_SUGGESTION_ENABLED)
+                                                .executes(VoteMeCommand::adminClearVotes))))
                         .then(literal("switch")
-                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.switch").and(VoteMeSelections::hasSelection))
-                                .then(argument("category", ResourceLocationArgument.resourceLocation())
-                                        .suggests(CATEGORY_SUGGESTION)
-                                        .then(literal("unset")
-                                                .executes(VoteMeCommand::adminSwitchUnsetVotes))
-                                        .then(literal("off")
-                                                .executes(VoteMeCommand::adminSwitchOffVotes))
-                                        .then(literal("on")
-                                                .executes(VoteMeCommand::adminSwitchOnVotes)))))
-                .then(literal("switch")
-                        .requires(permission(3, "voteme", "voteme.switch", "voteme.admin", "voteme.admin.switch").and(VoteMeSelections::hasSelection))
-                        .then(argument("category", ResourceLocationArgument.resourceLocation())
-                                .suggests(CATEGORY_SUGGESTION_MODIFIABLE)
-                                .then(literal("unset")
-                                        .executes(VoteMeCommand::switchUnsetVotes))
-                                .then(literal("off")
-                                        .executes(VoteMeCommand::switchOffVotes))
-                                .then(literal("on")
-                                        .executes(VoteMeCommand::switchOnVotes))))
-                .then(literal("give")
-                        .requires(permission(3, "voteme", "voteme.give").and(VoteMeSelections::hasSelection))
-                        .then(argument("targets", EntityArgument.players())
-                                .then(literal("voter")
-                                        .executes(VoteMeCommand::giveVoter))
-                                .then(literal("counter")
-                                        .then(argument("category", ResourceLocationArgument.resourceLocation())
+                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.switch"))
+                                .then(argument("artifact", artifact())
+                                        .then(argument("category", resourceLocation())
                                                 .suggests(CATEGORY_SUGGESTION)
-                                                .executes(VoteMeCommand::giveCounter)))))
-                .then(literal("select")
-                        .requires(permission(2, "voteme", "voteme.select"))
-                        .then(argument("artifact", UUIDArgument.func_239194_a_())
-                                .suggests(ARTIFACT_SUGGESTION)
-                                .executes(VoteMeCommand::selectArtifact)))
+                                                .then(literal("unset")
+                                                        .executes(VoteMeCommand::adminSwitchUnsetVotes))
+                                                .then(literal("off")
+                                                        .executes(VoteMeCommand::adminSwitchOffVotes))
+                                                .then(literal("on")
+                                                        .executes(VoteMeCommand::adminSwitchOnVotes))))))
+                .then(literal("switch")
+                        .requires(permission(2, "voteme", "voteme.switch", "voteme.admin", "voteme.admin.switch"))
+                        .then(argument("artifact", artifact())
+                                .then(argument("category", resourceLocation())
+                                        .suggests(CATEGORY_SUGGESTION_MODIFIABLE)
+                                        .then(literal("unset")
+                                                .executes(VoteMeCommand::switchUnsetVotes))
+                                        .then(literal("off")
+                                                .executes(VoteMeCommand::switchOffVotes))
+                                        .then(literal("on")
+                                                .executes(VoteMeCommand::switchOnVotes)))))
+                .then(literal("modify")
+                        .requires(permission(2, "voteme", "voteme.modify"))
+                        .then(argument("artifact", artifact())
+                                .then(literal("unalias")
+                                        .executes(VoteMeCommand::modifyArtifactUnAlias))
+                                .then(literal("alias")
+                                        .then(argument("alias", alias())
+                                                .executes(VoteMeCommand::modifyArtifactAlias)))
+                                .then(literal("title")
+                                        .then(argument("title", greedyString())
+                                                .executes(VoteMeCommand::modifyArtifactTitle)))))
+                .then(literal("give")
+                        .requires(permission(2, "voteme", "voteme.give"))
+                        .then(argument("targets", players())
+                                .then(literal("voter")
+                                        .then(argument("artifact", artifact())
+                                                .executes(VoteMeCommand::giveVoter)))
+                                .then(literal("counter")
+                                        .then(argument("artifact", artifact())
+                                                .then(argument("category", resourceLocation())
+                                                        .suggests(CATEGORY_SUGGESTION)
+                                                        .executes(VoteMeCommand::giveCounter))))))
                 .then(literal("list")
                         .requires(permission(2, "voteme", "voteme.list", "voteme.list.artifacts", "voteme.list.categories", "voteme.list.roles"))
                         .then(literal("artifacts")
@@ -178,230 +201,226 @@ public final class VoteMeCommand {
         int size = artifactIDs.size();
         if (size > 0) {
             source.sendFeedback(new TranslationTextComponent("commands.voteme.list.artifacts.success", size,
-                    TextComponentUtils.func_240649_b_(artifactIDs, id -> toArtifactText(id, source))), false);
+                    TextComponentUtils.func_240649_b_(artifactIDs, VoteMeCommand::toArtifactText)), false);
         } else {
             source.sendFeedback(new TranslationTextComponent("commands.voteme.list.artifacts.none"), false);
         }
         return size;
     }
 
-    private static int selectArtifact(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        UUID artifactID = UUIDArgument.func_239195_a_(context, "artifact");
-        if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
-            VoteMeSelections.setSelection(context.getSource(), artifactID);
-            context.getSource().sendFeedback(new TranslationTextComponent(
-                    "commands.voteme.select.success", toArtifactText(artifactID)), true);
-            return Command.SINGLE_SUCCESS;
-        }
-        throw ARTIFACT_NOT_FOUND.create(artifactID);
-    }
-
     private static int giveCounter(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        UUID artifactID = VoteMeSelections.getSelection(context.getSource());
-        ResourceLocation categoryID = ResourceLocationArgument.getResourceLocation(context, "category");
-        Collection<ServerPlayerEntity> targets = EntityArgument.getPlayers(context, "targets");
-        Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
-        if (categoryOptional.isPresent()) {
-            if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
-                for (ServerPlayerEntity player : targets) {
-                    ItemStack item = new ItemStack(CounterItem.INSTANCE);
-                    item.getOrCreateTag().putString("CurrentCategory", categoryID.toString());
-                    item.getOrCreateTag().putUniqueId("CurrentArtifact", artifactID);
-                    processGiveItemToPlayer(player, item);
-                }
-                return targets.size();
-            }
-            throw ARTIFACT_NOT_FOUND.create(artifactID);
+        UUID artifactID = getArtifact(context, "artifact");
+        Collection<ServerPlayerEntity> targets = getPlayers(context, "targets");
+        ResourceLocation location = getResourceLocation(context, "category");
+        Optional<VoteCategory> result = VoteCategoryHandler.getCategory(location);
+        Pair<ResourceLocation, VoteCategory> category = Pair.of(location, result.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location)));
+        for (ServerPlayerEntity player : targets) {
+            ItemStack item = new ItemStack(CounterItem.INSTANCE);
+            item.getOrCreateTag().putString("CurrentCategory", category.getKey().toString());
+            item.getOrCreateTag().putUniqueId("CurrentArtifact", artifactID);
+            processGiveItemToPlayer(player, item);
         }
-        throw CATEGORY_NOT_FOUND.create(categoryID);
+        return targets.size();
     }
 
     private static int giveVoter(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        UUID artifactID = VoteMeSelections.getSelection(context.getSource());
-        Collection<ServerPlayerEntity> targets = EntityArgument.getPlayers(context, "targets");
-        if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
-            for (ServerPlayerEntity player : targets) {
-                ItemStack item = new ItemStack(VoterItem.INSTANCE);
-                item.getOrCreateTag().putUniqueId("CurrentArtifact", artifactID);
-                processGiveItemToPlayer(player, item);
-            }
-            return targets.size();
+        UUID artifactID = getArtifact(context, "artifact");
+        Collection<ServerPlayerEntity> targets = getPlayers(context, "targets");
+        for (ServerPlayerEntity player : targets) {
+            ItemStack item = new ItemStack(VoterItem.INSTANCE);
+            item.getOrCreateTag().putUniqueId("CurrentArtifact", artifactID);
+            processGiveItemToPlayer(player, item);
         }
-        throw ARTIFACT_NOT_FOUND.create(artifactID);
+        return targets.size();
+    }
+
+    private static int modifyArtifactTitle(CommandContext<CommandSource> context) throws CommandSyntaxException {
+        String newName = getString(context, "title");
+        UUID artifactID = getArtifact(context, "artifact");
+        String name = VoteListHandler.getArtifactName(artifactID);
+        IFormattableTextComponent artifactText = toArtifactText(artifactID);
+        if (!name.equals(newName)) {
+            VoteListHandler.putArtifactName(VoteListHandler.get(context.getSource().getServer()), artifactID, newName);
+            IFormattableTextComponent artifactTextNew = toArtifactText(artifactID);
+            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.modify.success",
+                    artifactText.mergeStyle(TextFormatting.STRIKETHROUGH), artifactTextNew), true);
+            return Command.SINGLE_SUCCESS;
+        }
+        throw ARTIFACT_SAME_NAME.create(artifactText);
+    }
+
+    private static int modifyArtifactAlias(CommandContext<CommandSource> context) throws CommandSyntaxException {
+        String newAlias = getAlias(context, "alias");
+        UUID artifactID = getArtifact(context, "artifact");
+        IFormattableTextComponent artifactText = toArtifactText(artifactID);
+        Optional<UUID> conflict = VoteListHandler.getArtifactByAlias(newAlias);
+        if (!conflict.isPresent()) {
+            VoteListHandler.putArtifactAlias(VoteListHandler.get(context.getSource().getServer()), artifactID, newAlias);
+            IFormattableTextComponent artifactTextNew = toArtifactText(artifactID);
+            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.modify.success",
+                    artifactText.mergeStyle(TextFormatting.STRIKETHROUGH), artifactTextNew), true);
+            return Command.SINGLE_SUCCESS;
+        }
+        throw ARTIFACT_SAME_ALIAS.create(newAlias, toArtifactText(conflict.get()));
+    }
+
+    private static int modifyArtifactUnAlias(CommandContext<CommandSource> context) {
+        UUID artifactID = getArtifact(context, "artifact");
+        IFormattableTextComponent artifactText = toArtifactText(artifactID);
+        VoteListHandler.putArtifactAlias(VoteListHandler.get(context.getSource().getServer()), artifactID, "");
+        IFormattableTextComponent artifactTextNew = toArtifactText(artifactID);
+        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.modify.success",
+                artifactText.mergeStyle(TextFormatting.STRIKETHROUGH), artifactTextNew), true);
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int switchOnVotes(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        ResourceLocation category = ResourceLocationArgument.getResourceLocation(context, "category");
-        UUID artifact = VoteMeSelections.getSelection(context.getSource());
-        return processSwitchOn(context, category, artifact, false);
+        ResourceLocation location = getResourceLocation(context, "category");
+        Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
+        VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
+        return processSwitchOn(context, Pair.of(location, category), getArtifact(context, "artifact"), false);
     }
 
     private static int switchOffVotes(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        ResourceLocation category = ResourceLocationArgument.getResourceLocation(context, "category");
-        UUID artifact = VoteMeSelections.getSelection(context.getSource());
-        return processSwitchOff(context, category, artifact, false);
+        ResourceLocation location = getResourceLocation(context, "category");
+        Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
+        VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
+        return processSwitchOff(context, Pair.of(location, category), getArtifact(context, "artifact"), false);
     }
 
     private static int switchUnsetVotes(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        ResourceLocation category = ResourceLocationArgument.getResourceLocation(context, "category");
-        UUID artifact = VoteMeSelections.getSelection(context.getSource());
-        return processSwitchUnset(context, category, artifact, false);
+        ResourceLocation location = getResourceLocation(context, "category");
+        Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
+        VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
+        return processSwitchUnset(context, Pair.of(location, category), getArtifact(context, "artifact"), false);
     }
 
     private static int adminSwitchOnVotes(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        ResourceLocation category = ResourceLocationArgument.getResourceLocation(context, "category");
-        UUID artifact = VoteMeSelections.getSelection(context.getSource());
-        return processSwitchOn(context, category, artifact, true);
+        ResourceLocation location = getResourceLocation(context, "category");
+        Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
+        VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
+        return processSwitchOn(context, Pair.of(location, category), getArtifact(context, "artifact"), true);
     }
 
     private static int adminSwitchOffVotes(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        ResourceLocation category = ResourceLocationArgument.getResourceLocation(context, "category");
-        UUID artifact = VoteMeSelections.getSelection(context.getSource());
-        return processSwitchOff(context, category, artifact, true);
+        ResourceLocation location = getResourceLocation(context, "category");
+        Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
+        VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
+        return processSwitchOff(context, Pair.of(location, category), getArtifact(context, "artifact"), true);
     }
 
     private static int adminSwitchUnsetVotes(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        ResourceLocation category = ResourceLocationArgument.getResourceLocation(context, "category");
-        UUID artifact = VoteMeSelections.getSelection(context.getSource());
-        return processSwitchUnset(context, category, artifact, true);
+        ResourceLocation location = getResourceLocation(context, "category");
+        Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
+        VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
+        return processSwitchUnset(context, Pair.of(location, category), getArtifact(context, "artifact"), true);
     }
 
     private static int adminClearVotes(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        UUID artifactID = VoteMeSelections.getSelection(context.getSource());
-        ResourceLocation categoryID = ResourceLocationArgument.getResourceLocation(context, "category");
-        Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
-        if (categoryOptional.isPresent()) {
-            VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
-            if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
-                int id = handler.getIdOrCreate(artifactID, categoryID);
-                boolean enabledDefault = categoryOptional.get().enabledDefault;
-                Optional<VoteListEntry> entryOptional = handler.getEntry(id).filter(e -> e.votes.getEnabled().orElse(enabledDefault));
-                if (entryOptional.isPresent()) {
-                    entryOptional.get().votes.clear();
-                    context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.clear.success",
-                            toCategoryText(categoryID), toArtifactText(artifactID)), true);
-                    return Command.SINGLE_SUCCESS;
-                }
-                throw VOTE_DISABLED.create(toCategoryText(categoryID), toArtifactText(artifactID));
-            }
-            throw ARTIFACT_NOT_FOUND.create(artifactID);
-        }
-        throw CATEGORY_NOT_FOUND.create(categoryID);
-    }
-
-    private static int adminRenameArtifact(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        UUID artifactID = VoteMeSelections.getSelection(context.getSource());
+        UUID artifactID = getArtifact(context, "artifact");
+        ResourceLocation location = getResourceLocation(context, "category");
+        Optional<VoteCategory> result = VoteCategoryHandler.getCategory(location);
+        Pair<ResourceLocation, VoteCategory> category = Pair.of(location, result.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location)));
         VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
-        String newName = StringArgumentType.getString(context, "name");
-        String name = VoteListHandler.getArtifactName(artifactID);
-        if (!name.isEmpty()) {
-            IFormattableTextComponent artifactText = toArtifactText(artifactID);
-            if (!name.equals(newName)) {
-                VoteListHandler.putArtifactName(handler, artifactID, newName);
-                IFormattableTextComponent artifactTextNew = toArtifactText(artifactID);
-                context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.admin.rename.success",
-                        artifactText.mergeStyle(TextFormatting.STRIKETHROUGH), artifactTextNew), true);
-                return Command.SINGLE_SUCCESS;
-            }
-            throw ARTIFACT_SAME_NAME.create(artifactText);
-        }
-        throw ARTIFACT_NOT_FOUND.create(artifactID);
-    }
-
-    private static int adminRemoveArtifact(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        UUID artifactID = VoteMeSelections.getSelection(context.getSource());
-        VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
-        String oldName = VoteListHandler.getArtifactName(artifactID);
-        if (!oldName.isEmpty()) {
-            IFormattableTextComponent artifactText = toArtifactText(artifactID);
-            VoteListHandler.putArtifactName(handler, artifactID, "");
-            VoteMeSelections.delSelection(context.getSource());
-            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.admin.remove.success",
-                    artifactText.mergeStyle(TextFormatting.STRIKETHROUGH)), true);
+        boolean enabledDefault = category.getValue().enabledDefault;
+        int id = handler.getIdOrCreate(artifactID, category.getKey());
+        Optional<VoteListEntry> entryOptional = handler.getEntry(id).filter(e -> e.votes.getEnabled().orElse(enabledDefault));
+        if (entryOptional.isPresent()) {
+            entryOptional.get().votes.clear();
+            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.clear.success",
+                    toCategoryText(category.getKey()), toArtifactText(artifactID)), true);
             return Command.SINGLE_SUCCESS;
         }
-        throw ARTIFACT_NOT_FOUND.create(artifactID);
+        throw VOTE_DISABLED.create(toCategoryText(category.getKey()), toArtifactText(artifactID));
+    }
+
+    private static int adminRemoveArtifact(CommandContext<CommandSource> context) {
+        UUID artifactID = getArtifact(context, "artifact");
+        IFormattableTextComponent artifactText = toArtifactText(artifactID);
+        VoteListHandler.putArtifactName(VoteListHandler.get(context.getSource().getServer()), artifactID, "");
+        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.admin.remove.success",
+                artifactText.mergeStyle(TextFormatting.STRIKETHROUGH)), true);
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int adminCreateArtifact(CommandContext<CommandSource> context) {
         UUID newArtifactID = UUID.randomUUID();
-        String newName = StringArgumentType.getString(context, "name");
+        String newName = getString(context, "title");
         VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
 
         VoteListHandler.putArtifactName(handler, newArtifactID, newName);
-        VoteMeSelections.setSelection(context.getSource(), newArtifactID);
         IFormattableTextComponent artifactText = toArtifactText(newArtifactID);
         context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.admin.create.success", artifactText), true);
 
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int processSwitchOn(CommandContext<CommandSource> context, ResourceLocation categoryID,
+    private static int adminCreateArtifactWithAlias(CommandContext<CommandSource> context) throws CommandSyntaxException {
+        UUID newArtifactID = UUID.randomUUID();
+        String newName = getString(context, "title");
+        String newAlias = getAlias(context, "alias");
+        Optional<UUID> conflict = VoteListHandler.getArtifactByAlias(newAlias);
+        if (!conflict.isPresent()) {
+            VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
+
+            VoteListHandler.putArtifactName(handler, newArtifactID, newName);
+            VoteListHandler.putArtifactAlias(handler, newArtifactID, newAlias);
+            IFormattableTextComponent artifactText = toArtifactText(newArtifactID);
+            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.admin.create.success", artifactText), true);
+
+            return Command.SINGLE_SUCCESS;
+        }
+        throw ARTIFACT_SAME_ALIAS.create(newAlias, toArtifactText(conflict.get()));
+    }
+
+    private static int processSwitchOn(CommandContext<CommandSource> context,
+                                       Pair<ResourceLocation, VoteCategory> category,
                                        UUID artifactID, boolean force) throws CommandSyntaxException {
-        Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
-        if (categoryOptional.isPresent()) {
-            VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
-            if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
-                int id = handler.getIdOrCreate(artifactID, categoryID);
-                Optional<VoteListEntry> entryOptional = handler.getEntry(id).filter(e -> !e.votes.getEnabled().orElse(false));
-                if (entryOptional.isPresent()) {
-                    if (categoryOptional.get().enabledModifiable || force) {
-                        entryOptional.get().votes.setEnabled(true);
-                        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.switch.on",
-                                toCategoryText(categoryID), toArtifactText(artifactID)), true);
-                        return Command.SINGLE_SUCCESS;
-                    }
-                    throw VOTE_UNMODIFIABLE.create(toCategoryText(categoryID));
-                }
-                throw VOTE_ENABLED.create(toCategoryText(categoryID), toArtifactText(artifactID));
+        VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
+        int id = handler.getIdOrCreate(artifactID, category.getKey());
+        Optional<VoteListEntry> entryOptional = handler.getEntry(id).filter(e -> !e.votes.getEnabled().orElse(false));
+        if (entryOptional.isPresent()) {
+            if (category.getValue().enabledModifiable || force) {
+                entryOptional.get().votes.setEnabled(true);
+                context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.switch.on",
+                        toCategoryText(category.getKey()), toArtifactText(artifactID)), true);
+                return Command.SINGLE_SUCCESS;
             }
-            throw ARTIFACT_NOT_FOUND.create(artifactID);
+            throw VOTE_UNMODIFIABLE.create(toCategoryText(category.getKey()));
         }
-        throw CATEGORY_NOT_FOUND.create(categoryID);
+        throw VOTE_ENABLED.create(toCategoryText(category.getKey()), toArtifactText(artifactID));
     }
 
-    private static int processSwitchOff(CommandContext<CommandSource> context, ResourceLocation categoryID,
+    private static int processSwitchOff(CommandContext<CommandSource> context,
+                                        Pair<ResourceLocation, VoteCategory> category,
                                         UUID artifactID, boolean force) throws CommandSyntaxException {
-        Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
-        if (categoryOptional.isPresent()) {
-            VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
-            if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
-                int id = handler.getIdOrCreate(artifactID, categoryID);
-                Optional<VoteListEntry> entryOptional = handler.getEntry(id).filter(e -> e.votes.getEnabled().orElse(true));
-                if (entryOptional.isPresent()) {
-                    if (categoryOptional.get().enabledModifiable || force) {
-                        entryOptional.get().votes.setEnabled(false);
-                        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.switch.off",
-                                toCategoryText(categoryID), toArtifactText(artifactID)), true);
-                        return Command.SINGLE_SUCCESS;
-                    }
-                    throw VOTE_UNMODIFIABLE.create(toCategoryText(categoryID));
-                }
-                throw VOTE_DISABLED.create(toCategoryText(categoryID), toArtifactText(artifactID));
+        VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
+        int id = handler.getIdOrCreate(artifactID, category.getKey());
+        Optional<VoteListEntry> entryOptional = handler.getEntry(id).filter(e -> e.votes.getEnabled().orElse(true));
+        if (entryOptional.isPresent()) {
+            if (category.getValue().enabledModifiable || force) {
+                entryOptional.get().votes.setEnabled(false);
+                context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.switch.off",
+                        toCategoryText(category.getKey()), toArtifactText(artifactID)), true);
+                return Command.SINGLE_SUCCESS;
             }
-            throw ARTIFACT_NOT_FOUND.create(artifactID);
+            throw VOTE_UNMODIFIABLE.create(toCategoryText(category.getKey()));
         }
-        throw CATEGORY_NOT_FOUND.create(categoryID);
+        throw VOTE_DISABLED.create(toCategoryText(category.getKey()), toArtifactText(artifactID));
     }
 
-    private static int processSwitchUnset(CommandContext<CommandSource> context, ResourceLocation categoryID,
+    private static int processSwitchUnset(CommandContext<CommandSource> context,
+                                          Pair<ResourceLocation, VoteCategory> category,
                                           UUID artifactID, boolean force) throws CommandSyntaxException {
-        Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
-        if (categoryOptional.isPresent()) {
-            VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
-            if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
-                int id = handler.getIdOrCreate(artifactID, categoryID);
-                if (categoryOptional.get().enabledModifiable || force) {
-                    handler.getEntry(id).orElseThrow(NullPointerException::new).votes.unsetEnabled();
-                    context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.switch.unset",
-                            toCategoryText(categoryID), toArtifactText(artifactID)), true);
-                    return Command.SINGLE_SUCCESS;
-                }
-                throw VOTE_UNMODIFIABLE.create(toCategoryText(categoryID));
-            }
-            throw ARTIFACT_NOT_FOUND.create(artifactID);
+        VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
+        int id = handler.getIdOrCreate(artifactID, category.getKey());
+        if (category.getValue().enabledModifiable || force) {
+            handler.getEntry(id).orElseThrow(NullPointerException::new).votes.unsetEnabled();
+            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.switch.unset",
+                    toCategoryText(category.getKey()), toArtifactText(artifactID)), true);
+            return Command.SINGLE_SUCCESS;
         }
-        throw CATEGORY_NOT_FOUND.create(categoryID);
+        throw VOTE_UNMODIFIABLE.create(toCategoryText(category.getKey()));
     }
 
     private static void processGiveItemToPlayer(ServerPlayerEntity player, ItemStack item) {
@@ -425,14 +444,5 @@ public final class VoteMeCommand {
 
     private static IFormattableTextComponent toArtifactText(UUID input) {
         return VoteListHandler.getArtifactText(input).mergeStyle(TextFormatting.GREEN);
-    }
-
-    private static IFormattableTextComponent toArtifactText(UUID input, CommandSource source) {
-        if (VoteMeSelections.hasSelection(source) && input.equals(VoteMeSelections.getSelection(source))) {
-            return new TranslationTextComponent("commands.voteme.list.artifacts.selection", toArtifactText(input));
-        } else {
-            ClickEvent clickEvent = new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/voteme select " + input);
-            return toArtifactText(input).modifyStyle(style -> style.setClickEvent(clickEvent));
-        }
     }
 }

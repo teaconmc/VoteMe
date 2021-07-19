@@ -17,9 +17,11 @@ import java.util.function.Supplier;
 @ParametersAreNonnullByDefault
 public final class SyncArtifactNamePacket {
     public final ImmutableMap<UUID, String> artifactNames;
+    public final ImmutableMap<UUID, String> artifactAliases;
 
-    private SyncArtifactNamePacket(ImmutableMap<UUID, String> artifactNames) {
-        this.artifactNames = artifactNames;
+    private SyncArtifactNamePacket(ImmutableMap<UUID, String> names, ImmutableMap<UUID, String> aliases) {
+        this.artifactNames = names;
+        this.artifactAliases = aliases;
     }
 
     public void handle(Supplier<NetworkEvent.Context> supplier) {
@@ -42,17 +44,27 @@ public final class SyncArtifactNamePacket {
             buffer.writeString(entry.getValue());
         }
         buffer.writeBoolean(false);
+        for (Map.Entry<UUID, String> entry : this.artifactAliases.entrySet()) {
+            buffer.writeBoolean(true);
+            buffer.writeUniqueId(entry.getKey());
+            buffer.writeString(entry.getValue());
+        }
+        buffer.writeBoolean(false);
     }
 
     public static SyncArtifactNamePacket read(PacketBuffer buffer) {
-        ImmutableMap.Builder<UUID, String> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<UUID, String> namesBuilder = ImmutableMap.builder();
         for (boolean b = buffer.readBoolean(); b; b = buffer.readBoolean()) {
-            builder.put(buffer.readUniqueId(), buffer.readString());
+            namesBuilder.put(buffer.readUniqueId(), buffer.readString());
         }
-        return new SyncArtifactNamePacket(builder.build());
+        ImmutableMap.Builder<UUID, String> aliasesBuilder = ImmutableMap.builder();
+        for (boolean b = buffer.readBoolean(); b; b = buffer.readBoolean()) {
+            aliasesBuilder.put(buffer.readUniqueId(), buffer.readString());
+        }
+        return new SyncArtifactNamePacket(namesBuilder.build(), aliasesBuilder.build());
     }
 
-    public static SyncArtifactNamePacket create(Map<UUID, String> artifactNames) {
-        return new SyncArtifactNamePacket(ImmutableMap.copyOf(artifactNames));
+    public static SyncArtifactNamePacket create(Map<UUID, String> artifactNames, Map<UUID, String> artifactAliases) {
+        return new SyncArtifactNamePacket(ImmutableMap.copyOf(artifactNames), ImmutableMap.copyOf(artifactAliases));
     }
 }
