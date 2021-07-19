@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -43,7 +44,7 @@ public final class VoterItem extends Item {
 
     @SubscribeEvent
     public static void register(RegistryEvent.Register<Item> event) {
-        event.getRegistry().register(new VoterItem(new Properties().maxStackSize(1).group(VoteMeItemGroup.INSTANCE)));
+        event.getRegistry().register(new VoterItem(new Properties().group(VoteMeItemGroup.INSTANCE)));
     }
 
     private VoterItem(Properties properties) {
@@ -56,9 +57,9 @@ public final class VoterItem extends Item {
     public void addInformation(ItemStack stack, @Nullable World world, List<ITextComponent> tooltip, ITooltipFlag flag) {
         CompoundNBT tag = stack.getTag();
         if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
-            String artifactName = VoteListHandler.getArtifactName(tag.getUniqueId("CurrentArtifact"));
-            if (!artifactName.isEmpty()) {
-                IFormattableTextComponent artifactText = new StringTextComponent(artifactName).mergeStyle(TextFormatting.GREEN);
+            UUID artifactID = tag.getUniqueId("CurrentArtifact");
+            if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
+                IFormattableTextComponent artifactText = VoteListHandler.getArtifactText(artifactID).mergeStyle(TextFormatting.GREEN);
                 tooltip.add(new TranslationTextComponent("gui.voteme.voter.current_artifact_hint", artifactText).mergeStyle(TextFormatting.GRAY));
             } else {
                 tooltip.add(new TranslationTextComponent("gui.voteme.voter.empty_artifact_hint").mergeStyle(TextFormatting.GRAY));
@@ -87,5 +88,28 @@ public final class VoterItem extends Item {
             return ActionResult.resultSuccess(itemStack);
         }
         return ActionResult.resultFail(itemStack);
+    }
+
+    @Override
+    public ITextComponent getDisplayName(ItemStack stack) {
+        CompoundNBT tag = stack.getTag();
+        if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
+            UUID artifactID = tag.getUniqueId("CurrentArtifact");
+            String artifactName = VoteListHandler.getArtifactName(artifactID);
+            if (!artifactName.isEmpty()) {
+                return new TranslationTextComponent("item.voteme.voter.with_artifact", artifactName);
+            }
+        }
+        return new TranslationTextComponent("item.voteme.voter");
+    }
+
+    public ItemStack copyFrom(int voterSize, ItemStack stack) {
+        CompoundNBT tag = stack.getTag(), newTag = new CompoundNBT();
+        if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
+            newTag.putUniqueId("CurrentArtifact", tag.getUniqueId("CurrentArtifact"));
+        }
+        ItemStack result = new ItemStack(this, voterSize);
+        result.setTag(newTag);
+        return result;
     }
 }

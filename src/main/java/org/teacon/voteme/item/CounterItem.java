@@ -60,9 +60,9 @@ public final class CounterItem extends Item {
     public void addInformation(ItemStack stack, @Nullable World world, List<ITextComponent> tooltip, ITooltipFlag flag) {
         CompoundNBT tag = stack.getTag();
         if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
-            String artifactName = VoteListHandler.getArtifactName(tag.getUniqueId("CurrentArtifact"));
-            if (!artifactName.isEmpty()) {
-                IFormattableTextComponent artifactText = new StringTextComponent(artifactName).mergeStyle(TextFormatting.GREEN);
+            UUID artifactID = tag.getUniqueId("CurrentArtifact");
+            if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
+                IFormattableTextComponent artifactText = VoteListHandler.getArtifactText(artifactID).mergeStyle(TextFormatting.GREEN);
                 tooltip.add(new TranslationTextComponent("gui.voteme.counter.current_artifact_hint", artifactText).mergeStyle(TextFormatting.GRAY));
                 ResourceLocation categoryID = new ResourceLocation(tag.getString("CurrentCategory"));
                 Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
@@ -103,6 +103,19 @@ public final class CounterItem extends Item {
             return ActionResult.resultSuccess(itemStack);
         }
         return ActionResult.resultFail(itemStack);
+    }
+
+    @Override
+    public ITextComponent getDisplayName(ItemStack stack) {
+        CompoundNBT tag = stack.getTag();
+        if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
+            UUID artifactID = tag.getUniqueId("CurrentArtifact");
+            String artifactName = VoteListHandler.getArtifactName(artifactID);
+            if (!artifactName.isEmpty()) {
+                return new TranslationTextComponent("item.voteme.counter.with_artifact", artifactName);
+            }
+        }
+        return new TranslationTextComponent("item.voteme.counter");
     }
 
     public void applyChanges(ServerPlayerEntity sender, ItemStack stack, UUID artifactID, ResourceLocation currentCategory,
