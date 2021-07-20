@@ -119,11 +119,11 @@ publishing {
     }
     repositories {
         maven {
-            name = "archive"
-            url = "https://maven.hub.tritusk.info/releases"
-            credentials {
-                username = System.env.MAVEN_USERNAME
-                password = System.env.MAVEN_PASSWORD
+            name = "teacon"
+            url = "s3://archive.teacon.org/maven/"
+            credentials(AwsCredentials) {
+                accessKey = System.env.ARCHIVE_ACCESS_KEY
+                secretKey = System.env.ARCHIVE_SECRET_KEY
             }
         }
     }
@@ -131,7 +131,7 @@ publishing {
 
 tasks.withType(PublishToMavenRepository) {
     onlyIf {
-        System.env.MAVEN_USERNAME && System.env.MAVEN_PASSWORD
+        System.env.ARCHIVE_ACCESS_KEY && System.env.ARCHIVE_SECRET_KEY
     }
 }
 
