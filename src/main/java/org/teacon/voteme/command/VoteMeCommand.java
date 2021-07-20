@@ -57,6 +57,7 @@ import static org.teacon.voteme.command.ArtifactArgumentType.getArtifact;
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class VoteMeCommand {
+    public static final SimpleCommandExceptionType ALIAS_INVALID = new SimpleCommandExceptionType(new TranslationTextComponent("argument.voteme.alias.invalid"));
     public static final SimpleCommandExceptionType ARTIFACT_INVALID = new SimpleCommandExceptionType(new TranslationTextComponent("argument.voteme.artifact.invalid"));
     public static final DynamicCommandExceptionType ARTIFACT_NOT_FOUND = new DynamicCommandExceptionType(a -> new TranslationTextComponent("argument.voteme.artifact.notfound", a));
     public static final Dynamic2CommandExceptionType ARTIFACT_SAME_ALIAS = new Dynamic2CommandExceptionType((a, b) -> new TranslationTextComponent("argument.voteme.artifact.samealias", a, b));

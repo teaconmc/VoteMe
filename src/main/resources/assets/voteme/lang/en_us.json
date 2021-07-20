@@ -1,4 +1,5 @@
 {
+  "argument.voteme.alias.invalid": "Invalid artifact alias. An alias should start with \"#\", with the suffix containing characters such as numbers and lowercase letters.",
   "argument.voteme.artifact.invalid": "Invalid artifact alias or UUID. An alias should start with \"#\", with the suffix containing characters such as numbers and lowercase letters.",
   "argument.voteme.artifact.notfound": "The artifact for %s is not found.",
   "argument.voteme.artifact.samealias": "There has been an existing artifact %2$s whose alias is already %1$s.",

@@ -1,4 +1,5 @@
 {
+  "argument.voteme.alias.invalid": "未找到合法的别名。合法的别名应以 \"#\" 开头，后缀仅包含数字及小写字母等字符。",
   "argument.voteme.artifact.invalid": "未找到合法的别名或 UUID。合法的别名应以 \"#\" 开头，后缀仅包含数字及小写字母等字符。",
   "argument.voteme.artifact.notfound": "未找到 %s 代表的作品。",
   "argument.voteme.artifact.samealias": "你选择的别名 %s 和作品 %s 的别名相同。",
