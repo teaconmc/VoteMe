@@ -11,6 +11,7 @@ Moderator commands (available to ops by default):
 * `/voteme list artifacts`
 * `/voteme give <targets> counter <artifact> <category>`
 * `/voteme give <targets> voter <artifact>`
+* `/voteme open <targets> voter <artifact>`
 * `/voteme modify <artifact> title <title>`
 * `/voteme modify <artifact> alias <alias>`
 * `/voteme modify <artifact> unalias`

@@ -14,6 +14,7 @@ import net.minecraft.command.ISuggestionProvider;
 import net.minecraft.entity.item.ItemEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.IFormattableTextComponent;
 import net.minecraft.util.text.TextComponentUtils;
@@ -77,6 +78,7 @@ public final class VoteMeCommand {
         PermissionAPI.registerNode("voteme.admin", DefaultPermissionLevel.NONE, "Admin operations");
         PermissionAPI.registerNode("voteme.switch", DefaultPermissionLevel.OP, "Switch on or switch off votes");
         PermissionAPI.registerNode("voteme.modify", DefaultPermissionLevel.OP, "Modify vote titles or aliases");
+        PermissionAPI.registerNode("voteme.open", DefaultPermissionLevel.OP, "Open vote related GUIs to players");
         PermissionAPI.registerNode("voteme.give", DefaultPermissionLevel.OP, "Give related items to players");
         PermissionAPI.registerNode("voteme.select", DefaultPermissionLevel.OP, "Select a particular artifact");
         PermissionAPI.registerNode("voteme.list", DefaultPermissionLevel.OP, "Listing thing related to votes");
@@ -137,6 +139,12 @@ public final class VoteMeCommand {
                                 .then(literal("title")
                                         .then(argument("title", greedyString())
                                                 .executes(VoteMeCommand::modifyArtifactTitle)))))
+                .then(literal("open")
+                        .requires(permission(2, "voteme", "voteme.open"))
+                        .then(argument("targets", players())
+                                .then(literal("voter")
+                                        .then(argument("artifact", artifact())
+                                                .executes(VoteMeCommand::openVoter)))))
                 .then(literal("give")
                         .requires(permission(2, "voteme", "voteme.give"))
                         .then(argument("targets", players())
@@ -231,6 +239,17 @@ public final class VoteMeCommand {
             ItemStack item = new ItemStack(VoterItem.INSTANCE);
             item.getOrCreateTag().putUniqueId("CurrentArtifact", artifactID);
             processGiveItemToPlayer(player, item);
+        }
+        return targets.size();
+    }
+
+    private static int openVoter(CommandContext<CommandSource> context) throws CommandSyntaxException {
+        UUID artifactID = getArtifact(context, "artifact");
+        Collection<ServerPlayerEntity> targets = getPlayers(context, "targets");
+        for (ServerPlayerEntity player : targets) {
+            CompoundNBT tag = new CompoundNBT();
+            tag.putUniqueId("CurrentArtifact", artifactID);
+            VoterItem.INSTANCE.open(player, tag);
         }
         return targets.size();
     }

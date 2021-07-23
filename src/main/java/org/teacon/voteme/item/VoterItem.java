@@ -74,20 +74,27 @@ public final class VoterItem extends Item {
         ItemStack itemStack = player.getHeldItem(hand);
         CompoundNBT tag = itemStack.getTag();
         if (player instanceof ServerPlayerEntity) {
-            Optional<ShowVoterPacket> packet = Optional.empty();
             ServerPlayerEntity serverPlayer = (ServerPlayerEntity) player;
-            if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
-                packet = ShowVoterPacket.create(tag.getUniqueId("CurrentArtifact"), serverPlayer);
-            }
-            if (packet.isPresent()) {
-                PacketDistributor.PacketTarget target = PacketDistributor.PLAYER.with(() -> serverPlayer);
-                VoteMePacketManager.CHANNEL.send(target, packet.get());
+            if (this.open(serverPlayer, tag)) {
                 return ActionResult.resultConsume(itemStack);
             }
         } else if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
             return ActionResult.resultSuccess(itemStack);
         }
         return ActionResult.resultFail(itemStack);
+    }
+
+    public boolean open(ServerPlayerEntity player, @Nullable CompoundNBT tag) {
+        Optional<ShowVoterPacket> packet = Optional.empty();
+        if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
+            packet = ShowVoterPacket.create(tag.getUniqueId("CurrentArtifact"), player);
+        }
+        if (packet.isPresent()) {
+            PacketDistributor.PacketTarget target = PacketDistributor.PLAYER.with(() -> player);
+            VoteMePacketManager.CHANNEL.send(target, packet.get());
+            return true;
+        }
+        return false;
     }
 
     @Override
