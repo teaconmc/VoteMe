@@ -45,8 +45,7 @@ import static com.mojang.brigadier.arguments.StringArgumentType.getString;
 import static com.mojang.brigadier.arguments.StringArgumentType.greedyString;
 import static net.minecraft.command.Commands.argument;
 import static net.minecraft.command.Commands.literal;
-import static net.minecraft.command.arguments.EntityArgument.getPlayers;
-import static net.minecraft.command.arguments.EntityArgument.players;
+import static net.minecraft.command.arguments.EntityArgument.*;
 import static net.minecraft.command.arguments.ResourceLocationArgument.getResourceLocation;
 import static net.minecraft.command.arguments.ResourceLocationArgument.resourceLocation;
 import static org.teacon.voteme.command.AliasArgumentType.alias;
@@ -78,6 +77,7 @@ public final class VoteMeCommand {
         PermissionAPI.registerNode("voteme.admin", DefaultPermissionLevel.NONE, "Admin operations");
         PermissionAPI.registerNode("voteme.switch", DefaultPermissionLevel.OP, "Switch on or switch off votes");
         PermissionAPI.registerNode("voteme.modify", DefaultPermissionLevel.OP, "Modify vote titles or aliases");
+        PermissionAPI.registerNode("voteme.query", DefaultPermissionLevel.OP, "Get votes for different players");
         PermissionAPI.registerNode("voteme.open", DefaultPermissionLevel.OP, "Open vote related GUIs to players");
         PermissionAPI.registerNode("voteme.give", DefaultPermissionLevel.OP, "Give related items to players");
         PermissionAPI.registerNode("voteme.select", DefaultPermissionLevel.OP, "Select a particular artifact");
@@ -139,6 +139,13 @@ public final class VoteMeCommand {
                                 .then(literal("title")
                                         .then(argument("title", greedyString())
                                                 .executes(VoteMeCommand::modifyArtifactTitle)))))
+                .then(literal("query")
+                        .requires(permission(2, "voteme", "voteme.query"))
+                        .then(argument("target", player())
+                                .then(argument("artifact", artifact())
+                                        .then(argument("category", resourceLocation())
+                                                .suggests(CATEGORY_SUGGESTION)
+                                                .executes(VoteMeCommand::queryVoter)))))
                 .then(literal("open")
                         .requires(permission(2, "voteme", "voteme.open"))
                         .then(argument("targets", players())
@@ -252,6 +259,28 @@ public final class VoteMeCommand {
             VoterItem.INSTANCE.open(player, tag);
         }
         return targets.size();
+    }
+
+    private static int queryVoter(CommandContext<CommandSource> context) throws CommandSyntaxException {
+        UUID artifactID = getArtifact(context, "artifact");
+        ServerPlayerEntity player = getPlayer(context, "target");
+        ResourceLocation location = getResourceLocation(context, "category");
+        VoteListHandler handler = VoteListHandler.get(player.getServerWorld().getServer());
+        Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
+        if (categoryOptional.isPresent()) {
+            VoteCategory category = categoryOptional.get();
+            boolean enabledDefault = category.enabledDefault;
+            int id = handler.getIdOrCreate(artifactID, location);
+            Optional<VoteListEntry> entryOptional = handler.getEntry(id).filter(e -> e.votes.getEnabled().orElse(enabledDefault));
+            if (entryOptional.isPresent()) {
+                int voteLevel = entryOptional.get().votes.get(player);
+                context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.success." + voteLevel,
+                        player.getDisplayName(), toCategoryText(location), toArtifactText(artifactID)), true);
+                return voteLevel;
+            }
+            throw VOTE_DISABLED.create(toCategoryText(location), toArtifactText(artifactID));
+        }
+        throw CATEGORY_NOT_FOUND.create(location);
     }
 
     private static int modifyArtifactTitle(CommandContext<CommandSource> context) throws CommandSyntaxException {
