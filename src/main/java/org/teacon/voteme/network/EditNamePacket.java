@@ -38,7 +38,7 @@ public final class EditNamePacket {
 
     public static EditNamePacket read(PacketBuffer buffer) {
         UUID artifactUUID = buffer.readUniqueId();
-        String artifactName = buffer.readString();
+        String artifactName = buffer.readString(Short.MAX_VALUE);
         return new EditNamePacket(artifactUUID, artifactName);
     }
 

@@ -55,11 +55,11 @@ public final class SyncArtifactNamePacket {
     public static SyncArtifactNamePacket read(PacketBuffer buffer) {
         ImmutableMap.Builder<UUID, String> namesBuilder = ImmutableMap.builder();
         for (boolean b = buffer.readBoolean(); b; b = buffer.readBoolean()) {
-            namesBuilder.put(buffer.readUniqueId(), buffer.readString());
+            namesBuilder.put(buffer.readUniqueId(), buffer.readString(Short.MAX_VALUE));
         }
         ImmutableMap.Builder<UUID, String> aliasesBuilder = ImmutableMap.builder();
         for (boolean b = buffer.readBoolean(); b; b = buffer.readBoolean()) {
-            aliasesBuilder.put(buffer.readUniqueId(), buffer.readString());
+            aliasesBuilder.put(buffer.readUniqueId(), buffer.readString(Short.MAX_VALUE));
         }
         return new SyncArtifactNamePacket(namesBuilder.build(), aliasesBuilder.build());
     }
