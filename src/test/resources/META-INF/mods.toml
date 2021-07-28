@@ -1,0 +1,17 @@
+modLoader="javafml"
+loaderVersion="[35,)"
+license="BSD-3-Clause"
+
+[[mods]]
+modId="voteme_test"
+version="${file.jarVersion}"
+displayName="VoteMe Test"
+authors="TeaConMC"
+description="Test mod for VoteMe"
+
+[[dependencies.voteme]]
+modId="forge"
+mandatory=true
+versionRange="[35.1.0,)"
+ordering="NONE"
+side="BOTH"

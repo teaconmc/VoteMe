@@ -33,6 +33,9 @@ minecraft {
                 voteme {
                     source sourceSets.main
                 }
+                voteme_test {
+                    source sourceSets.test
+                }
             }
         }
 
@@ -42,6 +45,9 @@ minecraft {
             mods {
                 voteme {
                     source sourceSets.main
+                }
+                voteme_test {
+                    source sourceSets.test
                 }
             }
         }
