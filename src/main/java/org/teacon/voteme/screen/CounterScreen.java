@@ -130,11 +130,11 @@ public final class CounterScreen extends Screen {
     }
 
     private void onPrevButtonClick(Button button) {
-        Collections.rotate(this.infoCollection, -1);
+        Collections.rotate(this.infoCollection, 1);
     }
 
     private void onNextButtonClick(Button button) {
-        Collections.rotate(this.infoCollection, 1);
+        Collections.rotate(this.infoCollection, -1);
     }
 
     private void onOKButtonClick(Button button) {

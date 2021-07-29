@@ -34,8 +34,7 @@ import static net.minecraft.util.text.TextComponentUtils.wrapWithSquareBrackets;
 public final class VoteRoleHandler extends JsonReloadListener {
     private static final Gson GSON = new GsonBuilder().create();
 
-    private static SortedSet<ResourceLocation> roleIds = ImmutableSortedSet.of();
-    private static SortedMap<ResourceLocation, VoteRole> reversedRoleMap = ImmutableSortedMap.of();
+    private static SortedMap<ResourceLocation, VoteRole> roleMap = ImmutableSortedMap.of();
 
     public VoteRoleHandler() {
         super(GSON, "vote_roles");
@@ -43,7 +42,7 @@ public final class VoteRoleHandler extends JsonReloadListener {
 
     public static Collection<? extends ResourceLocation> getRoles(ServerPlayerEntity player) {
         ImmutableSet.Builder<ResourceLocation> builder = ImmutableSet.builder();
-        for (Map.Entry<ResourceLocation, VoteRole> entry : reversedRoleMap.entrySet()) {
+        for (Map.Entry<ResourceLocation, VoteRole> entry : roleMap.entrySet()) {
             try {
                 EntitySelector selector = entry.getValue().selector;
                 List<ServerPlayerEntity> selected = selector.selectPlayers(player.server.getCommandSource());
@@ -58,17 +57,16 @@ public final class VoteRoleHandler extends JsonReloadListener {
     }
 
     public static Optional<VoteRole> getRole(ResourceLocation id) {
-        return Optional.ofNullable(reversedRoleMap.get(id));
+        return Optional.ofNullable(roleMap.get(id));
     }
 
     public static Collection<? extends ResourceLocation> getIds() {
-        return roleIds;
+        return roleMap.keySet();
     }
 
     @Override
     protected void apply(Map<ResourceLocation, JsonElement> objects, IResourceManager manager, IProfiler profiler) {
-        reversedRoleMap = ImmutableSortedMap.copyOf(Maps.transformEntries(objects, VoteRole::fromJson), Comparator.reverseOrder());
-        roleIds = ImmutableSortedSet.<ResourceLocation>naturalOrder().addAll(reversedRoleMap.keySet()).build();
+        roleMap = ImmutableSortedMap.copyOf(Maps.transformEntries(objects, VoteRole::fromJson), Comparator.naturalOrder());
     }
 
     @SubscribeEvent
