@@ -70,6 +70,14 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
         return this.votes.containsKey(uuid) ? this.votes.get(uuid).getLeft() : 0;
     }
 
+    public Optional<Instant> getTime(UUID uuid) {
+        return this.votes.containsKey(uuid) ? Optional.of(this.votes.get(uuid).getRight()) : Optional.empty();
+    }
+
+    public Collection<? extends ResourceLocation> getRoles(UUID uuid) {
+        return this.votes.containsKey(uuid) ? this.votes.get(uuid).getMiddle() : ImmutableSet.of();
+    }
+
     public void set(ServerPlayerEntity player, int level) {
         Preconditions.checkArgument(level >= 0 && level <= 5);
         this.set(player.getUniqueID(), level, VoteRoleHandler.getRoles(player), Instant.now());

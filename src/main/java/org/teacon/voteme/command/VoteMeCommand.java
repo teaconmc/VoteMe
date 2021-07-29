@@ -1,6 +1,7 @@
 package org.teacon.voteme.command;
 
 import com.google.common.base.Preconditions;
+import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -36,10 +37,16 @@ import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.item.CounterItem;
 import org.teacon.voteme.item.VoterItem;
 import org.teacon.voteme.roles.VoteRoleHandler;
+import org.teacon.voteme.vote.VoteList;
 import org.teacon.voteme.vote.VoteListEntry;
 import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Optional;
@@ -51,6 +58,8 @@ import static com.mojang.brigadier.arguments.StringArgumentType.greedyString;
 import static net.minecraft.command.Commands.argument;
 import static net.minecraft.command.Commands.literal;
 import static net.minecraft.command.arguments.EntityArgument.*;
+import static net.minecraft.command.arguments.GameProfileArgument.gameProfile;
+import static net.minecraft.command.arguments.GameProfileArgument.getGameProfiles;
 import static net.minecraft.command.arguments.ResourceLocationArgument.getResourceLocation;
 import static net.minecraft.command.arguments.ResourceLocationArgument.resourceLocation;
 import static org.teacon.voteme.command.AliasArgumentType.alias;
@@ -154,7 +163,7 @@ public final class VoteMeCommand {
                                                 .executes(VoteMeCommand::modifyArtifactTitle)))))
                 .then(literal("query")
                         .requires(permission(2, "voteme", "voteme.query"))
-                        .then(argument("target", player())
+                        .then(argument("target", gameProfile())
                                 .then(argument("artifact", artifact())
                                         .then(argument("category", resourceLocation())
                                                 .suggests(CATEGORY_SUGGESTION)
@@ -276,9 +285,9 @@ public final class VoteMeCommand {
 
     private static int queryVoter(CommandContext<CommandSource> context) throws CommandSyntaxException {
         UUID artifactID = getArtifact(context, "artifact");
-        ServerPlayerEntity player = getPlayer(context, "target");
+        Collection<GameProfile> profiles = getGameProfiles(context, "target");
         ResourceLocation location = getResourceLocation(context, "category");
-        VoteListHandler handler = VoteListHandler.get(player.getServerWorld().getServer());
+        VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
         if (categoryOptional.isPresent()) {
             VoteCategory category = categoryOptional.get();
@@ -286,10 +295,19 @@ public final class VoteMeCommand {
             int id = handler.getIdOrCreate(artifactID, location);
             Optional<VoteListEntry> entryOptional = handler.getEntry(id).filter(e -> e.votes.getEnabled().orElse(enabledDefault));
             if (entryOptional.isPresent()) {
-                int voteLevel = entryOptional.get().votes.get(player);
-                context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.success." + voteLevel,
-                        player.getDisplayName(), toCategoryText(location), toArtifactText(artifactID)), true);
-                return voteLevel;
+                int voted = 0;
+                VoteList votes = entryOptional.get().votes;
+                for (GameProfile profile : profiles) {
+                    int voteLevel = votes.get(profile.getId());
+                    Collection<? extends ResourceLocation> roles = votes.getRoles(profile.getId());
+                    Instant time = votes.getTime(profile.getId()).orElse(Instant.EPOCH).truncatedTo(ChronoUnit.SECONDS);
+                    String timeString = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(time.atZone(ZoneId.systemDefault()));
+                    context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.success." + voteLevel,
+                            profile.getName(), toCategoryText(location), toArtifactText(artifactID), timeString,
+                            TextComponentUtils.func_240649_b_(roles, VoteMeCommand::toRoleText)), true);
+                    voted += voteLevel > 0 ? 1 : 0;
+                }
+                return voted;
             }
             throw VOTE_DISABLED.create(toCategoryText(location), toArtifactText(artifactID));
         }
