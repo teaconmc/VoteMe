@@ -56,11 +56,23 @@ public final class VoterItem extends Item {
     @OnlyIn(Dist.CLIENT)
     public void addInformation(ItemStack stack, @Nullable World world, List<ITextComponent> tooltip, ITooltipFlag flag) {
         CompoundNBT tag = stack.getTag();
+        tooltip.add(new StringTextComponent(""));
         if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
             UUID artifactID = tag.getUniqueId("CurrentArtifact");
             if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
                 IFormattableTextComponent artifactText = VoteListHandler.getArtifactText(artifactID).mergeStyle(TextFormatting.GREEN);
                 tooltip.add(new TranslationTextComponent("gui.voteme.voter.current_artifact_hint", artifactText).mergeStyle(TextFormatting.GRAY));
+                if (!VoteCategoryHandler.getIds().isEmpty()) {
+                    tooltip.add(new StringTextComponent(""));
+                }
+                for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
+                    Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
+                    if (categoryOptional.isPresent()) {
+                        ITextComponent categoryName = categoryOptional.get().name;
+                        IFormattableTextComponent categoryText = new StringTextComponent("").append(categoryName).mergeStyle(TextFormatting.YELLOW);
+                        tooltip.add(new TranslationTextComponent("gui.voteme.counter.category_hint", categoryText).mergeStyle(TextFormatting.GRAY));
+                    }
+                }
             } else {
                 tooltip.add(new TranslationTextComponent("gui.voteme.voter.empty_artifact_hint").mergeStyle(TextFormatting.GRAY));
             }
