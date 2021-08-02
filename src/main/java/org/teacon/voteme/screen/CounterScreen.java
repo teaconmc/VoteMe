@@ -57,6 +57,8 @@ public final class CounterScreen extends Screen {
     private final SortedSet<ResourceLocation> enabledInfos;
     private final List<EditCounterPacket.Info> infoCollection;
 
+    private BottomButton okButton;
+    private BottomButton cancelButton;
     private BottomButton renameButton;
     private BottomSwitch bottomSwitch;
     private TextInputUtil artifactInput;
@@ -77,10 +79,12 @@ public final class CounterScreen extends Screen {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
         this.addButton(new ImageButton(this.width / 2 - 99, this.height / 2 - 20, 18, 19, 12, 207, 0, TEXTURE, this::onPrevButtonClick));
         this.addButton(new ImageButton(this.width / 2 - 79, this.height / 2 - 20, 18, 19, 32, 207, 0, TEXTURE, this::onNextButtonClick));
-        this.addButton(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onOKButtonClick, new TranslationTextComponent("gui.voteme.counter.ok")));
-        this.renameButton = this.addButton(new BottomButton(CounterScreen.this.width / 2 + 19, CounterScreen.this.height / 2 + 77, this::onRenameButtonClick, new TranslationTextComponent("gui.voteme.counter.rename")));
+        this.okButton = this.addButton(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onOKButtonClick, new TranslationTextComponent("gui.voteme.counter.ok")));
+        this.cancelButton = this.addButton(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onCancelButtonClick, new TranslationTextComponent("gui.voteme.counter.cancel")));
+        this.renameButton = this.addButton(new BottomButton(this.width / 2 + 19, this.height / 2 + 77, this::onRenameButtonClick, new TranslationTextComponent("gui.voteme.counter.rename")));
         this.bottomSwitch = this.addButton(new BottomSwitch(this.width / 2 - 98, this.height / 2 + 76, () -> this.enabledInfos.contains(this.infoCollection.iterator().next().id), this::onSwitchClick, new TranslationTextComponent("gui.voteme.counter.switch")));
         this.artifactInput = new TextInputUtil(() -> this.artifact, text -> this.artifact = text, TextInputUtil.getClipboardTextSupplier(mc), TextInputUtil.getClipboardTextSetter(mc), text -> mc.fontRenderer.getStringWidth(text) * ARTIFACT_SCALE_FACTOR <= 199);
+        this.cancelButton.visible = this.renameButton.visible = this.bottomSwitch.visible = false;
     }
 
     @Override
@@ -96,7 +100,9 @@ public final class CounterScreen extends Screen {
     public void tick() {
         ++this.artifactCursorTick;
         this.bottomSwitch.visible = this.infoCollection.iterator().next().category.enabledModifiable;
-        this.renameButton.visible = !this.artifact.isEmpty() && !Objects.equals(this.artifact, this.oldArtifact);
+        boolean canRename = !this.artifact.isEmpty() && !Objects.equals(this.artifact, this.oldArtifact);
+        this.renameButton.visible = this.cancelButton.visible = canRename;
+        this.okButton.visible = !canRename;
     }
 
     @Override
@@ -139,6 +145,10 @@ public final class CounterScreen extends Screen {
 
     private void onOKButtonClick(Button button) {
         this.closeScreen();
+    }
+
+    private void onCancelButtonClick(Button button) {
+        this.artifact = this.oldArtifact;
     }
 
     private void onRenameButtonClick(Button button) {
