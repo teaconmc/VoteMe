@@ -46,6 +46,7 @@
   "gui.voteme.voter.empty_artifact_hint": "No artifact specified",
   "gui.voteme.voter.ok": "OK",
   "gui.voteme.voter.unset": "Unset",
+  "gui.voteme.voter.comment": "Comment",
   "item.voteme.counter": "Voting Counter",
   "item.voteme.counter.with_artifact": "Voting Counter (%s)",
   "item.voteme.voter": "Voting Machine",

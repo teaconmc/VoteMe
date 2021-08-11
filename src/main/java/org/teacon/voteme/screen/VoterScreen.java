@@ -22,6 +22,7 @@ import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import org.teacon.voteme.network.ShowVoterPacket;
+import org.teacon.voteme.network.SubmitCommentPacket;
 import org.teacon.voteme.network.SubmitVotePacket;
 import org.teacon.voteme.network.VoteMePacketManager;
 import org.teacon.voteme.vote.VoteListHandler;
@@ -46,14 +47,17 @@ public final class VoterScreen extends Screen {
 
     private final Map<ResourceLocation, Integer> votes;
     private final List<ShowVoterPacket.Info> infoCollection;
+    final List<String> oldComments;
+    List<String> currentComments;
 
     private int slideBottom, slideTop;
     private BottomButton clearButton, unsetButton;
 
-    public VoterScreen(UUID artifactID, String artifactName, List<ShowVoterPacket.Info> infos) {
+    public VoterScreen(UUID artifactID, String artifactName, List<ShowVoterPacket.Info> infos, List<String> comments) {
         super(NarratorChatListener.EMPTY);
         this.artifactID = artifactID;
         this.artifact = artifactName;
+        this.currentComments = (this.oldComments = comments);
         this.votes = new LinkedHashMap<>(infos.size());
         this.infoCollection = ImmutableList.copyOf(infos);
     }
@@ -65,6 +69,7 @@ public final class VoterScreen extends Screen {
         this.clearButton = this.addButton(new BottomButton(this.width / 2 - 104, this.height / 2 + 82, true, this::onClearButtonClick, new TranslationTextComponent("gui.voteme.voter.clear")));
         this.unsetButton = this.addButton(new BottomButton(this.width / 2 - 104, this.height / 2 + 82, true, this::onUnsetButtonClick, new TranslationTextComponent("gui.voteme.voter.unset")));
         this.addButton(new BottomButton(this.width / 2 + 52, this.height / 2 + 82, false, this::onOKButtonClick, new TranslationTextComponent("gui.voteme.voter.ok")));
+        this.addButton(new BottomButton(this.width / 2 - 26, this.height / 2 + 82, false, this::onCommentButtonClick, new TranslationTextComponent("gui.voteme.voter.comment")));
     }
 
     @Override
@@ -93,10 +98,18 @@ public final class VoterScreen extends Screen {
             SubmitVotePacket packet = SubmitVotePacket.create(this.artifactID, this.votes);
             VoteMePacketManager.CHANNEL.sendToServer(packet);
         }
+        if (!this.currentComments.equals(this.oldComments)) {
+            SubmitCommentPacket packet = SubmitCommentPacket.create(this.artifactID, this.currentComments);
+            VoteMePacketManager.CHANNEL.sendToServer(packet);
+        }
     }
 
     private void onOKButtonClick(Button button) {
         this.closeScreen();
+    }
+    
+    private void onCommentButtonClick(Button button) {
+        this.minecraft.displayGuiScreen(new CommentScreen(this));
     }
 
     private void onClearButtonClick(Button button) {

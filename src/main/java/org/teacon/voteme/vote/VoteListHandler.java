@@ -2,6 +2,7 @@ package org.teacon.voteme.vote;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Table;
 import com.google.common.collect.TreeBasedTable;
@@ -14,6 +15,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.nbt.ListNBT;
+import net.minecraft.nbt.StringNBT;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Util;
@@ -36,6 +38,7 @@ import org.teacon.voteme.network.VoteMePacketManager;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -48,6 +51,7 @@ public final class VoteListHandler extends WorldSavedData {
 
     private final Int2ObjectMap<VoteListEntry> voteEntries;
     private final Table<UUID, ResourceLocation, Integer> voteListIndices;
+    private final Table<UUID, UUID, List<String>> comments;
 
     public static VoteListHandler get(MinecraftServer server) {
         DimensionSavedDataManager manager = server.func_241755_D_().getSavedData();
@@ -59,6 +63,7 @@ public final class VoteListHandler extends WorldSavedData {
         this.nextIndex = 1;
         this.voteListIndices = TreeBasedTable.create();
         this.voteEntries = new Int2ObjectRBTreeMap<>();
+        this.comments = HashBasedTable.create();
     }
 
     public boolean hasEnabled(ResourceLocation category) {
@@ -82,6 +87,22 @@ public final class VoteListHandler extends WorldSavedData {
 
     public Optional<VoteListEntry> getEntry(int id) {
         return Optional.ofNullable(this.voteEntries.get(id));
+    }
+    
+    public List<String> getCommentFor(UUID artifactID, UUID voterID) {
+        if (this.comments.contains(artifactID, voterID)) {
+            return this.comments.get(artifactID, voterID);
+        }
+        return Collections.emptyList();
+    }
+    
+    public Map<UUID, List<String>> getAllCommentsFor(UUID artifactID) {
+        return Collections.unmodifiableMap(this.comments.row(artifactID));
+    }
+    
+    public void putCommentFor(UUID artifactID, UUID voterID, List<String> newComments) {
+        this.comments.put(artifactID, voterID, newComments);
+        this.markDirty();
     }
 
     public static Collection<? extends UUID> getArtifacts() {
@@ -205,6 +226,7 @@ public final class VoteListHandler extends WorldSavedData {
         voteArtifactAliases.clear();
         this.voteEntries.clear();
         this.voteListIndices.clear();
+        this.comments.clear();
         this.nextIndex = nbt.getInt("VoteListNextIndex");
         ListNBT lists = nbt.getList("VoteLists", Constants.NBT.TAG_COMPOUND);
         for (int i = 0, size = lists.size(); i < size; ++i) {
@@ -229,6 +251,20 @@ public final class VoteListHandler extends WorldSavedData {
                 }
             }
         }
+        CompoundNBT commentsCollection = nbt.getCompound("VoteComments");
+        for (String artifactID : commentsCollection.keySet()) {
+            CompoundNBT allComments = commentsCollection.getCompound(artifactID);
+            for (String voterID : allComments.keySet()) {
+                List<String> comments = allComments.getList(voterID, Constants.NBT.TAG_STRING)
+                    .stream()
+                    .filter(t -> t instanceof StringNBT)
+                    .map(t -> ((StringNBT)t).getString())
+                    .collect(Collectors.toList());
+                if (!comments.isEmpty()) {
+                    this.comments.put(UUID.fromString(artifactID), UUID.fromString(voterID), comments);
+                }
+            }
+        }
     }
 
     @Override
@@ -250,10 +286,23 @@ public final class VoteListHandler extends WorldSavedData {
             Optional.ofNullable(voteArtifactAliases.get(entry.getKey())).ifPresent(a -> child.putString("Alias", a));
             names.add(child);
         }
+        CompoundNBT commentsCollection = new CompoundNBT();
+        for (UUID artifactID : this.comments.rowKeySet()) {
+            CompoundNBT artifactComments = new CompoundNBT();
+            for (Map.Entry<UUID, List<String>> commentsByVoter : this.comments.row(artifactID).entrySet()) {
+                ListNBT comments = new ListNBT();
+                for (String c : commentsByVoter.getValue()) {
+                    comments.add(StringNBT.valueOf(c));
+                }
+                artifactComments.put(commentsByVoter.getKey().toString(), comments);
+            }
+            commentsCollection.put(artifactID.toString(), artifactComments);
+        }
         CompoundNBT nbt = new CompoundNBT();
         nbt.putInt("VoteListNextIndex", this.nextIndex);
         nbt.put("VoteArtifacts", names);
         nbt.put("VoteLists", lists);
+        nbt.put("VoteComments", commentsCollection);
         return nbt;
     }
 }

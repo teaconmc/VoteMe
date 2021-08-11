@@ -18,7 +18,10 @@ import org.teacon.voteme.vote.VoteListEntry;
 import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -27,12 +30,27 @@ import java.util.function.Supplier;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ShowVoterPacket {
+    
+    /** 
+     * Maximum permitted length in bytes that a single page of comment may contain. 
+     * 
+     * A CJK Unified Ideograph typically has 3 bytes; 1024 would means ~340 Chinese 
+     * characters.
+     */
+    private static final int MAX_LENGTH_PER_PAGE = 1024;
+    /**
+     * Maximum permitted number of pages that one may comment on a given artifact.
+     */
+    private static final int MAX_PAGE_NUMBER = 10;
+    
     public final UUID artifactID;
     public final ImmutableList<Info> infos;
+    public final List<String> comments;
 
-    private ShowVoterPacket(UUID artifactID, ImmutableList<Info> infos) {
+    private ShowVoterPacket(UUID artifactID, ImmutableList<Info> infos, List<String> comments) {
         this.artifactID = artifactID;
         this.infos = infos;
+        this.comments = comments;
     }
 
     public void handle(Supplier<NetworkEvent.Context> supplier) {
@@ -45,7 +63,7 @@ public final class ShowVoterPacket {
                     ShowVoterPacket p = ShowVoterPacket.this;
                     String artifactName = VoteListHandler.getArtifactName(p.artifactID);
                     if (!artifactName.isEmpty()) {
-                        VoterScreen gui = new VoterScreen(p.artifactID, artifactName, p.infos);
+                        VoterScreen gui = new VoterScreen(p.artifactID, artifactName, p.infos, p.comments);
                         supplier.get().enqueueWork(() -> Minecraft.getInstance().displayGuiScreen(gui));
                     }
                 }
@@ -61,6 +79,10 @@ public final class ShowVoterPacket {
             buffer.writeResourceLocation(info.id);
         }
         buffer.writeInt(Integer.MIN_VALUE);
+        buffer.writeVarInt(this.comments.size());
+        for (int i = 0; i < this.comments.size(); i++) {
+            buffer.writeString(this.comments.get(i), MAX_LENGTH_PER_PAGE);
+        }
     }
 
     public static ShowVoterPacket read(PacketBuffer buffer) {
@@ -73,7 +95,12 @@ public final class ShowVoterPacket {
                 builder.add(new Info(id, categoryOptional.get(), level));
             }
         }
-        return new ShowVoterPacket(artifactID, builder.build());
+        List<String> comments = new ArrayList<>(MAX_PAGE_NUMBER);
+        int pageNum = Math.min(buffer.readVarInt(), MAX_PAGE_NUMBER);
+        for (int i = 0; i < pageNum; i++) {
+            comments.add(buffer.readString(MAX_LENGTH_PER_PAGE));
+        }
+        return new ShowVoterPacket(artifactID, builder.build(), comments);
     }
 
     public static Optional<ShowVoterPacket> create(UUID artifactID, ServerPlayerEntity player) {
@@ -82,8 +109,8 @@ public final class ShowVoterPacket {
             ImmutableList.Builder<Info> builder = ImmutableList.builder();
             Set<ResourceLocation> categoryIDs = new LinkedHashSet<>();
             for (ResourceLocation roleID : VoteRoleHandler.getRoles(player)) {
-                VoteRole rule = VoteRoleHandler.getRole(roleID).orElseThrow(IllegalStateException::new);
-                categoryIDs.addAll(rule.categories.keySet());
+                VoteRole role = VoteRoleHandler.getRole(roleID).orElseThrow(IllegalStateException::new);
+                categoryIDs.addAll(role.categories.keySet());
             }
             for (ResourceLocation categoryID : categoryIDs) {
                 int id = handler.getIdOrCreate(artifactID, categoryID);
@@ -94,8 +121,9 @@ public final class ShowVoterPacket {
                 }
             }
             ImmutableList<Info> infos = builder.build();
-            if (!infos.isEmpty()) {
-                return Optional.of(new ShowVoterPacket(artifactID, infos));
+            List<String> comments = handler.getCommentFor(artifactID, player.getUniqueID());
+            if (!infos.isEmpty() || !comments.isEmpty()) {
+                return Optional.of(new ShowVoterPacket(artifactID, infos, comments));
             }
         }
         return Optional.empty();

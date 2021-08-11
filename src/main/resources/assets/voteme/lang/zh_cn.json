@@ -46,6 +46,7 @@
   "gui.voteme.voter.empty_artifact_hint": "未指定作品",
   "gui.voteme.voter.ok": "确认",
   "gui.voteme.voter.unset": "重置",
+  "gui.voteme.voter.comment": "撰写评语",
   "item.voteme.counter": "投票计数器",
   "item.voteme.counter.with_artifact": "投票计数器 (%s)",
   "item.voteme.voter": "投票表决器",

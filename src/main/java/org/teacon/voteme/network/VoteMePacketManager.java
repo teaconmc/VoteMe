@@ -34,5 +34,7 @@ public final class VoteMePacketManager {
                 SyncCategoryPacket::write, SyncCategoryPacket::read, SyncCategoryPacket::handle);
         CHANNEL.registerMessage(6, SyncArtifactNamePacket.class,
                 SyncArtifactNamePacket::write, SyncArtifactNamePacket::read, SyncArtifactNamePacket::handle);
+        CHANNEL.registerMessage(7, SubmitCommentPacket.class, // TODO This one warrants a protocol version update
+                SubmitCommentPacket::write, SubmitCommentPacket::read, SubmitCommentPacket::handle);
     }
 }
