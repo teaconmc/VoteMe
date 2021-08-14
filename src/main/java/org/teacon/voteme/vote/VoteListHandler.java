@@ -204,10 +204,14 @@ public final class VoteListHandler extends WorldSavedData {
                     List<String> commandsForVoter = getCommentFor(this, artifactID, voterID);
                     if (!commandsForVoter.isEmpty()) {
                         array.add(Util.make(new JsonObject(), child -> {
-                            child.add("categories", Util.make(new JsonObject(), votes -> {
+                            child.add("votes", Util.make(new JsonObject(), votes -> {
                                 JsonArray[] arrays = {new JsonArray(), new JsonArray(), new JsonArray(), new JsonArray(), new JsonArray(), new JsonArray()};
                                 for (VoteListEntry voteListEntry : voteLists.values()) {
-                                    arrays[voteListEntry.votes.get(voterID)].add(voteListEntry.category.toString());
+                                    JsonObject object = new JsonObject();
+                                    VoteList voteList = voteListEntry.votes;
+                                    object.add("roles", Util.make(new JsonArray(), roles -> voteList.getRoles(voterID).forEach(r -> roles.add(r.toString()))));
+                                    object.addProperty("category", voteListEntry.category.toString());
+                                    arrays[voteList.get(voterID)].add(object);
                                 }
                                 for (int i = 1; i <= 5; ++i) {
                                     votes.add(Integer.toString(i), arrays[i]);
