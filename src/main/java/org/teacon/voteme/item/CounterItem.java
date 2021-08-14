@@ -99,7 +99,7 @@ public final class CounterItem extends Item {
                 packet = EditCounterPacket.create(inventoryId, tag.getUniqueId("CurrentArtifact"), category, server);
             }
             if (!packet.isPresent()) {
-                packet = EditCounterPacket.create(inventoryId, server);
+                packet = EditCounterPacket.create(inventoryId);
             }
             if (packet.isPresent()) {
                 PacketDistributor.PacketTarget target = PacketDistributor.PLAYER.with(() -> (ServerPlayerEntity) player);

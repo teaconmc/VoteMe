@@ -120,7 +120,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
 
     public SortedMap<String, Stats> buildFinalScore(ResourceLocation category) {
         ListMultimap<String, Stats> results = ArrayListMultimap.create();
-        VoteRoleHandler.getIds().forEach(location -> {
+        for (ResourceLocation location : VoteRoleHandler.getIds()) {
             VoteRole role = VoteRoleHandler.getRole(location).orElseThrow(NullPointerException::new);
             int[] countsByLevel = this.countMap.computeIfAbsent(location, k -> new int[1 + 5]);
             for (VoteRole.Participation participation : role.categories.get(category)) {
@@ -144,7 +144,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
                 }
                 results.put(participation.subgroup, new Stats(weight, finalScore, effectiveCount, countsByLevel));
             }
-        });
+        }
         ImmutableSortedMap.Builder<String, Stats> result = ImmutableSortedMap.naturalOrder();
         for (Map.Entry<String, Collection<Stats>> entry : results.asMap().entrySet()) {
             Stats stats = Stats.combine(entry.getValue(), s -> s.getEffectiveCount() * s.getWeight());
@@ -235,6 +235,10 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
             return this.countsByLevel[level];
         }
 
+        public int[] getVoteCountArray() {
+            return this.countsByLevel.clone();
+        }
+
         public float getWeight() {
             return this.weight;
         }
@@ -263,6 +267,11 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
             }
             float finalScore = scoreDivisor > 0F && effectiveCountSum > 0F ? scoreSum / scoreDivisor : Float.NaN;
             return new Stats(weightSum, finalScore, effectiveCountSum, countsByLevel);
+        }
+
+        @Override
+        public String toString() {
+            return "Stats{weight=" + this.weight + ", final=" + this.finalScore + ", effective=" + this.effectiveCount + ", counts=" + Arrays.toString(this.countsByLevel) + "}";
         }
 
         @FunctionalInterface

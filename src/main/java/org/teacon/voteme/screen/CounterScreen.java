@@ -20,12 +20,12 @@ import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import org.teacon.voteme.category.VoteCategory;
-import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.network.ApplyCounterPacket;
 import org.teacon.voteme.network.EditCounterPacket;
 import org.teacon.voteme.network.EditNamePacket;
 import org.teacon.voteme.network.VoteMePacketManager;
+import org.teacon.voteme.roles.VoteRoleHandler;
+import org.teacon.voteme.vote.VoteList;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
@@ -172,7 +172,34 @@ public final class CounterScreen extends Screen {
             this.renderTooltip(matrixStack, new TranslationTextComponent("gui.voteme.counter.prev"), mouseX, mouseY);
         }
         if (dx >= 73 && dy >= -19 && dx < 99 && dy < -2) {
-            this.renderTooltip(matrixStack, new TranslationTextComponent("gui.voteme.counter.score"), mouseX, mouseY);
+            List<ITextComponent> tooltipList = new ArrayList<>();
+            EditCounterPacket.Info info = this.infoCollection.iterator().next();
+            float finalWeight = info.finalStat.getWeight();
+            int finalCount = info.finalStat.getVoteCount(), finalEffective = info.finalStat.getEffectiveCount();
+            tooltipList.add(new TranslationTextComponent("gui.voteme.counter.score", finalCount, finalEffective));
+            if (finalCount > 0) {
+                for (int i = 5; i >= 1; --i) {
+                    int voteCount = info.finalStat.getVoteCount(i);
+                    String votePercentage = String.format("%.1f%%", 100.0F * voteCount / finalCount);
+                    tooltipList.add(new TranslationTextComponent("gui.voteme.counter.score." + i, voteCount, votePercentage));
+                }
+                for (Map.Entry<String, VoteList.Stats> entry : info.scores.entrySet()) {
+                    tooltipList.add(StringTextComponent.EMPTY);
+                    VoteList.Stats childInfo = entry.getValue();
+                    ITextComponent subGroup = VoteRoleHandler.getSubGroupName(entry.getKey());
+                    int childCount = childInfo.getVoteCount(), childEffective = childInfo.getEffectiveCount();
+                    String weightPercentage = finalWeight > 0F ? String.format("%.1f%%", 100.0F * childInfo.getWeight() / finalWeight) : "--.-%";
+                    tooltipList.add(new TranslationTextComponent("gui.voteme.counter.score.subgroup", subGroup, weightPercentage, childCount, childEffective));
+                    if (childCount > 0) {
+                        for (int i = 5; i >= 1; --i) {
+                            int voteCount = childInfo.getVoteCount(i);
+                            String votePercentage = String.format("%.1f%%", 100.0F * voteCount / childCount);
+                            tooltipList.add(new TranslationTextComponent("gui.voteme.counter.score." + i, voteCount, votePercentage));
+                        }
+                    }
+                }
+            }
+            this.func_243308_b(matrixStack, tooltipList, mouseX, mouseY);
         }
         if (dx >= -98 && dy >= 76 && dx < -61 && dy < 96) {
             this.renderTooltip(matrixStack, new TranslationTextComponent("gui.voteme.counter.switch"), mouseX, mouseY);
@@ -211,7 +238,7 @@ public final class CounterScreen extends Screen {
     }
 
     private void drawCategoryScore(MatrixStack matrixStack, EditCounterPacket.Info info, FontRenderer font) {
-        ITextComponent score = new StringTextComponent(this.enabledInfos.contains(info.id) ? String.format("%.1f", info.score) : "--");
+        ITextComponent score = new StringTextComponent(this.enabledInfos.contains(info.id) ? String.format("%.1f", info.finalStat.getFinalScore(6.0F)) : "--");
         int x2 = this.width / 2 - font.getStringPropertyWidth(score) / 2 + 87, y2 = this.height / 2 - 14;
         font.func_243248_b(matrixStack, score, x2, y2, TEXT_COLOR);
     }

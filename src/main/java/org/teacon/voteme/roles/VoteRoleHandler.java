@@ -2,7 +2,6 @@ package org.teacon.voteme.roles;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -19,6 +18,8 @@ import net.minecraft.util.text.IFormattableTextComponent;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.event.HoverEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -54,6 +55,18 @@ public final class VoteRoleHandler extends JsonReloadListener {
             }
         }
         return builder.build();
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    public static ITextComponent getSubGroupName(String subGroupString) {
+        if (ResourceLocation.isResouceNameValid(subGroupString)) {
+            ResourceLocation id = new ResourceLocation(subGroupString);
+            Optional<VoteRole> roleOptional = VoteRoleHandler.getRole(id);
+            if (roleOptional.isPresent()) {
+                return roleOptional.get().name;
+            }
+        }
+        return new StringTextComponent(subGroupString);
     }
 
     public static Optional<VoteRole> getRole(ResourceLocation id) {
