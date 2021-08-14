@@ -1,11 +1,7 @@
 package org.teacon.voteme.vote;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.HashBiMap;
-import com.google.common.collect.Table;
-import com.google.common.collect.TreeBasedTable;
+import com.google.common.collect.*;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -194,12 +190,32 @@ public final class VoteListHandler extends WorldSavedData {
             result.addProperty("id", artifactID.toString());
             result.addProperty("name", getArtifactName(artifactID));
             Optional.of(getArtifactAlias(artifactID)).filter(s -> !s.isEmpty()).ifPresent(s -> result.addProperty("alias", s));
-            result.add("vote_lists", Util.make(new JsonArray(), array -> {
-                for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
-                    int id = this.getIdOrCreate(artifactID, categoryID);
-                    Optional<VoteListEntry> entryOptional = this.getEntry(id);
-                    boolean enabledDefault = VoteCategoryHandler.getCategory(categoryID).filter(c -> c.enabledDefault).isPresent();
-                    entryOptional.filter(entry -> entry.votes.getEnabled().orElse(enabledDefault)).ifPresent(entry -> array.add(id));
+            Map<Integer, VoteListEntry> voteLists = new LinkedHashMap<>();
+            for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
+                int id = this.getIdOrCreate(artifactID, categoryID);
+                Optional<VoteListEntry> entryOptional = this.getEntry(id);
+                boolean enabledDefault = VoteCategoryHandler.getCategory(categoryID).filter(c -> c.enabledDefault).isPresent();
+                entryOptional.filter(entry -> entry.votes.getEnabled().orElse(enabledDefault)).ifPresent(entry -> voteLists.put(id, entry));
+            }
+            result.add("vote_lists", Util.make(new JsonArray(), array -> voteLists.keySet().forEach(array::add)));
+            result.add("vote_comments", Util.make(new JsonArray(), array -> {
+                for (Map.Entry<UUID, List<String>> entry : getAllCommentsFor(this, artifactID).entrySet()) {
+                    UUID voterID = entry.getKey();
+                    List<String> commandsForVoter = getCommentFor(this, artifactID, voterID);
+                    if (!commandsForVoter.isEmpty()) {
+                        array.add(Util.make(new JsonObject(), child -> {
+                            child.add("categories", Util.make(new JsonObject(), votes -> {
+                                JsonArray[] arrays = {new JsonArray(), new JsonArray(), new JsonArray(), new JsonArray(), new JsonArray(), new JsonArray()};
+                                for (VoteListEntry voteListEntry : voteLists.values()) {
+                                    arrays[voteListEntry.votes.get(voterID)].add(voteListEntry.category.toString());
+                                }
+                                for (int i = 1; i <= 5; ++i) {
+                                    votes.add(Integer.toString(i), arrays[i]);
+                                }
+                            }));
+                            child.add("texts", Util.make(new JsonArray(), texts -> commandsForVoter.forEach(texts::add)));
+                        }));
+                    }
                 }
             }));
         });
