@@ -74,10 +74,16 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
         }));
     }
 
-    private HttpResponseStatus handleArtifact(ByteBuf buf, String uuid) {
+    private HttpResponseStatus handleArtifact(ByteBuf buf, String ref) {
+        VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
+        Optional<UUID> artifactByAlias = VoteListHandler.getArtifactByAlias(ref);
+        if (artifactByAlias.isPresent()) {
+            Collection<? extends UUID> artifacts = VoteListHandler.getArtifacts();
+            Preconditions.checkArgument(artifacts.contains(artifactByAlias.get()));
+            return this.handleOK(buf, handler.toArtifactHTTPJson(artifactByAlias.get()));
+        }
         try {
-            UUID artifactID = UUID.fromString(uuid);
-            VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
+            UUID artifactID = UUID.fromString(ref);
             Collection<? extends UUID> artifacts = VoteListHandler.getArtifacts();
             Preconditions.checkArgument(artifacts.contains(artifactID));
             return this.handleOK(buf, handler.toArtifactHTTPJson(artifactID));
@@ -110,7 +116,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
         VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
         Collection<? extends ResourceLocation> categories = VoteCategoryHandler.getIds();
         IntCollection ids = new IntRBTreeSet();
-        handler.getArtifacts().forEach(artifactID -> {
+        VoteListHandler.getArtifacts().forEach(artifactID -> {
             for (ResourceLocation categoryID : categories) {
                 int id = handler.getIdOrCreate(artifactID, categoryID);
                 boolean enabledDefault = VoteCategoryHandler.getCategory(categoryID).filter(c -> c.enabledDefault).isPresent();
