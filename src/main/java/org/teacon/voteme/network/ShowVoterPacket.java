@@ -121,7 +121,7 @@ public final class ShowVoterPacket {
                 }
             }
             ImmutableList<Info> infos = builder.build();
-            List<String> comments = handler.getCommentFor(artifactID, player.getUniqueID());
+            List<String> comments = VoteListHandler.getCommentFor(handler, artifactID, player.getUniqueID());
             if (!infos.isEmpty() || !comments.isEmpty()) {
                 return Optional.of(new ShowVoterPacket(artifactID, infos, comments));
             }

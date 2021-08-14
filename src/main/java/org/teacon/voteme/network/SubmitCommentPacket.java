@@ -41,7 +41,7 @@ public class SubmitCommentPacket {
             ServerPlayerEntity sender = Objects.requireNonNull(ctx.getSender());
             VoteListHandler handler = VoteListHandler.get(sender.server);
             if (!this.problematic) {
-                handler.putCommentFor(this.artifactID, sender.getUniqueID(), this.comments);
+                VoteListHandler.putCommentFor(handler, this.artifactID, sender.getUniqueID(), this.comments);
             }
         });
         ctx.setPacketHandled(true);

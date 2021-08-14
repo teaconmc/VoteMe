@@ -89,20 +89,23 @@ public final class VoteListHandler extends WorldSavedData {
         return Optional.ofNullable(this.voteEntries.get(id));
     }
     
-    public List<String> getCommentFor(UUID artifactID, UUID voterID) {
-        if (this.comments.contains(artifactID, voterID)) {
-            return this.comments.get(artifactID, voterID);
+    public static List<String> getCommentFor(VoteListHandler handler, UUID artifactID, UUID voterID) {
+        if (handler.comments.contains(artifactID, voterID)) {
+            return handler.comments.get(artifactID, voterID);
         }
         return Collections.emptyList();
     }
     
-    public Map<UUID, List<String>> getAllCommentsFor(UUID artifactID) {
-        return Collections.unmodifiableMap(this.comments.row(artifactID));
+    public static Map<UUID, List<String>> getAllCommentsFor(VoteListHandler handler, UUID artifactID) {
+        return Collections.unmodifiableMap(handler.comments.row(artifactID));
     }
     
-    public void putCommentFor(UUID artifactID, UUID voterID, List<String> newComments) {
-        this.comments.put(artifactID, voterID, newComments);
-        this.markDirty();
+    public static void putCommentFor(VoteListHandler handler, UUID artifactID, UUID voterID, List<String> newComments) {
+        if (newComments.isEmpty()) {
+            handler.comments.remove(artifactID, voterID);
+        }
+        handler.comments.put(artifactID, voterID, newComments);
+        handler.markDirty();
     }
 
     public static Collection<? extends UUID> getArtifacts() {
