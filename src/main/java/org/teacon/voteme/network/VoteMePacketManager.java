@@ -14,7 +14,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class VoteMePacketManager {
-    public static final String VERSION = "1"; // Last Update: Sat, 9 Jan 2021 02:00:00 +0800
+    public static final String VERSION = "2"; // Last Update: Mon, 16 Aug 2021 03:30:00 +0800
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation("voteme:network"), () -> VERSION, VERSION::equals, VERSION::equals);
 
