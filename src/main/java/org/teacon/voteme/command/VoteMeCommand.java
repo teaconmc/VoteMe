@@ -1,6 +1,8 @@
 package org.teacon.voteme.command;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimaps;
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
@@ -44,20 +46,17 @@ import org.teacon.voteme.vote.VoteListHandler;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Predicate;
 
 import static com.mojang.brigadier.arguments.StringArgumentType.getString;
 import static com.mojang.brigadier.arguments.StringArgumentType.greedyString;
 import static net.minecraft.command.Commands.argument;
 import static net.minecraft.command.Commands.literal;
-import static net.minecraft.command.arguments.EntityArgument.*;
+import static net.minecraft.command.arguments.EntityArgument.getPlayers;
+import static net.minecraft.command.arguments.EntityArgument.players;
 import static net.minecraft.command.arguments.GameProfileArgument.gameProfile;
 import static net.minecraft.command.arguments.GameProfileArgument.getGameProfiles;
 import static net.minecraft.command.arguments.ResourceLocationArgument.getResourceLocation;
@@ -167,7 +166,10 @@ public final class VoteMeCommand {
                                 .then(argument("artifact", artifact())
                                         .then(argument("category", resourceLocation())
                                                 .suggests(CATEGORY_SUGGESTION)
-                                                .executes(VoteMeCommand::queryVoter)))))
+                                                .executes(VoteMeCommand::queryVoter)))
+                                .then(argument("category", resourceLocation())
+                                        .suggests(CATEGORY_SUGGESTION)
+                                        .executes(VoteMeCommand::queryVoterList))))
                 .then(literal("open")
                         .requires(permission(2, "voteme", "voteme.open"))
                         .then(argument("targets", players())
@@ -304,12 +306,58 @@ public final class VoteMeCommand {
                     String timeString = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(time.atZone(ZoneId.systemDefault()));
                     context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.success." + voteLevel,
                             profile.getName(), toCategoryText(location), toArtifactText(artifactID), timeString,
-                            TextComponentUtils.func_240649_b_(roles, VoteMeCommand::toRoleText)), true);
+                            TextComponentUtils.func_240649_b_(roles, VoteMeCommand::toRoleText)), false);
                     voted += voteLevel > 0 ? 1 : 0;
                 }
                 return voted;
             }
             throw VOTE_DISABLED.create(toCategoryText(location), toArtifactText(artifactID));
+        }
+        throw CATEGORY_NOT_FOUND.create(location);
+    }
+
+    private static int queryVoterList(CommandContext<CommandSource> context) throws CommandSyntaxException {
+        Collection<GameProfile> profiles = getGameProfiles(context, "target");
+        ResourceLocation location = getResourceLocation(context, "category");
+        VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
+        Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
+        if (categoryOptional.isPresent()) {
+            VoteCategory category = categoryOptional.get();
+            boolean enabledDefault = category.enabledDefault;
+            Map<ResourceLocation, UUID> disabledArtifacts = new TreeMap<>();
+            Map<GameProfile, ListMultimap<Integer, UUID>> totalVoted = new LinkedHashMap<>();
+            for (GameProfile profile : profiles) {
+                // noinspection RedundantTypeArguments
+                totalVoted.put(profile, Multimaps.<Integer, UUID>newListMultimap(new TreeMap<>(Comparator.reverseOrder()), ArrayList::new));
+            }
+            for (UUID artifactID : VoteListHandler.getArtifacts()) {
+                int id = handler.getIdOrCreate(artifactID, location);
+                Optional<VoteListEntry> entryOptional = handler.getEntry(id).filter(e -> e.votes.getEnabled().orElse(enabledDefault));
+                if (entryOptional.isPresent()) {
+                    VoteList votes = entryOptional.get().votes;
+                    for (GameProfile profile : profiles) {
+                        totalVoted.get(profile).put(votes.get(profile.getId()), artifactID);
+                    }
+                    continue;
+                }
+                disabledArtifacts.put(location, artifactID);
+            }
+            int voted = 0;
+            for (Map.Entry<GameProfile, ListMultimap<Integer, UUID>> entry : totalVoted.entrySet()) {
+                GameProfile profile = entry.getKey();
+                for (Map.Entry<Integer, Collection<UUID>> voteEntry : entry.getValue().asMap().entrySet()) {
+                    int voteLevel = voteEntry.getKey();
+                    Collection<UUID> artifactIDs = voteEntry.getValue();
+                    context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.list.success." + voteLevel,
+                            profile.getName(), toCategoryText(location), TextComponentUtils.func_240649_b_(artifactIDs, VoteMeCommand::toArtifactText)), true);
+                    voted += voteLevel > 0 ? artifactIDs.size() : 0;
+                }
+            }
+            if (!disabledArtifacts.isEmpty()) {
+                context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.list.success.disabled",
+                        toCategoryText(location), TextComponentUtils.func_240649_b_(disabledArtifacts.values(), VoteMeCommand::toArtifactText)), true);
+            }
+            return voted;
         }
         throw CATEGORY_NOT_FOUND.create(location);
     }
