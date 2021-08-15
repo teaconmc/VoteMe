@@ -90,9 +90,9 @@ public final class VoteCategoryHandler extends JsonReloadListener {
     public static IFormattableTextComponent getText(ResourceLocation id) {
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(id);
         if (categoryOptional.isPresent()) {
-            ITextComponent name = categoryOptional.get().name, desc = categoryOptional.get().description;
-            ITextComponent hover = new StringTextComponent("").append(name).appendString("\n").append(desc);
-            IFormattableTextComponent base = wrapWithSquareBrackets(new StringTextComponent(id.toString()));
+            ITextComponent desc = categoryOptional.get().description;
+            ITextComponent hover = new StringTextComponent("[" + id + "]").appendString("\n\n").append(desc);
+            IFormattableTextComponent base = new StringTextComponent("").append(categoryOptional.get().name);
             return base.modifyStyle(style -> style.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover)));
         }
         return new StringTextComponent("");
