@@ -57,18 +57,6 @@ public final class VoteRoleHandler extends JsonReloadListener {
         return builder.build();
     }
 
-    @OnlyIn(Dist.CLIENT)
-    public static ITextComponent getSubGroupName(String subGroupString) {
-        if (ResourceLocation.isResouceNameValid(subGroupString)) {
-            ResourceLocation id = new ResourceLocation(subGroupString);
-            Optional<VoteRole> roleOptional = VoteRoleHandler.getRole(id);
-            if (roleOptional.isPresent()) {
-                return roleOptional.get().name;
-            }
-        }
-        return new StringTextComponent(subGroupString);
-    }
-
     public static Optional<VoteRole> getRole(ResourceLocation id) {
         return Optional.ofNullable(roleMap.get(id));
     }

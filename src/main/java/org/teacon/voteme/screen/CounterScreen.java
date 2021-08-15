@@ -20,11 +20,11 @@ import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import org.apache.commons.lang3.tuple.Pair;
 import org.teacon.voteme.network.ApplyCounterPacket;
 import org.teacon.voteme.network.EditCounterPacket;
 import org.teacon.voteme.network.EditNamePacket;
 import org.teacon.voteme.network.VoteMePacketManager;
-import org.teacon.voteme.roles.VoteRoleHandler;
 import org.teacon.voteme.vote.VoteList;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -183,13 +183,12 @@ public final class CounterScreen extends Screen {
                     String votePercentage = String.format("%.1f%%", 100.0F * voteCount / finalCount);
                     tooltipList.add(new TranslationTextComponent("gui.voteme.counter.score." + i, voteCount, votePercentage));
                 }
-                for (Map.Entry<String, VoteList.Stats> entry : info.scores.entrySet()) {
+                for (Pair<ITextComponent, VoteList.Stats> entry : info.scores) {
                     tooltipList.add(StringTextComponent.EMPTY);
                     VoteList.Stats childInfo = entry.getValue();
-                    ITextComponent subGroup = VoteRoleHandler.getSubGroupName(entry.getKey());
                     int childCount = childInfo.getVoteCount(), childEffective = childInfo.getEffectiveCount();
                     String weightPercentage = finalWeight > 0F ? String.format("%.1f%%", 100.0F * childInfo.getWeight() / finalWeight) : "--.-%";
-                    tooltipList.add(new TranslationTextComponent("gui.voteme.counter.score.subgroup", subGroup, weightPercentage, childCount, childEffective));
+                    tooltipList.add(new TranslationTextComponent("gui.voteme.counter.score.subgroup", entry.getValue(), weightPercentage, childCount, childEffective));
                     if (childCount > 0) {
                         for (int i = 5; i >= 1; --i) {
                             int voteCount = childInfo.getVoteCount(i);

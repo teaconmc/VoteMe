@@ -1,25 +1,27 @@
 package org.teacon.voteme.network;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.StringTextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.network.NetworkEvent;
+import org.apache.commons.lang3.tuple.Pair;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
+import org.teacon.voteme.roles.VoteRoleHandler;
 import org.teacon.voteme.screen.CounterScreen;
 import org.teacon.voteme.vote.VoteList;
 import org.teacon.voteme.vote.VoteListEntry;
 import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -62,13 +64,13 @@ public final class EditCounterPacket {
         buffer.writeResourceLocation(this.category);
         buffer.writeVarInt(this.infos.size());
         for (Info info : this.infos) {
-            for (Map.Entry<String, VoteList.Stats> entry : info.scores.entrySet()) {
+            for (Pair<ITextComponent, VoteList.Stats> entry : info.scores) {
                 VoteList.Stats stats = entry.getValue();
                 buffer.writeFloat(stats.getWeight());
                 buffer.writeFloat(stats.getFinalScore(Float.NaN));
                 buffer.writeVarInt(stats.getEffectiveCount());
                 buffer.writeVarIntArray(stats.getVoteCountArray());
-                buffer.writeString(entry.getKey());
+                buffer.writeTextComponent(entry.getKey());
             }
             buffer.writeFloat(Float.NaN);
             buffer.writeResourceLocation(info.id);
@@ -82,13 +84,13 @@ public final class EditCounterPacket {
         ResourceLocation category = buffer.readResourceLocation();
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
         for (int i = 0, size = buffer.readVarInt(); i < size; ++i) {
-            ImmutableMap.Builder<String, VoteList.Stats> scoresBuilder = ImmutableMap.builder();
+            ImmutableList.Builder<Pair<ITextComponent, VoteList.Stats>> scoresBuilder = ImmutableList.builder();
             for (float weight = buffer.readFloat(); !Float.isNaN(weight); weight = buffer.readFloat()) {
                 float finalScore = buffer.readFloat();
                 int effectiveVoteCount = buffer.readVarInt();
                 int[] countsByLevel = buffer.readVarIntArray(6);
-                String subgroup = buffer.readString(Short.MAX_VALUE);
-                scoresBuilder.put(subgroup, new VoteList.Stats(weight, finalScore, effectiveVoteCount, countsByLevel));
+                ITextComponent subgroup = buffer.readTextComponent();
+                scoresBuilder.add(Pair.of(subgroup, new VoteList.Stats(weight, finalScore, effectiveVoteCount, countsByLevel)));
             }
             ResourceLocation id = buffer.readResourceLocation();
             boolean categoryEnabledCurrently = buffer.readBoolean();
@@ -112,8 +114,11 @@ public final class EditCounterPacket {
                 VoteListEntry entry = handler.getEntry(handler.getIdOrCreate(artifactID, location)).orElseThrow(IllegalStateException::new);
                 boolean enabledCurrently = entry.votes.getEnabled().orElse(category.enabledDefault);
                 if (category.enabledDefault || category.enabledModifiable || enabledCurrently) {
-                    Map<String, VoteList.Stats> scores = entry.votes.buildFinalScore(location);
-                    builder.add(new Info(location, category, scores, enabledCurrently));
+                    ImmutableList.Builder<Pair<ITextComponent, VoteList.Stats>> scoresBuilder = ImmutableList.builder();
+                    entry.votes.buildFinalScore(location).forEach((subgroup, scores) -> scoresBuilder.add(Pair.of(Optional
+                            .ofNullable(ResourceLocation.tryCreate(subgroup)).flatMap(VoteRoleHandler::getRole)
+                            .map(role -> role.name).orElse(new StringTextComponent(subgroup)), scores)));
+                    builder.add(new Info(location, category, scoresBuilder.build(), enabledCurrently));
                 }
             }
             ImmutableList<Info> infos = builder.build();
@@ -132,7 +137,7 @@ public final class EditCounterPacket {
         VoteCategoryHandler.getIds().forEach(location -> {
             VoteCategory category = VoteCategoryHandler.getCategory(location).orElseThrow(IllegalStateException::new);
             if (category.enabledDefault || category.enabledModifiable) {
-                builder.add(new Info(location, category, ImmutableSortedMap.of(), category.enabledDefault));
+                builder.add(new Info(location, category, ImmutableList.of(), category.enabledDefault));
             }
         });
         ImmutableList<Info> infos = builder.build();
@@ -151,14 +156,14 @@ public final class EditCounterPacket {
         public final VoteCategory category;
         public final boolean enabledCurrently;
         public final VoteList.Stats finalStat;
-        public final Map<String, VoteList.Stats> scores;
+        public final List<Pair<ITextComponent, VoteList.Stats>> scores;
 
-        public Info(ResourceLocation id, VoteCategory category, Map<String, VoteList.Stats> scores, boolean enabledCurrently) {
+        public Info(ResourceLocation id, VoteCategory category, List<Pair<ITextComponent, VoteList.Stats>> scores, boolean enabledCurrently) {
             this.id = id;
             this.scores = scores;
             this.category = category;
             this.enabledCurrently = enabledCurrently;
-            this.finalStat = VoteList.Stats.combine(scores.values(), VoteList.Stats::getWeight);
+            this.finalStat = VoteList.Stats.combine(() -> scores.stream().map(Pair::getValue).iterator(), VoteList.Stats::getWeight);
         }
 
         @Override
