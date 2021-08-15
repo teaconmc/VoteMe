@@ -1,6 +1,7 @@
 package org.teacon.voteme.command;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.mojang.authlib.GameProfile;
@@ -20,6 +21,7 @@ import net.minecraft.entity.item.ItemEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.IFormattableTextComponent;
 import net.minecraft.util.text.TextComponentUtils;
@@ -289,7 +291,8 @@ public final class VoteMeCommand {
         UUID artifactID = getArtifact(context, "artifact");
         Collection<GameProfile> profiles = getGameProfiles(context, "target");
         ResourceLocation location = getResourceLocation(context, "category");
-        VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
+        MinecraftServer server = context.getSource().getServer();
+        VoteListHandler handler = VoteListHandler.get(server);
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
         if (categoryOptional.isPresent()) {
             VoteCategory category = categoryOptional.get();
@@ -304,9 +307,17 @@ public final class VoteMeCommand {
                     Collection<? extends ResourceLocation> roles = votes.getRoles(profile.getId());
                     Instant time = votes.getTime(profile.getId()).orElse(Instant.EPOCH).truncatedTo(ChronoUnit.SECONDS);
                     String timeString = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(time.atZone(ZoneId.systemDefault()));
-                    context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.success." + voteLevel,
-                            profile.getName(), toCategoryText(location), toArtifactText(artifactID), timeString,
-                            TextComponentUtils.func_240649_b_(roles, VoteMeCommand::toRoleText)), false);
+                    if (Objects.equals(context.getSource().source, server.getPlayerList().getPlayerByUUID(profile.getId()))) {
+                        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.success." + voteLevel,
+                                profile.getName(), toCategoryText(location), toArtifactText(artifactID), timeString,
+                                TextComponentUtils.func_240649_b_(roles, VoteMeCommand::toRoleText)), false);
+                    } else if (voteLevel > 0) {
+                        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.success.voted",
+                                profile.getName(), toCategoryText(location), toArtifactText(artifactID)), false);
+                    } else {
+                        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.success.0",
+                                profile.getName(), toCategoryText(location), toArtifactText(artifactID)), false);
+                    }
                     voted += voteLevel > 0 ? 1 : 0;
                 }
                 return voted;
@@ -319,7 +330,8 @@ public final class VoteMeCommand {
     private static int queryVoterList(CommandContext<CommandSource> context) throws CommandSyntaxException {
         Collection<GameProfile> profiles = getGameProfiles(context, "target");
         ResourceLocation location = getResourceLocation(context, "category");
-        VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
+        MinecraftServer server = context.getSource().getServer();
+        VoteListHandler handler = VoteListHandler.get(server);
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
         if (categoryOptional.isPresent()) {
             VoteCategory category = categoryOptional.get();
@@ -328,7 +340,7 @@ public final class VoteMeCommand {
             Map<GameProfile, ListMultimap<Integer, UUID>> totalVoted = new LinkedHashMap<>();
             for (GameProfile profile : profiles) {
                 // noinspection RedundantTypeArguments
-                totalVoted.put(profile, Multimaps.<Integer, UUID>newListMultimap(new TreeMap<>(Comparator.reverseOrder()), ArrayList::new));
+                totalVoted.put(profile, LinkedListMultimap.<Integer, UUID>create());
             }
             for (UUID artifactID : VoteListHandler.getArtifacts()) {
                 int id = handler.getIdOrCreate(artifactID, location);
@@ -345,12 +357,27 @@ public final class VoteMeCommand {
             int voted = 0;
             for (Map.Entry<GameProfile, ListMultimap<Integer, UUID>> entry : totalVoted.entrySet()) {
                 GameProfile profile = entry.getKey();
-                for (Map.Entry<Integer, Collection<UUID>> voteEntry : entry.getValue().asMap().entrySet()) {
-                    int voteLevel = voteEntry.getKey();
-                    Collection<UUID> artifactIDs = voteEntry.getValue();
-                    context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.list.success." + voteLevel,
-                            profile.getName(), toCategoryText(location), TextComponentUtils.func_240649_b_(artifactIDs, VoteMeCommand::toArtifactText)), true);
-                    voted += voteLevel > 0 ? artifactIDs.size() : 0;
+                if (Objects.equals(context.getSource().source, server.getPlayerList().getPlayerByUUID(profile.getId()))) {
+                    for (int voteLevel = 5; voteLevel >= 0; --voteLevel) {
+                        Collection<UUID> artifactIDs = entry.getValue().get(voteLevel);
+                        if (!artifactIDs.isEmpty()) {
+                            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.list.success." + voteLevel,
+                                    profile.getName(), toCategoryText(location), TextComponentUtils.func_240649_b_(artifactIDs, VoteMeCommand::toArtifactText)), false);
+                            voted += voteLevel > 0 ? artifactIDs.size() : 0;
+                        }
+                    }
+                } else {
+                    Collection<UUID> nonVotedArtifactIDs = entry.getValue().removeAll(0);
+                    Collection<UUID> artifactIDs = entry.getValue().values();
+                    if (!artifactIDs.isEmpty()) {
+                        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.list.success.voted",
+                                profile.getName(), toCategoryText(location), TextComponentUtils.func_240649_b_(artifactIDs, VoteMeCommand::toArtifactText)), false);
+                        voted += artifactIDs.size();
+                    }
+                    if (!nonVotedArtifactIDs.isEmpty()) {
+                        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.list.success.0",
+                                profile.getName(), toCategoryText(location), TextComponentUtils.func_240649_b_(nonVotedArtifactIDs, VoteMeCommand::toArtifactText)), false);
+                    }
                 }
             }
             if (!disabledArtifacts.isEmpty()) {
