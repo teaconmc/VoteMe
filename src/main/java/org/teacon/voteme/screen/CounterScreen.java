@@ -188,7 +188,7 @@ public final class CounterScreen extends Screen {
                     VoteList.Stats childInfo = entry.getValue();
                     int childCount = childInfo.getVoteCount(), childEffective = childInfo.getEffectiveCount();
                     String weightPercentage = finalWeight > 0F ? String.format("%.1f%%", 100.0F * childInfo.getWeight() / finalWeight) : "--.-%";
-                    tooltipList.add(new TranslationTextComponent("gui.voteme.counter.score.subgroup", entry.getValue(), weightPercentage, childCount, childEffective));
+                    tooltipList.add(new TranslationTextComponent("gui.voteme.counter.score.subgroup", entry.getKey(), weightPercentage, childCount, childEffective));
                     if (childCount > 0) {
                         for (int i = 5; i >= 1; --i) {
                             int voteCount = childInfo.getVoteCount(i);
