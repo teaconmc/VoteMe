@@ -25,7 +25,6 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
 @MethodsReturnNonnullByDefault
@@ -64,6 +63,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     }
 
     public int merge(VoteList from) {
+        // TODO: update count map
         int[] countArray = new int[1];
         if (from != this) {
             from.votes.forEach((uuid, fromTriple) -> {
