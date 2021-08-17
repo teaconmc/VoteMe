@@ -34,7 +34,6 @@ import org.teacon.voteme.network.VoteMePacketManager;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -47,7 +46,7 @@ public final class VoteListHandler extends WorldSavedData {
 
     private final Int2ObjectMap<VoteListEntry> voteEntries;
     private final Table<UUID, ResourceLocation, Integer> voteListIndices;
-    private final Table<UUID, UUID, List<String>> comments;
+    private final Table<UUID, UUID, ImmutableList<String>> comments;
 
     public static VoteListHandler get(MinecraftServer server) {
         DimensionSavedDataManager manager = server.func_241755_D_().getSavedData();
@@ -85,14 +84,14 @@ public final class VoteListHandler extends WorldSavedData {
         return Optional.ofNullable(this.voteEntries.get(id));
     }
     
-    public static List<String> getCommentFor(VoteListHandler handler, UUID artifactID, UUID voterID) {
+    public static ImmutableList<String> getCommentFor(VoteListHandler handler, UUID artifactID, UUID voterID) {
         if (handler.comments.contains(artifactID, voterID)) {
             return handler.comments.get(artifactID, voterID);
         }
-        return Collections.emptyList();
+        return ImmutableList.of();
     }
     
-    public static Map<UUID, List<String>> getAllCommentsFor(VoteListHandler handler, UUID artifactID) {
+    public static Map<UUID, ImmutableList<String>> getAllCommentsFor(VoteListHandler handler, UUID artifactID) {
         return Collections.unmodifiableMap(handler.comments.row(artifactID));
     }
     
@@ -100,7 +99,7 @@ public final class VoteListHandler extends WorldSavedData {
         if (newComments.isEmpty()) {
             handler.comments.remove(artifactID, voterID);
         }
-        handler.comments.put(artifactID, voterID, newComments);
+        handler.comments.put(artifactID, voterID, ImmutableList.copyOf(newComments));
         handler.markDirty();
     }
 
@@ -199,10 +198,10 @@ public final class VoteListHandler extends WorldSavedData {
             }
             result.add("vote_lists", Util.make(new JsonArray(), array -> voteLists.keySet().forEach(array::add)));
             result.add("vote_comments", Util.make(new JsonArray(), array -> {
-                for (Map.Entry<UUID, List<String>> entry : getAllCommentsFor(this, artifactID).entrySet()) {
+                for (Map.Entry<UUID, ImmutableList<String>> entry : getAllCommentsFor(this, artifactID).entrySet()) {
                     UUID voterID = entry.getKey();
-                    List<String> commandsForVoter = getCommentFor(this, artifactID, voterID);
-                    if (!commandsForVoter.isEmpty()) {
+                    ImmutableList<String> commentsForVoter = entry.getValue();
+                    if (!commentsForVoter.isEmpty()) {
                         array.add(Util.make(new JsonObject(), child -> {
                             child.add("votes", Util.make(new JsonObject(), votes -> {
                                 JsonArray[] arrays = {new JsonArray(), new JsonArray(), new JsonArray(), new JsonArray(), new JsonArray(), new JsonArray()};
@@ -217,7 +216,7 @@ public final class VoteListHandler extends WorldSavedData {
                                     votes.add(Integer.toString(i), arrays[i]);
                                 }
                             }));
-                            child.add("texts", Util.make(new JsonArray(), texts -> commandsForVoter.forEach(texts::add)));
+                            child.add("texts", Util.make(new JsonArray(), texts -> commentsForVoter.forEach(texts::add)));
                         }));
                     }
                 }
@@ -278,11 +277,11 @@ public final class VoteListHandler extends WorldSavedData {
         for (String artifactID : commentsCollection.keySet()) {
             CompoundNBT allComments = commentsCollection.getCompound(artifactID);
             for (String voterID : allComments.keySet()) {
-                List<String> comments = allComments.getList(voterID, Constants.NBT.TAG_STRING)
+                ImmutableList<String> comments = allComments.getList(voterID, Constants.NBT.TAG_STRING)
                     .stream()
                     .filter(t -> t instanceof StringNBT)
-                    .map(t -> ((StringNBT)t).getString())
-                    .collect(Collectors.toList());
+                    .map(t -> ((StringNBT) t).getString())
+                    .collect(ImmutableList.toImmutableList());
                 if (!comments.isEmpty()) {
                     this.comments.put(UUID.fromString(artifactID), UUID.fromString(voterID), comments);
                 }
@@ -312,7 +311,7 @@ public final class VoteListHandler extends WorldSavedData {
         CompoundNBT commentsCollection = new CompoundNBT();
         for (UUID artifactID : this.comments.rowKeySet()) {
             CompoundNBT artifactComments = new CompoundNBT();
-            for (Map.Entry<UUID, List<String>> commentsByVoter : this.comments.row(artifactID).entrySet()) {
+            for (Map.Entry<UUID, ImmutableList<String>> commentsByVoter : this.comments.row(artifactID).entrySet()) {
                 ListNBT comments = new ListNBT();
                 for (String c : commentsByVoter.getValue()) {
                     comments.add(StringNBT.valueOf(c));

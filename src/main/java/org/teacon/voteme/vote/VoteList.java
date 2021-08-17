@@ -25,6 +25,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
 @MethodsReturnNonnullByDefault
@@ -60,6 +61,23 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
             this.enabled = null;
             this.onVoteChange.run();
         }
+    }
+
+    public int merge(VoteList from) {
+        int[] countArray = new int[1];
+        if (from != this) {
+            from.votes.forEach((uuid, fromTriple) -> {
+                Triple<Integer, ImmutableSet<ResourceLocation>, Instant> triple = this.votes.get(uuid);
+                if (triple == null || triple.getRight().isBefore(fromTriple.getRight())) {
+                    this.votes.put(uuid, fromTriple);
+                    ++countArray[0];
+                }
+            });
+            if (countArray[0] > 0) {
+                this.onVoteChange.run();
+            }
+        }
+        return countArray[0];
     }
 
     public int get(ServerPlayerEntity player) {

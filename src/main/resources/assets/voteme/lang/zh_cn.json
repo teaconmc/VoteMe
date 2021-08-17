@@ -18,6 +18,8 @@
   "commands.voteme.list.categories.success": "共 %s 个 VoteMe 投票分类：%s",
   "commands.voteme.list.roles.none": "无 VoteMe 投票角色",
   "commands.voteme.list.roles.success": "共 %s 个不同的 VoteMe 投票角色：%s",
+  "commands.voteme.merge.success": "成功为投票分类 %2$s 和作品 %4$s 合并了来自作品 %3$s 的 %1$s 个投票。",
+  "commands.voteme.merge.success.comments": "成功为作品 %2$s 合并了来自作品 %1$s 的所有评语。",
   "commands.voteme.modify.success": "成功将作品的相关信息从 %s 修改为 %s。",
   "commands.voteme.query.list.success.0": "玩家 %1$s 未为 %2$s 投票的作品有：%3$s",
   "commands.voteme.query.list.success.1": "玩家 %1$s 为 %2$s 打了 1 颗星的作品有：%3$s",

@@ -18,6 +18,8 @@
   "commands.voteme.list.categories.success": "There are %s voteme categories: %s",
   "commands.voteme.list.roles.none": "There are no roles for voting",
   "commands.voteme.list.roles.success": "There are %s different roles for voting: %s",
+  "commands.voteme.merge.success": "Successfully merged %s votes for category %s from artifact %s to %s.",
+  "commands.voteme.merge.success.comments": "Successfully merged comments from artifact %s to %s.",
   "commands.voteme.modify.success": "Successfully modified the related information of the artifact from %s to %s.",
   "commands.voteme.query.list.success.0": "Artifact list for %2$s not voted by player %1$s: %3$s",
   "commands.voteme.query.list.success.1": "Artifact list for %2$s voted 1 star by player %1$s: %3$s",

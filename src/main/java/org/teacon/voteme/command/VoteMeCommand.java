@@ -1,9 +1,9 @@
 package org.teacon.voteme.command;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Multimaps;
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
@@ -108,7 +108,7 @@ public final class VoteMeCommand {
         // register child commands
         event.getDispatcher().register(literal("voteme")
                 .then(literal("admin")
-                        .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.create", "voteme.admin.remove", "voteme.admin.clear", "voteme.admin.switch"))
+                        .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.create", "voteme.admin.remove", "voteme.admin.merge", "voteme.admin.clear", "voteme.admin.switch"))
                         .then(literal("create")
                                 .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.create"))
                                 .then(literal("alias")
@@ -123,6 +123,12 @@ public final class VoteMeCommand {
                                 .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.remove"))
                                 .then(argument("artifact", artifact())
                                         .executes(VoteMeCommand::adminRemoveArtifact)))
+                        .then(literal("merge")
+                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.merge"))
+                                .then(argument("artifact", artifact())
+                                        .then(literal("from")
+                                                .then(argument("artifact-from", artifact())
+                                                        .executes(VoteMeCommand::adminMergeVotes)))))
                         .then(literal("clear")
                                 .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.clear"))
                                 .then(argument("artifact", artifact())
@@ -477,16 +483,31 @@ public final class VoteMeCommand {
         Optional<VoteCategory> result = VoteCategoryHandler.getCategory(location);
         Pair<ResourceLocation, VoteCategory> category = Pair.of(location, result.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location)));
         VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
-        boolean enabledDefault = category.getValue().enabledDefault;
         int id = handler.getIdOrCreate(artifactID, category.getKey());
-        Optional<VoteListEntry> entryOptional = handler.getEntry(id).filter(e -> e.votes.getEnabled().orElse(enabledDefault));
-        if (entryOptional.isPresent()) {
-            entryOptional.get().votes.clear();
-            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.clear.success",
-                    toCategoryText(category.getKey()), toArtifactText(artifactID)), true);
-            return Command.SINGLE_SUCCESS;
+        handler.getEntry(id).orElseThrow(IllegalStateException::new).votes.clear();
+        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.clear.success",
+                toCategoryText(category.getKey()), toArtifactText(artifactID)), true);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int adminMergeVotes(CommandContext<CommandSource> context) throws CommandSyntaxException {
+        UUID artifactIDFrom = getArtifact(context, "artifact-from"), artifactID = getArtifact(context, "artifact");
+        VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
+        for (ResourceLocation location : VoteCategoryHandler.getIds()) {
+            VoteListEntry entryFrom = handler.getEntry(handler.getIdOrCreate(artifactIDFrom, location)).orElseThrow(IllegalStateException::new);
+            VoteListEntry entry = handler.getEntry(handler.getIdOrCreate(artifactID, location)).orElseThrow(IllegalStateException::new);
+            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.merge.success",
+                    entry.votes.merge(entryFrom.votes), toCategoryText(location), toArtifactText(artifactIDFrom), toArtifactText(artifactID)), true);
         }
-        throw VOTE_DISABLED.create(toCategoryText(category.getKey()), toArtifactText(artifactID));
+        if (!Objects.equals(artifactIDFrom, artifactID)) {
+            VoteListHandler.getAllCommentsFor(handler, artifactIDFrom).forEach((uuid, commentsFrom) -> {
+                ImmutableList<String> comments = VoteListHandler.getCommentFor(handler, artifactID, uuid);
+                VoteListHandler.putCommentFor(handler, artifactID, uuid, ImmutableList.<String>builder().addAll(comments).addAll(commentsFrom).build());
+            });
+        }
+        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.merge.success.comments",
+                toArtifactText(artifactIDFrom), toArtifactText(artifactID)), true);
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int adminRemoveArtifact(CommandContext<CommandSource> context) {
