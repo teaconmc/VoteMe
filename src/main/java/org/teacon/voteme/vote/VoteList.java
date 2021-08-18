@@ -63,13 +63,24 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     }
 
     public int merge(VoteList from) {
-        // TODO: update count map
         int[] countArray = new int[1];
         if (from != this) {
             from.votes.forEach((uuid, fromTriple) -> {
                 Triple<Integer, ImmutableSet<ResourceLocation>, Instant> triple = this.votes.get(uuid);
                 if (triple == null || triple.getRight().isBefore(fromTriple.getRight())) {
                     this.votes.put(uuid, fromTriple);
+                    for (ResourceLocation role : fromTriple.getMiddle()) {
+                        int[] newCountsByLevel = this.countMap.computeIfAbsent(role, k -> new int[1 + 5]);
+                        ++newCountsByLevel[fromTriple.getLeft()];
+                        --newCountsByLevel[0];
+                    }
+                    if (triple != null) {
+                        for (ResourceLocation role : triple.getMiddle()) {
+                            int[] oldCountsByLevel = Objects.requireNonNull(this.countMap.get(role));
+                            --oldCountsByLevel[triple.getLeft()];
+                            ++oldCountsByLevel[0];
+                        }
+                    }
                     ++countArray[0];
                 }
             });
