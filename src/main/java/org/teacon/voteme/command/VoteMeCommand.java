@@ -342,7 +342,7 @@ public final class VoteMeCommand {
         if (categoryOptional.isPresent()) {
             VoteCategory category = categoryOptional.get();
             boolean enabledDefault = category.enabledDefault;
-            Map<ResourceLocation, UUID> disabledArtifacts = new TreeMap<>();
+            Set<UUID> disabledArtifacts = new LinkedHashSet<>();
             Map<GameProfile, ListMultimap<Integer, UUID>> totalVoted = new LinkedHashMap<>();
             for (GameProfile profile : profiles) {
                 // noinspection RedundantTypeArguments
@@ -358,7 +358,7 @@ public final class VoteMeCommand {
                     }
                     continue;
                 }
-                disabledArtifacts.put(location, artifactID);
+                disabledArtifacts.add(artifactID);
             }
             int voted = 0;
             for (Map.Entry<GameProfile, ListMultimap<Integer, UUID>> entry : totalVoted.entrySet()) {
@@ -388,7 +388,7 @@ public final class VoteMeCommand {
             }
             if (!disabledArtifacts.isEmpty()) {
                 context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.list.success.disabled",
-                        toCategoryText(location), TextComponentUtils.func_240649_b_(disabledArtifacts.values(), VoteMeCommand::toArtifactText)), true);
+                        toCategoryText(location), TextComponentUtils.func_240649_b_(disabledArtifacts, VoteMeCommand::toArtifactText)), true);
             }
             return voted;
         }
