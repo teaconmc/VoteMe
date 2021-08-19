@@ -209,7 +209,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     public void deserializeNBT(CompoundNBT compound) {
         this.votes.clear();
         this.countMap.clear();
-        this.enabled = compound.contains("Disabled", Constants.NBT.TAG_ANY_NUMERIC) ? compound.getBoolean("Disabled") : null;
+        this.enabled = compound.contains("Disabled", Constants.NBT.TAG_ANY_NUMERIC) ? !compound.getBoolean("Disabled") : null;
         ListNBT nbt = compound.getList("Votes", Constants.NBT.TAG_COMPOUND);
         for (int i = 0, size = nbt.size(); i < size; ++i) {
             CompoundNBT child = nbt.getCompound(i);
