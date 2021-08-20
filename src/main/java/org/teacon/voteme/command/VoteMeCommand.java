@@ -23,10 +23,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.IFormattableTextComponent;
-import net.minecraft.util.text.TextComponentUtils;
-import net.minecraft.util.text.TextFormatting;
-import net.minecraft.util.text.TranslationTextComponent;
+import net.minecraft.util.text.*;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
@@ -401,7 +398,7 @@ public final class VoteMeCommand {
         String name = VoteListHandler.getArtifactName(artifactID);
         IFormattableTextComponent artifactText = toArtifactText(artifactID);
         if (!name.equals(newName)) {
-            VoteListHandler.putArtifactName(VoteListHandler.get(context.getSource().getServer()), artifactID, newName);
+            VoteListHandler.putArtifactName(context.getSource(), artifactID, newName);
             IFormattableTextComponent artifactTextNew = toArtifactText(artifactID);
             context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.modify.success",
                     artifactText.mergeStyle(TextFormatting.STRIKETHROUGH), artifactTextNew), true);
@@ -416,7 +413,7 @@ public final class VoteMeCommand {
         IFormattableTextComponent artifactText = toArtifactText(artifactID);
         Optional<UUID> conflict = VoteListHandler.getArtifactByAlias(newAlias);
         if (!conflict.isPresent()) {
-            VoteListHandler.putArtifactAlias(VoteListHandler.get(context.getSource().getServer()), artifactID, newAlias);
+            VoteListHandler.putArtifactAlias(context.getSource(), artifactID, newAlias);
             IFormattableTextComponent artifactTextNew = toArtifactText(artifactID);
             context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.modify.success",
                     artifactText.mergeStyle(TextFormatting.STRIKETHROUGH), artifactTextNew), true);
@@ -428,7 +425,7 @@ public final class VoteMeCommand {
     private static int modifyArtifactUnAlias(CommandContext<CommandSource> context) {
         UUID artifactID = getArtifact(context, "artifact");
         IFormattableTextComponent artifactText = toArtifactText(artifactID);
-        VoteListHandler.putArtifactAlias(VoteListHandler.get(context.getSource().getServer()), artifactID, "");
+        VoteListHandler.putArtifactAlias(context.getSource(), artifactID, "");
         IFormattableTextComponent artifactTextNew = toArtifactText(artifactID);
         context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.modify.success",
                 artifactText.mergeStyle(TextFormatting.STRIKETHROUGH), artifactTextNew), true);
@@ -513,7 +510,7 @@ public final class VoteMeCommand {
     private static int adminRemoveArtifact(CommandContext<CommandSource> context) {
         UUID artifactID = getArtifact(context, "artifact");
         IFormattableTextComponent artifactText = toArtifactText(artifactID);
-        VoteListHandler.putArtifactName(VoteListHandler.get(context.getSource().getServer()), artifactID, "");
+        VoteListHandler.putArtifactName(context.getSource(), artifactID, "");
         context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.admin.remove.success",
                 artifactText.mergeStyle(TextFormatting.STRIKETHROUGH)), true);
         return Command.SINGLE_SUCCESS;
@@ -522,9 +519,7 @@ public final class VoteMeCommand {
     private static int adminCreateArtifact(CommandContext<CommandSource> context) {
         UUID newArtifactID = UUID.randomUUID();
         String newName = getString(context, "title");
-        VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
-
-        VoteListHandler.putArtifactName(handler, newArtifactID, newName);
+        VoteListHandler.putArtifactName(context.getSource(), newArtifactID, newName);
         IFormattableTextComponent artifactText = toArtifactText(newArtifactID);
         context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.admin.create.success", artifactText), true);
 
@@ -537,12 +532,10 @@ public final class VoteMeCommand {
         String newAlias = getAlias(context, "alias");
         Optional<UUID> conflict = VoteListHandler.getArtifactByAlias(newAlias);
         if (!conflict.isPresent()) {
-            VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
-
-            VoteListHandler.putArtifactName(handler, newArtifactID, newName);
-            VoteListHandler.putArtifactAlias(handler, newArtifactID, newAlias);
-            IFormattableTextComponent artifactText = toArtifactText(newArtifactID);
-            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.admin.create.success", artifactText), true);
+            VoteListHandler.putArtifactName(context.getSource(), newArtifactID, newName);
+            VoteListHandler.putArtifactAlias(context.getSource(), newArtifactID, newAlias);
+            context.getSource().sendFeedback(new TranslationTextComponent(
+                    "commands.voteme.admin.create.success", toArtifactText(newArtifactID)), true);
 
             return Command.SINGLE_SUCCESS;
         }

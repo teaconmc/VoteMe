@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 import mcp.MethodsReturnNonnullByDefault;
+import net.minecraft.command.CommandSource;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.nbt.CompoundNBT;
@@ -27,7 +28,9 @@ import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
 import net.minecraftforge.fml.network.PacketDistributor;
+import org.teacon.voteme.VoteMe;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.network.SyncArtifactNamePacket;
 import org.teacon.voteme.network.VoteMePacketManager;
@@ -123,34 +126,43 @@ public final class VoteListHandler extends WorldSavedData {
         return Optional.ofNullable(voteArtifactAliases.inverse().get(alias));
     }
 
-    public static void putArtifactName(VoteListHandler handler, UUID uuid, String name) {
+    public static void putArtifactName(CommandSource source, UUID uuid, String name) {
+        VoteListHandler handler = get(source.getServer());
         if (!name.isEmpty()) {
-            if (!name.equals(voteArtifactNames.put(uuid, name))) {
+            String oldName = voteArtifactNames.put(uuid, name);
+            if (!name.equals(oldName)) {
+                VoteMe.LOGGER.info("{} ({}) has renamed artifact from {} to {} ({})", source.getName(), source.getDisplayName(), oldName, name, uuid);
                 SyncArtifactNamePacket packet = SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases);
                 VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),packet);
                 handler.markDirty();
             }
         } else if (voteArtifactNames.containsKey(uuid)) {
             handler.markDirty();
-            voteArtifactNames.remove(uuid);
             voteArtifactAliases.remove(uuid);
-            VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),
-                    SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases));
+            String oldName = voteArtifactNames.remove(uuid);
+            VoteMe.LOGGER.info("{} ({}) has removed artifact {} ({})", source.getName(), source.getDisplayName(), oldName, uuid);
+            VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases));
         }
     }
 
-    public static void putArtifactAlias(VoteListHandler handler, UUID uuid, String alias) {
+    public static void putArtifactAlias(CommandSource source, UUID uuid, String alias) {
+        VoteListHandler handler = get(source.getServer());
         if (!alias.isEmpty()) {
             Preconditions.checkArgument(voteArtifactNames.containsKey(uuid));
             Preconditions.checkArgument(trimValidAlias(alias) == alias.length());
-            if (!alias.equals(voteArtifactAliases.put(uuid, alias))) {
+            String oldAlias = voteArtifactAliases.put(uuid, alias);
+            if (!alias.equals(oldAlias)) {
                 handler.markDirty();
+                VoteMe.LOGGER.info("{} ({}) has changed alias from {} to {} for artifact {} ({})",
+                        source.getName(), source.getDisplayName(), oldAlias, alias, voteArtifactNames.get(uuid), uuid);
                 VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),
                         SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases));
             }
         } else if (voteArtifactAliases.containsKey(uuid)) {
             handler.markDirty();
-            voteArtifactAliases.remove(uuid);
+            String oldAlias = voteArtifactAliases.remove(uuid);
+            VoteMe.LOGGER.info("{} ({}) has removed alias {} for artifact {} ({})",
+                    source.getName(), source.getDisplayName(), oldAlias, voteArtifactNames.get(uuid), uuid);
             VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),
                     SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases));
         }
@@ -225,6 +237,11 @@ public final class VoteListHandler extends WorldSavedData {
     }
 
     @SubscribeEvent
+    public static void onServerStarting(FMLServerStartingEvent event) {
+        VoteListHandler.get(event.getServer());
+    }
+
+    @SubscribeEvent
     public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         PlayerEntity player = event.getPlayer();
         if (player instanceof ServerPlayerEntity) {
@@ -244,6 +261,7 @@ public final class VoteListHandler extends WorldSavedData {
 
     @Override
     public void read(CompoundNBT nbt) {
+        VoteMe.LOGGER.info("Loading vote list data on server ...");
         voteArtifactNames.clear();
         voteArtifactAliases.clear();
         this.voteEntries.clear();
@@ -287,10 +305,12 @@ public final class VoteListHandler extends WorldSavedData {
                 }
             }
         }
+        VoteMe.LOGGER.info("Loaded vote list data of {} artifact(s) on server.", voteArtifactNames.size());
     }
 
     @Override
     public CompoundNBT write(CompoundNBT compound) {
+        VoteMe.LOGGER.info("Saving vote list data on server ...");
         ListNBT lists = new ListNBT();
         for (int id = 0; id < this.nextIndex; ++id) {
             VoteListEntry entry = this.voteEntries.get(id);
@@ -325,6 +345,7 @@ public final class VoteListHandler extends WorldSavedData {
         nbt.put("VoteArtifacts", names);
         nbt.put("VoteLists", lists);
         nbt.put("VoteComments", commentsCollection);
+        VoteMe.LOGGER.info("Saved vote list data of {} artifact(s) on server.", names.size());
         return nbt;
     }
 }
