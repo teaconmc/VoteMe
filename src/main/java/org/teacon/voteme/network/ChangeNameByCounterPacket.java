@@ -5,12 +5,15 @@ import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.fml.network.NetworkEvent;
+import net.minecraftforge.server.permission.PermissionAPI;
 import org.teacon.voteme.item.CounterItem;
+import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -28,9 +31,15 @@ public final class ChangeNameByCounterPacket {
     public void handle(Supplier<NetworkEvent.Context> supplier) {
         supplier.get().enqueueWork(() -> {
             ServerPlayerEntity sender = Objects.requireNonNull(supplier.get().getSender());
-            ItemStack stack = sender.inventory.getStackInSlot(this.inventoryIndex);
-            if (CounterItem.INSTANCE.equals(stack.getItem())) {
-                CounterItem.INSTANCE.rename(sender, stack, this.artifactUUID, this.newArtifactName);
+            boolean isCreating = VoteListHandler.getArtifactName(this.artifactUUID).isEmpty();
+            Stream<String> permissions = !isCreating
+                    ? Stream.of("voteme.modify.counter", "voteme.modify", "voteme")
+                    : Stream.of("voteme.create.counter", "voteme.create", "voteme.admin.create", "voteme.admin", "voteme");
+            if (permissions.anyMatch(p -> PermissionAPI.hasPermission(sender, p))) {
+                ItemStack stack = sender.inventory.getStackInSlot(this.inventoryIndex);
+                if (CounterItem.INSTANCE.equals(stack.getItem())) {
+                    CounterItem.INSTANCE.rename(sender, stack, this.artifactUUID, this.newArtifactName);
+                }
             }
         });
         supplier.get().setPacketHandled(true);
