@@ -24,7 +24,7 @@ import net.minecraftforge.registries.ObjectHolder;
 import org.teacon.voteme.VoteMe;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
-import org.teacon.voteme.network.EditCounterPacket;
+import org.teacon.voteme.network.ShowCounterPacket;
 import org.teacon.voteme.network.VoteMePacketManager;
 import org.teacon.voteme.vote.VoteListHandler;
 
@@ -89,17 +89,17 @@ public final class CounterItem extends Item {
     @Override
     public ActionResult<ItemStack> onItemRightClick(World world, PlayerEntity player, Hand hand) {
         ItemStack itemStack = player.getHeldItem(hand);
-        CompoundNBT tag = itemStack.getTag();
+        CompoundNBT tag = itemStack.getOrCreateTag();
         if (player instanceof ServerPlayerEntity) {
-            Optional<EditCounterPacket> packet = Optional.empty();
+            Optional<ShowCounterPacket> packet = Optional.empty();
             MinecraftServer server = Objects.requireNonNull(player.getServer());
             int inventoryId = hand == Hand.MAIN_HAND ? player.inventory.currentItem : 40;
-            if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
+            if (tag.hasUniqueId("CurrentArtifact")) {
                 ResourceLocation category = new ResourceLocation(tag.getString("CurrentCategory"));
-                packet = EditCounterPacket.create(inventoryId, tag.getUniqueId("CurrentArtifact"), category, server);
+                packet = ShowCounterPacket.create(inventoryId, tag.getUniqueId("CurrentArtifact"), category, server);
             }
             if (!packet.isPresent()) {
-                packet = EditCounterPacket.create(inventoryId);
+                packet = ShowCounterPacket.create(inventoryId, uuid -> tag.putUniqueId("CurrentArtifact", uuid));
             }
             if (packet.isPresent()) {
                 PacketDistributor.PacketTarget target = PacketDistributor.PLAYER.with(() -> (ServerPlayerEntity) player);
@@ -125,16 +125,18 @@ public final class CounterItem extends Item {
         return new TranslationTextComponent("item.voteme.counter");
     }
 
+    public void rename(ServerPlayerEntity sender, ItemStack stack, UUID artifactID, String newArtifactName) {
+        if (this.checkMatchedArtifact(stack, artifactID)) {
+            VoteListHandler.putArtifactName(sender.getCommandSource(), artifactID, newArtifactName);
+        } else {
+            VoteMe.LOGGER.warn("Unmatched vote artifact {} submitted by {}.", artifactID, sender.getGameProfile());
+        }
+    }
+
     public void applyChanges(ServerPlayerEntity sender, ItemStack stack, UUID artifactID, ResourceLocation currentCategory,
                              ImmutableList<ResourceLocation> enabledCategories, ImmutableList<ResourceLocation> disabledCategories) {
-        boolean matchArtifact = true;
-        CompoundNBT tag = stack.getTag();
         VoteListHandler handler = VoteListHandler.get(Objects.requireNonNull(sender.getServer()));
-        if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
-            String artifactName = VoteListHandler.getArtifactName(artifactID);
-            matchArtifact = !artifactName.isEmpty() && tag.getUniqueId("CurrentArtifact").equals(artifactID);
-        }
-        if (matchArtifact) {
+        if (this.checkMatchedArtifact(stack, artifactID)) {
             stack.getOrCreateTag().putString("CurrentCategory", currentCategory.toString());
             stack.getOrCreateTag().putUniqueId("CurrentArtifact", artifactID);
             for (ResourceLocation category : enabledCategories) {
@@ -153,6 +155,16 @@ public final class CounterItem extends Item {
                     VoteMe.LOGGER.warn("Unmodifiable vote category {} submitted by {}.", category, sender.getGameProfile());
                 }
             }
+        } else {
+            VoteMe.LOGGER.warn("Unmatched vote artifact {} submitted by {}.", artifactID, sender.getGameProfile());
         }
+    }
+
+    private boolean checkMatchedArtifact(ItemStack stack, UUID artifactID) {
+        CompoundNBT tag = stack.getTag();
+        if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
+            return tag.getUniqueId("CurrentArtifact").equals(artifactID);
+        }
+        return false;
     }
 }

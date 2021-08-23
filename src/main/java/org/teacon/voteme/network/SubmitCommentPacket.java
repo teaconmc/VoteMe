@@ -11,7 +11,7 @@ import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.fml.network.NetworkEvent;
 import org.teacon.voteme.vote.VoteListHandler;
 
-public class SubmitCommentPacket {
+public final class SubmitCommentPacket {
     
     /** 
      * Maximum permitted length in bytes that a single page of comment may contain. 

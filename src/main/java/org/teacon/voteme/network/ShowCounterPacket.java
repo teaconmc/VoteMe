@@ -24,17 +24,18 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class EditCounterPacket {
+public final class ShowCounterPacket {
     public final int invIndex;
     public final UUID artifactUUID;
     public final ResourceLocation category;
     public final ImmutableList<Info> infos;
 
-    private EditCounterPacket(int invIndex, UUID uuid, ResourceLocation category, ImmutableList<Info> infos) {
+    private ShowCounterPacket(int invIndex, UUID uuid, ResourceLocation category, ImmutableList<Info> infos) {
         this.invIndex = invIndex;
         this.artifactUUID = uuid;
         this.category = category;
@@ -48,7 +49,7 @@ public final class EditCounterPacket {
             DistExecutor.safeRunWhenOn(Dist.CLIENT, () -> new DistExecutor.SafeRunnable() {
                 @Override
                 public void run() {
-                    EditCounterPacket p = EditCounterPacket.this;
+                    ShowCounterPacket p = ShowCounterPacket.this;
                     String artifactName = VoteListHandler.getArtifactName(p.artifactUUID);
                     CounterScreen gui = new CounterScreen(p.artifactUUID, artifactName, p.invIndex, p.category, p.infos);
                     supplier.get().enqueueWork(() -> Minecraft.getInstance().displayGuiScreen(gui));
@@ -78,7 +79,7 @@ public final class EditCounterPacket {
         }
     }
 
-    public static EditCounterPacket read(PacketBuffer buffer) {
+    public static ShowCounterPacket read(PacketBuffer buffer) {
         int inventoryIndex = buffer.readInt();
         UUID artifactUUID = buffer.readUniqueId();
         ResourceLocation category = buffer.readResourceLocation();
@@ -100,10 +101,10 @@ public final class EditCounterPacket {
                 builder.add(info);
             }
         }
-        return new EditCounterPacket(inventoryIndex, artifactUUID, category, builder.build());
+        return new ShowCounterPacket(inventoryIndex, artifactUUID, category, builder.build());
     }
 
-    public static Optional<EditCounterPacket> create(int inventoryId, UUID artifactID, ResourceLocation categoryID, MinecraftServer server) {
+    public static Optional<ShowCounterPacket> create(int inventoryId, UUID artifactID, ResourceLocation categoryID, MinecraftServer server) {
         if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
             boolean isValidCategoryID = false;
             VoteListHandler handler = VoteListHandler.get(server);
@@ -126,13 +127,13 @@ public final class EditCounterPacket {
                 if (!isValidCategoryID) {
                     categoryID = infos.iterator().next().id;
                 }
-                return Optional.of(new EditCounterPacket(inventoryId, artifactID, categoryID, infos));
+                return Optional.of(new ShowCounterPacket(inventoryId, artifactID, categoryID, infos));
             }
         }
         return Optional.empty();
     }
 
-    public static Optional<EditCounterPacket> create(int inventoryId) {
+    public static Optional<ShowCounterPacket> create(int inventoryId, Consumer<UUID> artifactUUIDConsumer) {
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
         VoteCategoryHandler.getIds().forEach(location -> {
             VoteCategory category = VoteCategoryHandler.getCategory(location).orElseThrow(IllegalStateException::new);
@@ -143,8 +144,9 @@ public final class EditCounterPacket {
         ImmutableList<Info> infos = builder.build();
         if (!infos.isEmpty()) {
             UUID newArtifactUUID = UUID.randomUUID();
+            artifactUUIDConsumer.accept(newArtifactUUID);
             ResourceLocation categoryID = infos.iterator().next().id;
-            return Optional.of(new EditCounterPacket(inventoryId, newArtifactUUID, categoryID, infos));
+            return Optional.of(new ShowCounterPacket(inventoryId, newArtifactUUID, categoryID, infos));
         }
         return Optional.empty();
     }

@@ -21,9 +21,9 @@ import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import org.apache.commons.lang3.tuple.Pair;
-import org.teacon.voteme.network.ApplyCounterPacket;
-import org.teacon.voteme.network.EditCounterPacket;
-import org.teacon.voteme.network.EditNamePacket;
+import org.teacon.voteme.network.ChangePropsByCounterPacket;
+import org.teacon.voteme.network.ShowCounterPacket;
+import org.teacon.voteme.network.ChangeNameByCounterPacket;
 import org.teacon.voteme.network.VoteMePacketManager;
 import org.teacon.voteme.vote.VoteList;
 
@@ -55,7 +55,7 @@ public final class CounterScreen extends Screen {
     private final UUID artifactUUID;
     private final int inventoryIndex;
     private final SortedSet<ResourceLocation> enabledInfos;
-    private final List<EditCounterPacket.Info> infoCollection;
+    private final List<ShowCounterPacket.Info> infoCollection;
 
     private BottomButton okButton;
     private BottomButton cancelButton;
@@ -64,7 +64,7 @@ public final class CounterScreen extends Screen {
     private TextInputUtil artifactInput;
 
     public CounterScreen(UUID artifactUUID, String artifactName, int inventoryIndex,
-                         ResourceLocation category, List<EditCounterPacket.Info> infos) {
+                         ResourceLocation category, List<ShowCounterPacket.Info> infos) {
         super(NarratorChatListener.EMPTY);
         this.artifactUUID = artifactUUID;
         this.inventoryIndex = inventoryIndex;
@@ -125,12 +125,12 @@ public final class CounterScreen extends Screen {
     @Override
     public void onClose() {
         if (!this.oldArtifact.isEmpty()) {
-            EditCounterPacket.Info info = this.infoCollection.iterator().next();
+            ShowCounterPacket.Info info = this.infoCollection.iterator().next();
             Iterable<ResourceLocation> enabled = () -> this.infoCollection.stream()
                     .filter(i -> !i.enabledCurrently && this.enabledInfos.contains(i.id)).map(i -> i.id).iterator();
             Iterable<ResourceLocation> disabled = () -> this.infoCollection.stream()
                     .filter(i -> i.enabledCurrently && !this.enabledInfos.contains(i.id)).map(i -> i.id).iterator();
-            VoteMePacketManager.CHANNEL.sendToServer(ApplyCounterPacket.create(
+            VoteMePacketManager.CHANNEL.sendToServer(ChangePropsByCounterPacket.create(
                     this.inventoryIndex, this.artifactUUID, info.id, enabled, disabled));
         }
     }
@@ -152,7 +152,7 @@ public final class CounterScreen extends Screen {
     }
 
     private void onRenameButtonClick(Button button) {
-        EditNamePacket packet = EditNamePacket.create(this.artifactUUID, this.oldArtifact = this.artifact);
+        ChangeNameByCounterPacket packet = ChangeNameByCounterPacket.create(this.inventoryIndex, this.artifactUUID, this.oldArtifact = this.artifact);
         VoteMePacketManager.CHANNEL.sendToServer(packet);
     }
 
@@ -173,7 +173,7 @@ public final class CounterScreen extends Screen {
         }
         if (dx >= 73 && dy >= -19 && dx < 99 && dy < -2) {
             List<ITextComponent> tooltipList = new ArrayList<>();
-            EditCounterPacket.Info info = this.infoCollection.iterator().next();
+            ShowCounterPacket.Info info = this.infoCollection.iterator().next();
             float finalWeight = info.finalStat.getWeight();
             int finalCount = info.finalStat.getVoteCount(), finalEffective = info.finalStat.getEffectiveCount();
             tooltipList.add(new TranslationTextComponent("gui.voteme.counter.score", finalCount, finalEffective));
@@ -215,19 +215,19 @@ public final class CounterScreen extends Screen {
 
     private void drawGuiContainerForegroundLayer(MatrixStack matrixStack, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
-        EditCounterPacket.Info info = this.infoCollection.iterator().next();
+        ShowCounterPacket.Info info = this.infoCollection.iterator().next();
         this.drawCategoryName(matrixStack, info, mc.fontRenderer);
         this.drawCategoryDescription(matrixStack, info, mc.fontRenderer);
         this.drawCategoryScore(matrixStack, info, mc.fontRenderer);
         this.drawArtifactName(matrixStack, mc.fontRenderer);
     }
 
-    private void drawCategoryName(MatrixStack matrixStack, EditCounterPacket.Info info, FontRenderer font) {
+    private void drawCategoryName(MatrixStack matrixStack, ShowCounterPacket.Info info, FontRenderer font) {
         int x0 = this.width / 2 - 52, y0 = this.height / 2 - 14;
         font.func_243248_b(matrixStack, info.category.name, x0, y0, TEXT_COLOR);
     }
 
-    private void drawCategoryDescription(MatrixStack matrixStack, EditCounterPacket.Info info, FontRenderer font) {
+    private void drawCategoryDescription(MatrixStack matrixStack, ShowCounterPacket.Info info, FontRenderer font) {
         List<IReorderingProcessor> descriptions = font.trimStringToWidth(info.category.description, 191);
         for (int size = Math.min(7, descriptions.size()), i = 0; i < size; ++i) {
             IReorderingProcessor description = descriptions.get(i);
@@ -236,7 +236,7 @@ public final class CounterScreen extends Screen {
         }
     }
 
-    private void drawCategoryScore(MatrixStack matrixStack, EditCounterPacket.Info info, FontRenderer font) {
+    private void drawCategoryScore(MatrixStack matrixStack, ShowCounterPacket.Info info, FontRenderer font) {
         ITextComponent score = new StringTextComponent(this.enabledInfos.contains(info.id) ? String.format("%.1f", info.finalStat.getFinalScore(6.0F)) : "--");
         int x2 = this.width / 2 - font.getStringPropertyWidth(score) / 2 + 87, y2 = this.height / 2 - 14;
         font.func_243248_b(matrixStack, score, x2, y2, TEXT_COLOR);

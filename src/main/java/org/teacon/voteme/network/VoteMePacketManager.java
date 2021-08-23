@@ -14,18 +14,18 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class VoteMePacketManager {
-    public static final String VERSION = "2"; // Last Update: Mon, 16 Aug 2021 03:30:00 +0800
+    public static final String VERSION = "3"; // Last Update: Mon, 23 Aug 2021 22:00:00 +0800
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation("voteme:network"), () -> VERSION, VERSION::equals, VERSION::equals);
 
     @SubscribeEvent
     public static void setup(FMLCommonSetupEvent event) {
-        CHANNEL.registerMessage(0, EditCounterPacket.class,
-                EditCounterPacket::write, EditCounterPacket::read, EditCounterPacket::handle);
-        CHANNEL.registerMessage(1, ApplyCounterPacket.class,
-                ApplyCounterPacket::write, ApplyCounterPacket::read, ApplyCounterPacket::handle);
-        CHANNEL.registerMessage(2, EditNamePacket.class,
-                EditNamePacket::write, EditNamePacket::read, EditNamePacket::handle);
+        CHANNEL.registerMessage(0, ShowCounterPacket.class,
+                ShowCounterPacket::write, ShowCounterPacket::read, ShowCounterPacket::handle);
+        CHANNEL.registerMessage(1, ChangePropsByCounterPacket.class,
+                ChangePropsByCounterPacket::write, ChangePropsByCounterPacket::read, ChangePropsByCounterPacket::handle);
+        CHANNEL.registerMessage(2, ChangeNameByCounterPacket.class,
+                ChangeNameByCounterPacket::write, ChangeNameByCounterPacket::read, ChangeNameByCounterPacket::handle);
         CHANNEL.registerMessage(3, ShowVoterPacket.class,
                 ShowVoterPacket::write, ShowVoterPacket::read, ShowVoterPacket::handle);
         CHANNEL.registerMessage(4, SubmitVotePacket.class,
@@ -34,7 +34,7 @@ public final class VoteMePacketManager {
                 SyncCategoryPacket::write, SyncCategoryPacket::read, SyncCategoryPacket::handle);
         CHANNEL.registerMessage(6, SyncArtifactNamePacket.class,
                 SyncArtifactNamePacket::write, SyncArtifactNamePacket::read, SyncArtifactNamePacket::handle);
-        CHANNEL.registerMessage(7, SubmitCommentPacket.class, // TODO This one warrants a protocol version update
+        CHANNEL.registerMessage(7, SubmitCommentPacket.class,
                 SubmitCommentPacket::write, SubmitCommentPacket::read, SubmitCommentPacket::handle);
     }
 }

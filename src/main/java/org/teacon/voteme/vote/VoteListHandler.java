@@ -38,6 +38,8 @@ import org.teacon.voteme.network.VoteMePacketManager;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
 
+import static net.minecraft.util.StringUtils.isNullOrEmpty;
+
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
@@ -131,7 +133,11 @@ public final class VoteListHandler extends WorldSavedData {
         if (!name.isEmpty()) {
             String oldName = voteArtifactNames.put(uuid, name);
             if (!name.equals(oldName)) {
-                VoteMe.LOGGER.info("{} ({}) has renamed artifact from {} to {} ({})", source.getName(), source.getDisplayName(), oldName, name, uuid);
+                if (isNullOrEmpty(oldName)) {
+                    VoteMe.LOGGER.info("{} ({}) has created artifact to {} ({})", source.getName(), source.getDisplayName().getString(), name, uuid);
+                } else {
+                    VoteMe.LOGGER.info("{} ({}) has renamed artifact from {} to {} ({})", source.getName(), source.getDisplayName().getString(), oldName, name, uuid);
+                }
                 SyncArtifactNamePacket packet = SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases);
                 VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),packet);
                 handler.markDirty();
@@ -140,7 +146,7 @@ public final class VoteListHandler extends WorldSavedData {
             handler.markDirty();
             voteArtifactAliases.remove(uuid);
             String oldName = voteArtifactNames.remove(uuid);
-            VoteMe.LOGGER.info("{} ({}) has removed artifact {} ({})", source.getName(), source.getDisplayName(), oldName, uuid);
+            VoteMe.LOGGER.info("{} ({}) has removed artifact {} ({})", source.getName(), source.getDisplayName().getString(), oldName, uuid);
             VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases));
         }
     }
@@ -148,13 +154,18 @@ public final class VoteListHandler extends WorldSavedData {
     public static void putArtifactAlias(CommandSource source, UUID uuid, String alias) {
         VoteListHandler handler = get(source.getServer());
         if (!alias.isEmpty()) {
-            Preconditions.checkArgument(voteArtifactNames.containsKey(uuid));
+            Preconditions.checkArgument(!isNullOrEmpty(voteArtifactNames.get(uuid)));
             Preconditions.checkArgument(trimValidAlias(alias) == alias.length());
             String oldAlias = voteArtifactAliases.put(uuid, alias);
             if (!alias.equals(oldAlias)) {
                 handler.markDirty();
-                VoteMe.LOGGER.info("{} ({}) has changed alias from {} to {} for artifact {} ({})",
-                        source.getName(), source.getDisplayName(), oldAlias, alias, voteArtifactNames.get(uuid), uuid);
+                if (isNullOrEmpty(oldAlias)) {
+                    VoteMe.LOGGER.info("{} ({}) has created alias {} for artifact {} ({})", source.getName(),
+                            source.getDisplayName().getString(), alias, voteArtifactNames.get(uuid), uuid);
+                } else {
+                    VoteMe.LOGGER.info("{} ({}) has changed alias from {} to {} for artifact {} ({})", source.getName(),
+                            source.getDisplayName().getString(), oldAlias, alias, voteArtifactNames.get(uuid), uuid);
+                }
                 VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),
                         SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases));
             }

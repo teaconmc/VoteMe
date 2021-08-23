@@ -17,15 +17,15 @@ import java.util.function.Supplier;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class ApplyCounterPacket {
+public final class ChangePropsByCounterPacket {
     public final int inventoryIndex;
     public final UUID artifactUUID;
     public final ResourceLocation categoryID;
     public final ImmutableList<ResourceLocation> enabled;
     public final ImmutableList<ResourceLocation> disabled;
 
-    private ApplyCounterPacket(int inventoryIndex, UUID artifactUUID, ResourceLocation category,
-                               ImmutableList<ResourceLocation> enabled, ImmutableList<ResourceLocation> disabled) {
+    private ChangePropsByCounterPacket(int inventoryIndex, UUID artifactUUID, ResourceLocation category,
+                                       ImmutableList<ResourceLocation> enabled, ImmutableList<ResourceLocation> disabled) {
         this.inventoryIndex = inventoryIndex;
         this.artifactUUID = artifactUUID;
         this.categoryID = category;
@@ -45,7 +45,7 @@ public final class ApplyCounterPacket {
     }
 
     public void write(PacketBuffer buffer) {
-        buffer.writeInt(this.inventoryIndex);
+        buffer.writeVarInt(this.inventoryIndex);
         buffer.writeUniqueId(this.artifactUUID);
         buffer.writeResourceLocation(this.categoryID);
         buffer.writeInt(this.enabled.size());
@@ -54,8 +54,8 @@ public final class ApplyCounterPacket {
         this.disabled.forEach(buffer::writeResourceLocation);
     }
 
-    public static ApplyCounterPacket read(PacketBuffer buffer) {
-        int inventoryIndex = buffer.readInt();
+    public static ChangePropsByCounterPacket read(PacketBuffer buffer) {
+        int inventoryIndex = buffer.readVarInt();
         UUID artifactUUID = buffer.readUniqueId();
         ResourceLocation category = buffer.readResourceLocation();
         int enabledSize = buffer.readInt(), disabledSize = buffer.readInt();
@@ -67,16 +67,16 @@ public final class ApplyCounterPacket {
         for (int i = 0; i < disabledSize; ++i) {
             disabledBuilder.add(buffer.readResourceLocation());
         }
-        return new ApplyCounterPacket(inventoryIndex, artifactUUID, category, enabledBuilder.build(), disabledBuilder.build());
+        return new ChangePropsByCounterPacket(inventoryIndex, artifactUUID, category, enabledBuilder.build(), disabledBuilder.build());
     }
 
-    public static ApplyCounterPacket create(int inventoryIndex, UUID artifactUUID, ResourceLocation category,
-                                            Iterable<? extends ResourceLocation> enabled, Iterable<? extends ResourceLocation> disabled) {
+    public static ChangePropsByCounterPacket create(int inventoryIndex, UUID artifactUUID, ResourceLocation category,
+                                                    Iterable<? extends ResourceLocation> enabled, Iterable<? extends ResourceLocation> disabled) {
         ImmutableList<ResourceLocation> wrappedEnabled = ImmutableList.copyOf(enabled);
         ImmutableList<ResourceLocation> wrappedDisabled = ImmutableList.copyOf(disabled);
         if (wrappedEnabled.size() + wrappedDisabled.size() > 0) {
             VoteMe.LOGGER.info("Request for enabling {} and disabling {}.", wrappedEnabled, wrappedDisabled);
         }
-        return new ApplyCounterPacket(inventoryIndex, artifactUUID, category, wrappedEnabled, wrappedDisabled);
+        return new ChangePropsByCounterPacket(inventoryIndex, artifactUUID, category, wrappedEnabled, wrappedDisabled);
     }
 }
