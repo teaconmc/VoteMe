@@ -37,10 +37,13 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     private final Map<ResourceLocation, int[]> countMap;
     private final Map<UUID, Triple<Integer, ImmutableSet<ResourceLocation>, Instant>> votes;
 
+    private final Map<ResourceLocation, SortedMap<String, Stats>> cachedScores;
+
     public VoteList(Runnable onChange) {
         this.enabled = null;
         this.votes = new HashMap<>();
         this.countMap = new HashMap<>();
+        this.cachedScores = new HashMap<>();
         this.onVoteChange = onChange;
     }
 
@@ -85,6 +88,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
                 }
             });
             if (countArray[0] > 0) {
+                this.cachedScores.clear();
                 this.onVoteChange.run();
             }
         }
@@ -127,6 +131,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
                     ++oldCountsByLevel[0];
                 }
             }
+            this.cachedScores.clear();
             this.onVoteChange.run();
         } else {
             Triple<Integer, ImmutableSet<ResourceLocation>, Instant> old = this.votes.remove(uuid);
@@ -135,6 +140,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
                     int[] oldCountsByLevel = Objects.requireNonNull(this.countMap.get(role));
                     --oldCountsByLevel[old.getLeft()];
                     ++oldCountsByLevel[0];
+                    this.cachedScores.clear();
                     this.onVoteChange.run();
                 }
             }
@@ -144,42 +150,46 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     public void clear() {
         this.votes.clear();
         this.countMap.clear();
+        this.cachedScores.clear();
         this.onVoteChange.run();
     }
 
     public SortedMap<String, Stats> buildFinalScore(ResourceLocation category) {
-        ListMultimap<String, Stats> results = ArrayListMultimap.create();
-        for (ResourceLocation location : VoteRoleHandler.getIds()) {
-            VoteRole role = VoteRoleHandler.getRole(location).orElseThrow(NullPointerException::new);
-            int[] countsByLevel = this.countMap.computeIfAbsent(location, k -> new int[1 + 5]);
-            for (VoteRole.Participation participation : role.categories.get(category)) {
-                float weight = participation.weight, finalScore = Float.NaN;
-                int count = -countsByLevel[0], truncation = participation.truncation;
-                int effectiveCount = Math.max(0, count - truncation * 2);
-                if (effectiveCount > 0) {
-                    int[] counts = countsByLevel.clone();
-                    for (int i = 1, left = truncation; left > 0; ++i) {
-                        int diff = Math.min(left, counts[i]);
-                        counts[i] -= diff;
-                        left -= diff;
+        if (!this.cachedScores.containsKey(category)) {
+            ListMultimap<String, Stats> results = ArrayListMultimap.create();
+            for (ResourceLocation location : VoteRoleHandler.getIds()) {
+                VoteRole role = VoteRoleHandler.getRole(location).orElseThrow(NullPointerException::new);
+                int[] countsByLevel = this.countMap.computeIfAbsent(location, k -> new int[1 + 5]);
+                for (VoteRole.Participation participation : role.categories.get(category)) {
+                    float weight = participation.weight, finalScore = Float.NaN;
+                    int count = -countsByLevel[0], truncation = participation.truncation;
+                    int effectiveCount = Math.max(0, count - truncation * 2);
+                    if (effectiveCount > 0) {
+                        int[] counts = countsByLevel.clone();
+                        for (int i = 1, left = truncation; left > 0; ++i) {
+                            int diff = Math.min(left, counts[i]);
+                            counts[i] -= diff;
+                            left -= diff;
+                        }
+                        for (int i = 5, left = truncation; left > 0; --i) {
+                            int diff = Math.min(left, counts[i]);
+                            counts[i] -= diff;
+                            left -= diff;
+                        }
+                        float sum = 2F * counts[1] + 4F * counts[2] + 6F * counts[3] + 8F * counts[4] + 10F * counts[5];
+                        finalScore = sum / effectiveCount;
                     }
-                    for (int i = 5, left = truncation; left > 0; --i) {
-                        int diff = Math.min(left, counts[i]);
-                        counts[i] -= diff;
-                        left -= diff;
-                    }
-                    float sum = 2F * counts[1] + 4F * counts[2] + 6F * counts[3] + 8F * counts[4] + 10F * counts[5];
-                    finalScore = sum / effectiveCount;
+                    results.put(participation.subgroup, new Stats(weight, finalScore, effectiveCount, countsByLevel));
                 }
-                results.put(participation.subgroup, new Stats(weight, finalScore, effectiveCount, countsByLevel));
             }
+            ImmutableSortedMap.Builder<String, Stats> result = ImmutableSortedMap.naturalOrder();
+            for (Map.Entry<String, Collection<Stats>> entry : results.asMap().entrySet()) {
+                Stats stats = Stats.combine(entry.getValue(), s -> s.getEffectiveCount() * s.getWeight());
+                result.put(entry.getKey(), stats);
+            }
+            this.cachedScores.put(category, result.build());
         }
-        ImmutableSortedMap.Builder<String, Stats> result = ImmutableSortedMap.naturalOrder();
-        for (Map.Entry<String, Collection<Stats>> entry : results.asMap().entrySet()) {
-            Stats stats = Stats.combine(entry.getValue(), s -> s.getEffectiveCount() * s.getWeight());
-            result.put(entry.getKey(), stats);
-        }
-        return result.build();
+        return this.cachedScores.get(category);
     }
 
     @Override
@@ -230,6 +240,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
             }
             this.votes.put(child.getUniqueId("UUID"), Triple.of(level, roles, voteTime));
         }
+        this.cachedScores.clear();
         this.onVoteChange.run();
     }
 
