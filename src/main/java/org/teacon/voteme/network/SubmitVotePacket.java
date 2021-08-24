@@ -1,5 +1,6 @@
 package org.teacon.voteme.network;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.entity.player.ServerPlayerEntity;
@@ -54,6 +55,7 @@ public final class SubmitVotePacket {
         UUID artifactID = buffer.readUniqueId();
         ImmutableMap.Builder<ResourceLocation, Integer> builder = ImmutableMap.builder();
         for (int level = buffer.readInt(); level != Integer.MIN_VALUE; level = buffer.readInt()) {
+            Preconditions.checkArgument(level >= 0 && level <= 5);
             builder.put(buffer.readResourceLocation(), level);
         }
         return new SubmitVotePacket(artifactID, builder.build());
