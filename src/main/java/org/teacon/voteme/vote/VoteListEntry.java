@@ -56,6 +56,11 @@ public final class VoteListEntry {
         return jsonObject;
     }
 
+    public float getFinalScore(float defaultScore) {
+        SortedMap<String, VoteList.Stats> scores = this.votes.buildFinalScore(this.category);
+        return VoteList.Stats.combine(scores.values(), VoteList.Stats::getWeight).getFinalScore(defaultScore);
+    }
+
     private JsonElement toVoteStatsJson(SortedMap<String, VoteList.Stats> scores, float defaultScore) {
         JsonArray voteCountInfo = new JsonArray();
         for (Map.Entry<String, VoteList.Stats> entry : scores.entrySet()) {

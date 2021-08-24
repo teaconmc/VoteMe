@@ -1,6 +1,7 @@
 package org.teacon.voteme.http;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
 import com.google.gson.*;
 import io.netty.buffer.ByteBuf;
@@ -9,6 +10,7 @@ import io.netty.buffer.ByteBufUtil;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.QueryStringDecoder;
 import it.unimi.dsi.fastutil.ints.IntCollection;
+import it.unimi.dsi.fastutil.ints.IntComparators;
 import it.unimi.dsi.fastutil.ints.IntRBTreeSet;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.util.ResourceLocation;
@@ -20,14 +22,14 @@ import org.teacon.voteme.roles.VoteRoleHandler;
 import org.teacon.voteme.vote.VoteListEntry;
 import org.teacon.voteme.vote.VoteListHandler;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
-import java.util.Collection;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -37,6 +39,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
     @Override
     protected HttpResponseStatus handle(QueryStringDecoder decoder, ByteBuf buf) {
         String path = decoder.path();
+        Map<String, List<String>> parameters = decoder.parameters();
         if ("/v1/artifacts".equals(path) || "/v1/artifacts/".equals(path)) {
             return this.handleArtifacts(buf);
         }
@@ -50,7 +53,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
             return this.handleCategory(buf, path.substring("/v1/categories/".length()));
         }
         if ("/v1/vote_lists".equals(path) || "/v1/vote_lists/".equals(path)) {
-            return this.handleVoteLists(buf);
+            return this.handleVoteLists(buf, parameters);
         }
         if (path.startsWith("/v1/vote_lists/")) {
             return this.handleVoteList(buf, path.substring("/v1/vote_lists/".length()));
@@ -76,18 +79,11 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
 
     private HttpResponseStatus handleArtifact(ByteBuf buf, String ref) {
         VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
-        Optional<UUID> artifactByAlias = VoteListHandler.getArtifactByAlias(ref);
-        if (artifactByAlias.isPresent()) {
-            Collection<? extends UUID> artifacts = VoteListHandler.getArtifacts();
-            Preconditions.checkArgument(artifacts.contains(artifactByAlias.get()));
-            return this.handleOK(buf, handler.toArtifactHTTPJson(artifactByAlias.get()));
-        }
-        try {
-            UUID artifactID = UUID.fromString(ref);
-            Collection<? extends UUID> artifacts = VoteListHandler.getArtifacts();
-            Preconditions.checkArgument(artifacts.contains(artifactID));
+        Optional<UUID> artifactIDOptional = VoteListHandler.getArtifactByAliasOrUUID(ref);
+        if (artifactIDOptional.isPresent()) {
+            UUID artifactID = artifactIDOptional.get();
             return this.handleOK(buf, handler.toArtifactHTTPJson(artifactID));
-        } catch (IllegalArgumentException ignored) {
+        } else {
             return this.handleNotFound(buf);
         }
     }
@@ -112,17 +108,52 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
         return this.handleNotFound(buf);
     }
 
-    private HttpResponseStatus handleVoteLists(ByteBuf buf) {
+    private HttpResponseStatus handleVoteLists(ByteBuf buf, Map<String, List<String>> parameters) {
         VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
-        Collection<? extends ResourceLocation> categories = VoteCategoryHandler.getIds();
-        IntCollection ids = new IntRBTreeSet();
-        VoteListHandler.getArtifacts().forEach(artifactID -> {
-            for (ResourceLocation categoryID : categories) {
-                int id = handler.getIdOrCreate(artifactID, categoryID);
-                boolean enabledDefault = VoteCategoryHandler.getCategory(categoryID).filter(c -> c.enabledDefault).isPresent();
-                handler.getEntry(id).filter(entry -> entry.votes.getEnabled().orElse(enabledDefault)).ifPresent(entry -> ids.add(id));
+        List<String> sorts = parameters.getOrDefault("sort", Collections.emptyList())
+                .stream().flatMap(s -> Arrays.stream(s.split(","))).collect(Collectors.toList());
+        @Nullable List<ResourceLocation> filteredCategories = !parameters.containsKey("category") ? null : parameters
+                .get("category").stream().map(ResourceLocation::tryCreate).filter(Objects::nonNull).collect(Collectors.toList());
+        @Nullable List<UUID> filteredArtifacts = !parameters.containsKey("artifact") ? null : parameters
+                .get("artifact").stream().map(VoteListHandler::getArtifactByAliasOrUUID).flatMap(Streams::stream).collect(Collectors.toList());
+        Comparator<Integer> comparator = Comparator.naturalOrder();
+        for (String sort : Lists.reverse(sorts)) {
+            switch (sort) { // I want switch expression ...
+                case "score-ascending": {
+                    comparator = Comparator.comparingDouble((Integer id) -> handler.getEntry(id)
+                            .map(entry -> entry.getFinalScore(6.0F)).orElse(Float.NaN)).thenComparing(comparator);
+                    break;
+                }
+                case "score-descending": {
+                    comparator = Comparator.comparingDouble((Integer id) -> handler.getEntry(id)
+                            .map(entry -> entry.getFinalScore(6.0F)).orElse(Float.NaN)).reversed().thenComparing(comparator);
+                    break;
+                }
+                case "artifact-ascending": {
+                    comparator = Comparator.comparing((Integer id) -> handler.getEntry(id)
+                            .map(entry -> entry.artifactID).orElse(new UUID(0, 0))).thenComparing(comparator);
+                    break;
+                }
+                case "artifact-descending": {
+                    comparator = Comparator.comparing((Integer id) -> handler.getEntry(id)
+                            .map(entry -> entry.artifactID).orElse(new UUID(0, 0))).reversed().thenComparing(comparator);
+                    break;
+                }
             }
-        });
+        }
+        Collection<? extends ResourceLocation> categories = VoteCategoryHandler.getIds();
+        IntCollection ids = new IntRBTreeSet(IntComparators.asIntComparator(comparator));
+        for (UUID artifactID : VoteListHandler.getArtifacts()) {
+            if (filteredArtifacts == null || filteredArtifacts.contains(artifactID)) {
+                for (ResourceLocation categoryID : categories) {
+                    if (filteredCategories == null || filteredCategories.contains(categoryID)) {
+                        int id = handler.getIdOrCreate(artifactID, categoryID);
+                        boolean enabledDefault = VoteCategoryHandler.getCategory(categoryID).filter(c -> c.enabledDefault).isPresent();
+                        handler.getEntry(id).filter(entry -> entry.votes.getEnabled().orElse(enabledDefault)).ifPresent(entry -> ids.add(id));
+                    }
+                }
+            }
+        }
         return this.handleOK(buf, Util.make(new JsonArray(), result -> ids.forEach((int id) -> {
             Optional<VoteListEntry> entryOptional = handler.getEntry(id);
             entryOptional.ifPresent(entry -> result.add(entry.toHTTPJson(id)));

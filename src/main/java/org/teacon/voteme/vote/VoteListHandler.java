@@ -124,6 +124,17 @@ public final class VoteListHandler extends WorldSavedData {
         return voteArtifactAliases.getOrDefault(uuid, "");
     }
 
+    public static Optional<UUID> getArtifactByAliasOrUUID(String ref) {
+        if (voteArtifactAliases.inverse().containsKey(ref)) {
+            return Optional.of(voteArtifactAliases.inverse().get(ref));
+        }
+        try {
+            return Optional.of(UUID.fromString(ref)).filter(voteArtifactNames::containsKey);
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
+    }
+
     public static Optional<UUID> getArtifactByAlias(String alias) {
         return Optional.ofNullable(voteArtifactAliases.inverse().get(alias));
     }
