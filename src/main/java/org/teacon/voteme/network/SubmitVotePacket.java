@@ -7,6 +7,7 @@ import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.network.NetworkEvent;
+import net.minecraftforge.server.permission.PermissionAPI;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.vote.VoteListHandler;
 
@@ -15,6 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -30,12 +32,15 @@ public final class SubmitVotePacket {
     public void handle(Supplier<NetworkEvent.Context> supplier) {
         supplier.get().enqueueWork(() -> {
             ServerPlayerEntity sender = Objects.requireNonNull(supplier.get().getSender());
-            VoteListHandler handler = VoteListHandler.get(sender.server);
-            for (Map.Entry<ResourceLocation, Integer> entry : this.entries.entrySet()) {
-                ResourceLocation categoryID = entry.getKey();
-                if (VoteCategoryHandler.getCategory(categoryID).isPresent()) {
-                    int id = handler.getIdOrCreate(this.artifactID, categoryID);
-                    handler.getEntry(id).ifPresent(e -> e.votes.set(sender, entry.getValue()));
+            Stream<String> permissions = Stream.of("voteme.open.voter", "voteme.open", "voteme");
+            if (permissions.anyMatch(p -> PermissionAPI.hasPermission(sender, p))) {
+                VoteListHandler handler = VoteListHandler.get(sender.server);
+                for (Map.Entry<ResourceLocation, Integer> entry : this.entries.entrySet()) {
+                    ResourceLocation categoryID = entry.getKey();
+                    if (VoteCategoryHandler.getCategory(categoryID).isPresent()) {
+                        int id = handler.getIdOrCreate(this.artifactID, categoryID);
+                        handler.getEntry(id).ifPresent(e -> e.votes.set(sender, entry.getValue()));
+                    }
                 }
             }
         });

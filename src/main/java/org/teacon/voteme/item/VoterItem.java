@@ -5,7 +5,6 @@ import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.Item;
-import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.util.ActionResult;
@@ -20,6 +19,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.network.PacketDistributor;
 import net.minecraftforge.registries.ObjectHolder;
+import net.minecraftforge.server.permission.PermissionAPI;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.network.ShowVoterPacket;
@@ -31,6 +31,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -97,14 +98,17 @@ public final class VoterItem extends Item {
     }
 
     public boolean open(ServerPlayerEntity player, @Nullable CompoundNBT tag) {
-        Optional<ShowVoterPacket> packet = Optional.empty();
-        if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
-            packet = ShowVoterPacket.create(tag.getUniqueId("CurrentArtifact"), player);
-        }
-        if (packet.isPresent()) {
-            PacketDistributor.PacketTarget target = PacketDistributor.PLAYER.with(() -> player);
-            VoteMePacketManager.CHANNEL.send(target, packet.get());
-            return true;
+        Stream<String> permissions = Stream.of("voteme.open.voter", "voteme.open", "voteme");
+        if (permissions.anyMatch(p -> PermissionAPI.hasPermission(player, p))) {
+            Optional<ShowVoterPacket> packet = Optional.empty();
+            if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
+                packet = ShowVoterPacket.create(tag.getUniqueId("CurrentArtifact"), player);
+            }
+            if (packet.isPresent()) {
+                PacketDistributor.PacketTarget target = PacketDistributor.PLAYER.with(() -> player);
+                VoteMePacketManager.CHANNEL.send(target, packet.get());
+                return true;
+            }
         }
         return false;
     }

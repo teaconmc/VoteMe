@@ -102,6 +102,7 @@ public final class VoteMeCommand {
         PermissionAPI.registerNode("voteme.give", DefaultPermissionLevel.OP, "Give related items to players");
         PermissionAPI.registerNode("voteme.select", DefaultPermissionLevel.OP, "Select a particular artifact");
         PermissionAPI.registerNode("voteme.list", DefaultPermissionLevel.OP, "Listing thing related to votes");
+        PermissionAPI.registerNode("voteme.open.voter", DefaultPermissionLevel.ALL, "Open vote related GUIs by voters");
         PermissionAPI.registerNode("voteme.create.counter", DefaultPermissionLevel.ALL, "Create vote titles by counters");
         PermissionAPI.registerNode("voteme.modify.counter", DefaultPermissionLevel.ALL, "Modify vote titles by counters");
         PermissionAPI.registerNode("voteme.switch.counter", DefaultPermissionLevel.ALL, "Switch on or switch off votes by counters");
