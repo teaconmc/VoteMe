@@ -34,7 +34,7 @@ teacon {
     // uncomment these lines if you need
     modName = 'Vote Me' // default to repo name
     // modGitHubBranch = 1.18-forge // for referring the license
-    // modifyMemberAccess = true // for access transformer
+    modifyMemberAccess = true // for access transformer
     // useDataGeneration = true // for data generation
     // publishTask = jar // for shadow jar or other usages
     // lazyTokens = ['minecraft_classpath': { project.configurations.shadow.asPath }] // for runtime tokens
