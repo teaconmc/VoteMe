@@ -40,8 +40,8 @@ public final class VoterFromCounterRecipe extends SpecialRecipe {
     public boolean matches(CraftingInventory inv, World worldIn) {
         int voterSize = 0;
         ItemStack counter = ItemStack.EMPTY;
-        for (int i = 0, size = inv.getSizeInventory(); i < size; ++i) {
-            ItemStack stack = inv.getStackInSlot(i);
+        for (int i = 0, size = inv.getContainerSize(); i < size; ++i) {
+            ItemStack stack = inv.getItem(i);
             if (stack.isEmpty()) {
                 continue;
             }
@@ -59,11 +59,11 @@ public final class VoterFromCounterRecipe extends SpecialRecipe {
     }
 
     @Override
-    public ItemStack getCraftingResult(CraftingInventory inv) {
+    public ItemStack assemble(CraftingInventory inv) {
         int voterSize = 0;
         ItemStack counter = ItemStack.EMPTY;
-        for (int i = 0, size = inv.getSizeInventory(); i < size; ++i) {
-            ItemStack stack = inv.getStackInSlot(i);
+        for (int i = 0, size = inv.getContainerSize(); i < size; ++i) {
+            ItemStack stack = inv.getItem(i);
             if (counter.isEmpty() && stack.getItem() == CounterItem.INSTANCE) {
                 counter = stack;
                 continue;
@@ -85,9 +85,9 @@ public final class VoterFromCounterRecipe extends SpecialRecipe {
 
     @Override
     public NonNullList<ItemStack> getRemainingItems(CraftingInventory inv) {
-        NonNullList<ItemStack> list = NonNullList.withSize(inv.getSizeInventory(), ItemStack.EMPTY);
+        NonNullList<ItemStack> list = NonNullList.withSize(inv.getContainerSize(), ItemStack.EMPTY);
         for (int i = 0, size = list.size(); i < size; ++i) {
-            ItemStack stack = inv.getStackInSlot(i);
+            ItemStack stack = inv.getItem(i);
             if (stack.hasContainerItem()) {
                 list.set(i, stack.getContainerItem());
             } else if (stack.getItem() == CounterItem.INSTANCE) {
@@ -98,7 +98,7 @@ public final class VoterFromCounterRecipe extends SpecialRecipe {
     }
 
     @Override
-    public boolean canFit(int width, int height) {
+    public boolean canCraftInDimensions(int width, int height) {
         return width * height >= 2;
     }
 

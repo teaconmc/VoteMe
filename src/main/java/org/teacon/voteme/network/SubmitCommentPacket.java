@@ -41,28 +41,28 @@ public final class SubmitCommentPacket {
             ServerPlayerEntity sender = Objects.requireNonNull(ctx.getSender());
             VoteListHandler handler = VoteListHandler.get(sender.server);
             if (!this.problematic) {
-                VoteListHandler.putCommentFor(handler, this.artifactID, sender.getUniqueID(), this.comments);
+                VoteListHandler.putCommentFor(handler, this.artifactID, sender.getUUID(), this.comments);
             }
         });
         ctx.setPacketHandled(true);
     }
     
     public void write(PacketBuffer buffer) {
-        buffer.writeUniqueId(this.artifactID);
+        buffer.writeUUID(this.artifactID);
         buffer.writeVarInt(this.comments.size());
         for (int i = 0; i < this.comments.size(); i++) {
-            buffer.writeString(this.comments.get(i), MAX_LENGTH_PER_PAGE);
+            buffer.writeUtf(this.comments.get(i), MAX_LENGTH_PER_PAGE);
         }
     }
     
     public static SubmitCommentPacket read(PacketBuffer buffer) {
-        UUID artifactID = buffer.readUniqueId();
+        UUID artifactID = buffer.readUUID();
         List<String> comments = new ArrayList<>(MAX_PAGE_NUMBER);
         int claimedSize = buffer.readVarInt();
         int sanitizedSize = Math.min(claimedSize, MAX_PAGE_NUMBER);
         // If the sanitizedSize is non-positive, the loop should exit immediately without trace.
         for (int i = 0; i < sanitizedSize; i++) {
-            comments.add(buffer.readString(MAX_LENGTH_PER_PAGE));
+            comments.add(buffer.readUtf(MAX_LENGTH_PER_PAGE));
         }
         SubmitCommentPacket pkt = new SubmitCommentPacket(artifactID, comments);
         if (sanitizedSize != claimedSize) {

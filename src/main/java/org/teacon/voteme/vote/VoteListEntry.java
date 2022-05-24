@@ -30,14 +30,14 @@ public final class VoteListEntry {
     public static VoteListEntry fromNBT(CompoundNBT compound, Runnable onChange) {
         VoteList votes = new VoteList(onChange);
         votes.deserializeNBT(compound);
-        UUID artifactID = compound.getUniqueId("ArtifactUUID");
+        UUID artifactID = compound.getUUID("ArtifactUUID");
         ResourceLocation category = new ResourceLocation(compound.getString("Category"));
         return new VoteListEntry(artifactID, category, votes);
     }
 
     public CompoundNBT toNBT() {
         CompoundNBT nbt = this.votes.serializeNBT();
-        nbt.putUniqueId("ArtifactUUID", Objects.requireNonNull(this.artifactID));
+        nbt.putUUID("ArtifactUUID", Objects.requireNonNull(this.artifactID));
         nbt.putString("Category", Objects.requireNonNull(this.category).toString());
         return nbt;
     }

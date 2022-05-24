@@ -45,7 +45,7 @@ public final class VoteMeHttpServer {
     public static void start(FMLServerStartingEvent event) {
         try {
             VoteMe.LOGGER.info("Starting the vote server on port {} ...", PORT);
-            ServerBootstrap bootstrap = new ServerBootstrap().group(NetworkSystem.SERVER_NIO_EVENTLOOP.getValue());
+            ServerBootstrap bootstrap = new ServerBootstrap().group(NetworkSystem.SERVER_EVENT_GROUP.get());
             future = bootstrap.channel(NioServerSocketChannel.class).childHandler(new Handler()).bind(PORT).sync();
             VoteMe.LOGGER.info("Successfully started the vote server on port {}.", PORT);
         } catch (Exception e) {

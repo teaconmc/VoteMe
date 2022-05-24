@@ -48,7 +48,7 @@ public final class SubmitVotePacket {
     }
 
     public void write(PacketBuffer buffer) {
-        buffer.writeUniqueId(this.artifactID);
+        buffer.writeUUID(this.artifactID);
         for (Map.Entry<ResourceLocation, Integer> entry : this.entries.entrySet()) {
             buffer.writeInt(entry.getValue());
             buffer.writeResourceLocation(entry.getKey());
@@ -57,7 +57,7 @@ public final class SubmitVotePacket {
     }
 
     public static SubmitVotePacket read(PacketBuffer buffer) {
-        UUID artifactID = buffer.readUniqueId();
+        UUID artifactID = buffer.readUUID();
         ImmutableMap.Builder<ResourceLocation, Integer> builder = ImmutableMap.builder();
         for (int level = buffer.readInt(); level != Integer.MIN_VALUE; level = buffer.readInt()) {
             Preconditions.checkArgument(level >= 0 && level <= 5);

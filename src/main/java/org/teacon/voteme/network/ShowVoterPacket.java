@@ -64,7 +64,7 @@ public final class ShowVoterPacket {
                     String artifactName = VoteListHandler.getArtifactName(p.artifactID);
                     if (!artifactName.isEmpty()) {
                         VoterScreen gui = new VoterScreen(p.artifactID, artifactName, p.infos, p.comments);
-                        supplier.get().enqueueWork(() -> Minecraft.getInstance().displayGuiScreen(gui));
+                        supplier.get().enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
                     }
                 }
             });
@@ -73,7 +73,7 @@ public final class ShowVoterPacket {
     }
 
     public void write(PacketBuffer buffer) {
-        buffer.writeUniqueId(this.artifactID);
+        buffer.writeUUID(this.artifactID);
         for (Info info : this.infos) {
             buffer.writeInt(info.level);
             buffer.writeResourceLocation(info.id);
@@ -81,12 +81,12 @@ public final class ShowVoterPacket {
         buffer.writeInt(Integer.MIN_VALUE);
         buffer.writeVarInt(this.comments.size());
         for (int i = 0; i < this.comments.size(); i++) {
-            buffer.writeString(this.comments.get(i), MAX_LENGTH_PER_PAGE);
+            buffer.writeUtf(this.comments.get(i), MAX_LENGTH_PER_PAGE);
         }
     }
 
     public static ShowVoterPacket read(PacketBuffer buffer) {
-        UUID artifactID = buffer.readUniqueId();
+        UUID artifactID = buffer.readUUID();
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
         for (int level = buffer.readInt(); level != Integer.MIN_VALUE; level = buffer.readInt()) {
             ResourceLocation id = buffer.readResourceLocation();
@@ -98,7 +98,7 @@ public final class ShowVoterPacket {
         List<String> comments = new ArrayList<>(MAX_PAGE_NUMBER);
         int pageNum = Math.min(buffer.readVarInt(), MAX_PAGE_NUMBER);
         for (int i = 0; i < pageNum; i++) {
-            comments.add(buffer.readString(MAX_LENGTH_PER_PAGE));
+            comments.add(buffer.readUtf(MAX_LENGTH_PER_PAGE));
         }
         return new ShowVoterPacket(artifactID, builder.build(), comments);
     }
@@ -121,7 +121,7 @@ public final class ShowVoterPacket {
                 }
             }
             ImmutableList<Info> infos = builder.build();
-            List<String> comments = VoteListHandler.getCommentFor(handler, artifactID, player.getUniqueID());
+            List<String> comments = VoteListHandler.getCommentFor(handler, artifactID, player.getUUID());
             if (!infos.isEmpty() || !comments.isEmpty()) {
                 return Optional.of(new ShowVoterPacket(artifactID, infos, comments));
             }

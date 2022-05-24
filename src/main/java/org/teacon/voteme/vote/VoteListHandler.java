@@ -54,8 +54,8 @@ public final class VoteListHandler extends WorldSavedData {
     private final Table<UUID, UUID, ImmutableList<String>> comments;
 
     public static VoteListHandler get(MinecraftServer server) {
-        DimensionSavedDataManager manager = server.func_241755_D_().getSavedData();
-        return manager.getOrCreate(() -> new VoteListHandler("vote_lists"), "vote_lists");
+        DimensionSavedDataManager manager = server.overworld().getDataStorage();
+        return manager.computeIfAbsent(() -> new VoteListHandler("vote_lists"), "vote_lists");
     }
 
     public VoteListHandler(String name) {
@@ -78,8 +78,8 @@ public final class VoteListHandler extends WorldSavedData {
         if (oldId == null) {
             int id = this.nextIndex++;
             this.voteListIndices.put(artifactID, category, id);
-            this.voteEntries.put(id, new VoteListEntry(artifactID, category, new VoteList(this::markDirty)));
-            this.markDirty();
+            this.voteEntries.put(id, new VoteListEntry(artifactID, category, new VoteList(this::setDirty)));
+            this.setDirty();
             return id;
         }
         return oldId;
@@ -105,7 +105,7 @@ public final class VoteListHandler extends WorldSavedData {
             handler.comments.remove(artifactID, voterID);
         }
         handler.comments.put(artifactID, voterID, ImmutableList.copyOf(newComments));
-        handler.markDirty();
+        handler.setDirty();
     }
 
     public static Collection<? extends UUID> getArtifacts() {
@@ -145,19 +145,19 @@ public final class VoteListHandler extends WorldSavedData {
             String oldName = voteArtifactNames.put(uuid, name);
             if (!name.equals(oldName)) {
                 if (isNullOrEmpty(oldName)) {
-                    VoteMe.LOGGER.info("{} ({}) has created artifact to {} ({})", source.getName(), source.getDisplayName().getString(), name, uuid);
+                    VoteMe.LOGGER.info("{} ({}) has created artifact to {} ({})", source.getTextName(), source.getDisplayName().getString(), name, uuid);
                 } else {
-                    VoteMe.LOGGER.info("{} ({}) has renamed artifact from {} to {} ({})", source.getName(), source.getDisplayName().getString(), oldName, name, uuid);
+                    VoteMe.LOGGER.info("{} ({}) has renamed artifact from {} to {} ({})", source.getTextName(), source.getDisplayName().getString(), oldName, name, uuid);
                 }
                 SyncArtifactNamePacket packet = SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases);
                 VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),packet);
-                handler.markDirty();
+                handler.setDirty();
             }
         } else if (voteArtifactNames.containsKey(uuid)) {
-            handler.markDirty();
+            handler.setDirty();
             voteArtifactAliases.remove(uuid);
             String oldName = voteArtifactNames.remove(uuid);
-            VoteMe.LOGGER.info("{} ({}) has removed artifact {} ({})", source.getName(), source.getDisplayName().getString(), oldName, uuid);
+            VoteMe.LOGGER.info("{} ({}) has removed artifact {} ({})", source.getTextName(), source.getDisplayName().getString(), oldName, uuid);
             VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases));
         }
     }
@@ -169,22 +169,22 @@ public final class VoteListHandler extends WorldSavedData {
             Preconditions.checkArgument(trimValidAlias(alias) == alias.length());
             String oldAlias = voteArtifactAliases.put(uuid, alias);
             if (!alias.equals(oldAlias)) {
-                handler.markDirty();
+                handler.setDirty();
                 if (isNullOrEmpty(oldAlias)) {
-                    VoteMe.LOGGER.info("{} ({}) has created alias {} for artifact {} ({})", source.getName(),
+                    VoteMe.LOGGER.info("{} ({}) has created alias {} for artifact {} ({})", source.getTextName(),
                             source.getDisplayName().getString(), alias, voteArtifactNames.get(uuid), uuid);
                 } else {
-                    VoteMe.LOGGER.info("{} ({}) has changed alias from {} to {} for artifact {} ({})", source.getName(),
+                    VoteMe.LOGGER.info("{} ({}) has changed alias from {} to {} for artifact {} ({})", source.getTextName(),
                             source.getDisplayName().getString(), oldAlias, alias, voteArtifactNames.get(uuid), uuid);
                 }
                 VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),
                         SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases));
             }
         } else if (voteArtifactAliases.containsKey(uuid)) {
-            handler.markDirty();
+            handler.setDirty();
             String oldAlias = voteArtifactAliases.remove(uuid);
             VoteMe.LOGGER.info("{} ({}) has removed alias {} for artifact {} ({})",
-                    source.getName(), source.getDisplayName(), oldAlias, voteArtifactNames.get(uuid), uuid);
+                    source.getTextName(), source.getDisplayName(), oldAlias, voteArtifactNames.get(uuid), uuid);
             VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),
                     SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases));
         }
@@ -197,11 +197,11 @@ public final class VoteListHandler extends WorldSavedData {
         if (alias.isEmpty()) {
             String shortID = artifactID.toString().substring(0, 8);
             String base = String.format("%s (%s...)", getArtifactName(artifactID), shortID);
-            return new StringTextComponent(base).modifyStyle(style -> style.setHoverEvent(hoverEvent));
+            return new StringTextComponent(base).withStyle(style -> style.withHoverEvent(hoverEvent));
         } else {
             String shortID = artifactID.toString().substring(0, 8);
             String base = String.format("%s (%s, %s...)", getArtifactName(artifactID), alias, shortID);
-            return new StringTextComponent(base).modifyStyle(style -> style.setHoverEvent(hoverEvent));
+            return new StringTextComponent(base).withStyle(style -> style.withHoverEvent(hoverEvent));
         }
     }
 
@@ -210,7 +210,7 @@ public final class VoteListHandler extends WorldSavedData {
         if (remaining.charAt(0) == '#' && size > 1) {
             while (++index < size) {
                 char current = remaining.charAt(index);
-                if (!ResourceLocation.validatePathChar(current)) {
+                if (!ResourceLocation.validPathChar(current)) {
                     break;
                 }
             }
@@ -282,7 +282,7 @@ public final class VoteListHandler extends WorldSavedData {
     }
 
     @Override
-    public void read(CompoundNBT nbt) {
+    public void load(CompoundNBT nbt) {
         VoteMe.LOGGER.info("Loading vote list data on server ...");
         voteArtifactNames.clear();
         voteArtifactAliases.clear();
@@ -295,7 +295,7 @@ public final class VoteListHandler extends WorldSavedData {
             CompoundNBT child = lists.getCompound(i);
             int id = child.getInt("VoteListIndex");
             if (id < this.nextIndex) {
-                VoteListEntry entry = VoteListEntry.fromNBT(child, this::markDirty);
+                VoteListEntry entry = VoteListEntry.fromNBT(child, this::setDirty);
                 this.voteListIndices.put(entry.artifactID, entry.category, id);
                 this.voteEntries.put(id, entry);
             }
@@ -303,7 +303,7 @@ public final class VoteListHandler extends WorldSavedData {
         ListNBT names = nbt.getList("VoteArtifacts", Constants.NBT.TAG_COMPOUND);
         for (int i = 0, size = names.size(); i < size; ++i) {
             CompoundNBT child = names.getCompound(i);
-            UUID id = child.getUniqueId("UUID");
+            UUID id = child.getUUID("UUID");
             String name = child.getString("Name");
             String alias = child.getString("Alias");
             if (!name.isEmpty()) {
@@ -314,13 +314,13 @@ public final class VoteListHandler extends WorldSavedData {
             }
         }
         CompoundNBT commentsCollection = nbt.getCompound("VoteComments");
-        for (String artifactID : commentsCollection.keySet()) {
+        for (String artifactID : commentsCollection.getAllKeys()) {
             CompoundNBT allComments = commentsCollection.getCompound(artifactID);
-            for (String voterID : allComments.keySet()) {
+            for (String voterID : allComments.getAllKeys()) {
                 ImmutableList<String> comments = allComments.getList(voterID, Constants.NBT.TAG_STRING)
                     .stream()
                     .filter(t -> t instanceof StringNBT)
-                    .map(t -> ((StringNBT) t).getString())
+                    .map(t -> ((StringNBT) t).getAsString())
                     .collect(ImmutableList.toImmutableList());
                 if (!comments.isEmpty()) {
                     this.comments.put(UUID.fromString(artifactID), UUID.fromString(voterID), comments);
@@ -331,7 +331,7 @@ public final class VoteListHandler extends WorldSavedData {
     }
 
     @Override
-    public CompoundNBT write(CompoundNBT compound) {
+    public CompoundNBT save(CompoundNBT compound) {
         VoteMe.LOGGER.info("Saving vote list data on server ...");
         ListNBT lists = new ListNBT();
         for (int id = 0; id < this.nextIndex; ++id) {
@@ -345,7 +345,7 @@ public final class VoteListHandler extends WorldSavedData {
         ListNBT names = new ListNBT();
         for (Map.Entry<UUID, String> entry : voteArtifactNames.entrySet()) {
             CompoundNBT child = new CompoundNBT();
-            child.putUniqueId("UUID", entry.getKey());
+            child.putUUID("UUID", entry.getKey());
             child.putString("Name", entry.getValue());
             Optional.ofNullable(voteArtifactAliases.get(entry.getKey())).ifPresent(a -> child.putString("Alias", a));
             names.add(child);

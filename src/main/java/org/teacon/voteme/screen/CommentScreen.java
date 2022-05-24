@@ -71,18 +71,18 @@ public class CommentScreen extends Screen {
         // Must be initialized after this.pages
         this.pageEdit = new TextInputUtil(this::getCurrentPageText, this::setCurrentPageText,
                 this::getClipboard, this::setClipboard, (p_238774_1_) -> {
-                    return p_238774_1_.length() < 1024 && this.font.getWordWrappedHeight(p_238774_1_, 114) <= 128;
+                    return p_238774_1_.length() < 1024 && this.font.wordWrapHeight(p_238774_1_, 114) <= 128;
                 });
     }
 
     private void setClipboard(String srcText) {
         if (this.minecraft != null) {
-            TextInputUtil.setClipboardText(this.minecraft, srcText);
+            TextInputUtil.setClipboardContents(this.minecraft, srcText);
         }
     }
 
     private String getClipboard() {
-        return this.minecraft != null ? TextInputUtil.getClipboardText(this.minecraft) : "";
+        return this.minecraft != null ? TextInputUtil.getClipboardContents(this.minecraft) : "";
     }
 
     private int getNumPages() {
@@ -98,7 +98,7 @@ public class CommentScreen extends Screen {
     @Override
     protected void init() {
         this.clearDisplayCache();
-        this.minecraft.keyboardListener.enableRepeatEvents(true);
+        this.minecraft.keyboardHandler.setSendRepeatsToGui(true);
         // Done button
         this.addButton(new Button(this.width / 2 + 2, 196, 98, 20, DialogTexts.GUI_DONE, button -> this.handleExit(true)));
         // Cancel button
@@ -116,7 +116,7 @@ public class CommentScreen extends Screen {
             this.pages.removeIf(StringUtils::isBlank);
             this.parent.currentComments = new ArrayList<>(this.pages);
         }
-        this.getMinecraft().displayGuiScreen(this.parent);
+        this.getMinecraft().setScreen(this.parent);
     }
 
     private void pageBack() {
@@ -141,12 +141,12 @@ public class CommentScreen extends Screen {
     }
 
     @Override
-    public void onClose() {
-        this.minecraft.keyboardListener.enableRepeatEvents(false);
+    public void removed() {
+        this.minecraft.keyboardHandler.setSendRepeatsToGui(false);
     }
     
     @Override
-    public void closeScreen() {
+    public void onClose() {
         this.handleExit(false);
     }
     
@@ -175,8 +175,8 @@ public class CommentScreen extends Screen {
     public boolean charTyped(char p_231042_1_, int p_231042_2_) {
         if (super.charTyped(p_231042_1_, p_231042_2_)) {
             return true;
-        } else if (SharedConstants.isAllowedCharacter(p_231042_1_)) {
-            this.pageEdit.putText(Character.toString(p_231042_1_));
+        } else if (SharedConstants.isAllowedChatCharacter(p_231042_1_)) {
+            this.pageEdit.insertText(Character.toString(p_231042_1_));
             this.clearDisplayCache();
             return true;
         } else {
@@ -189,31 +189,31 @@ public class CommentScreen extends Screen {
             this.pageEdit.selectAll();
             return true;
         } else if (Screen.isCopy(keyCode)) {
-            this.pageEdit.copySelectedText();
+            this.pageEdit.copy();
             return true;
         } else if (Screen.isPaste(keyCode)) {
-            this.pageEdit.insertClipboardText();
+            this.pageEdit.paste();
             return true;
         } else if (Screen.isCut(keyCode)) {
-            this.pageEdit.cutText();
+            this.pageEdit.cut();
             return true;
         } else {
             switch (keyCode) {
                 case GLFW.GLFW_KEY_ENTER: // 257
                 case GLFW.GLFW_KEY_KP_ENTER: // 335
-                    this.pageEdit.putText("\n");
+                    this.pageEdit.insertText("\n");
                     return true;
                 case GLFW.GLFW_KEY_BACKSPACE: // 259
-                    this.pageEdit.deleteCharAtSelection(-1);
+                    this.pageEdit.removeCharsFromCursor(-1);
                     return true;
                 case GLFW.GLFW_KEY_DELETE: // 261
-                    this.pageEdit.deleteCharAtSelection(1);
+                    this.pageEdit.removeCharsFromCursor(1);
                     return true;
                 case GLFW.GLFW_KEY_RIGHT: // 262
-                    this.pageEdit.moveCursorByChar(1, Screen.hasShiftDown());
+                    this.pageEdit.moveByChars(1, Screen.hasShiftDown());
                     return true;
                 case GLFW.GLFW_KEY_LEFT: // 263
-                    this.pageEdit.moveCursorByChar(-1, Screen.hasShiftDown());
+                    this.pageEdit.moveByChars(-1, Screen.hasShiftDown());
                     return true;
                 case GLFW.GLFW_KEY_DOWN: // 264
                     this.keyDown();
@@ -248,22 +248,22 @@ public class CommentScreen extends Screen {
     }
 
     private void changeLine(int p_238755_1_) {
-        int i = this.pageEdit.getEndIndex();
+        int i = this.pageEdit.getCursorPos();
         int j = this.getDisplayCache().changeLine(i, p_238755_1_);
-        this.pageEdit.moveCursorTo(j, Screen.hasShiftDown());
+        this.pageEdit.setCursorPos(j, Screen.hasShiftDown());
     }
 
     private void keyHome() {
-        int i = this.pageEdit.getEndIndex();
+        int i = this.pageEdit.getCursorPos();
         int j = this.getDisplayCache().findLineStart(i);
-        this.pageEdit.moveCursorTo(j, Screen.hasShiftDown());
+        this.pageEdit.setCursorPos(j, Screen.hasShiftDown());
     }
 
     private void keyEnd() {
         CommentScreen.Page editbookscreen$bookpage = this.getDisplayCache();
-        int i = this.pageEdit.getEndIndex();
+        int i = this.pageEdit.getCursorPos();
         int j = editbookscreen$bookpage.findLineEnd(i);
-        this.pageEdit.moveCursorTo(j, Screen.hasShiftDown());
+        this.pageEdit.setCursorPos(j, Screen.hasShiftDown());
     }
 
     private String getCurrentPageText() {
@@ -282,20 +282,20 @@ public class CommentScreen extends Screen {
     @Override
     public void render(MatrixStack xform, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(xform);
-        this.setListener(null);
+        this.setFocused(null);
         // 1.17: no longer needed due to programmable pipeline usage
         RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-        this.minecraft.getTextureManager().bindTexture(ReadBookScreen.BOOK_TEXTURES);
+        this.minecraft.getTextureManager().bind(ReadBookScreen.BOOK_LOCATION);
         int x = (this.width - 192) / 2;
         int y = 2;
         this.blit(xform, x, 2, 0, 0, 192, 192);
         /* Begin rendering lines */ {
-            int pageIndicatorWidth = this.font.getStringPropertyWidth(this.pageMsg);
-            this.font.func_243248_b(xform, this.pageMsg, x - pageIndicatorWidth + 192 - 44, 18.0F, 0);
+            int pageIndicatorWidth = this.font.width(this.pageMsg);
+            this.font.draw(xform, this.pageMsg, x - pageIndicatorWidth + 192 - 44, 18.0F, 0);
 
             CommentScreen.Page page = this.getDisplayCache();
             for (CommentScreen.Line line : page.lines) {
-                this.font.func_243248_b(xform, line.asComponent, line.x, line.y, 0xFF000000);
+                this.font.draw(xform, line.asComponent, line.x, line.y, 0xFF000000);
             }
             this.renderHighlight(page.selection);
             this.renderCursor(xform, page.cursor, page.cursorAtEnd);
@@ -310,7 +310,7 @@ public class CommentScreen extends Screen {
             if (!p_238756_3_) {
                 AbstractGui.fill(xform, cursorPos.x, cursorPos.y - 1, cursorPos.x + 1, cursorPos.y + 9, 0xFF000000);
             } else {
-                this.font.drawString(xform, "_", (float) cursorPos.x, (float) cursorPos.y, 0);
+                this.font.draw(xform, "_", (float) cursorPos.x, (float) cursorPos.y, 0);
             }
         }
 
@@ -319,7 +319,7 @@ public class CommentScreen extends Screen {
     @SuppressWarnings("deprecation")
     private void renderHighlight(Rectangle2d[] highlights) {
         Tessellator t = Tessellator.getInstance();
-        BufferBuilder builder = t.getBuffer();
+        BufferBuilder builder = t.getBuilder();
         // 1.17: no longer needed due to programmable pipeline usage
         RenderSystem.color4f(0.0F, 0.0F, 255.0F, 255.0F);
         RenderSystem.disableTexture();
@@ -332,13 +332,13 @@ public class CommentScreen extends Screen {
             int minY = highlight.getY();
             int maxX = minX + highlight.getWidth();
             int maxY = minY + highlight.getHeight();
-            builder.pos(minX, maxY, 0.0D).endVertex();
-            builder.pos(maxX, maxY, 0.0D).endVertex();
-            builder.pos(maxX, minY, 0.0D).endVertex();
-            builder.pos(minX, minY, 0.0D).endVertex();
+            builder.vertex(minX, maxY, 0.0D).endVertex();
+            builder.vertex(maxX, maxY, 0.0D).endVertex();
+            builder.vertex(maxX, minY, 0.0D).endVertex();
+            builder.vertex(minX, minY, 0.0D).endVertex();
         }
 
-        t.draw();
+        t.end();
         RenderSystem.disableColorLogicOp();
         RenderSystem.enableTexture();
     }
@@ -357,18 +357,18 @@ public class CommentScreen extends Screen {
             return true;
         }
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) { // 0
-            long currentTime = Util.milliTime();
+            long currentTime = Util.getMillis();
             CommentScreen.Page page = this.getDisplayCache();
             int index = page.getIndexAtPosition(this.font, this.convertScreenToLocal(new CommentScreen.Point((int) mouseX, (int) mouseY)));
             if (index >= 0) {
                 if (index == this.lastIndex && currentTime - this.lastClickTime < 250L) {
-                    if (!this.pageEdit.hasSelection()) {
+                    if (!this.pageEdit.isSelecting()) {
                         this.selectWord(index);
                     } else {
                         this.pageEdit.selectAll();
                     }
                 } else {
-                    this.pageEdit.moveCursorTo(index, Screen.hasShiftDown());
+                    this.pageEdit.setCursorPos(index, Screen.hasShiftDown());
                 }
 
                 this.clearDisplayCache();
@@ -383,9 +383,9 @@ public class CommentScreen extends Screen {
 
     private void selectWord(int p_238765_1_) {
         String currentText = this.getCurrentPageText();
-        // func_238351_a_ -> getWordPosition
-        this.pageEdit.setSelection(CharacterManager.func_238351_a_(currentText, -1, p_238765_1_, false),
-                CharacterManager.func_238351_a_(currentText, 1, p_238765_1_, false));
+        // getWordPosition -> getWordPosition
+        this.pageEdit.setSelectionRange(CharacterManager.getWordPosition(currentText, -1, p_238765_1_, false),
+                CharacterManager.getWordPosition(currentText, 1, p_238765_1_, false));
     }
 
     @Override
@@ -397,7 +397,7 @@ public class CommentScreen extends Screen {
             CommentScreen.Page bookPage = this.getDisplayCache();
             int i = bookPage.getIndexAtPosition(this.font,
                     this.convertScreenToLocal(new CommentScreen.Point((int) mouseX, (int) mouseY)));
-            this.pageEdit.moveCursorTo(i, true);
+            this.pageEdit.setCursorPos(i, true);
             this.clearDisplayCache();
         }
         return true;
@@ -416,7 +416,7 @@ public class CommentScreen extends Screen {
     }
 
     private void clearDisplayCacheAfterPageChange() {
-        this.pageEdit.moveCursorToEnd();
+        this.pageEdit.setCursorToEnd();
         this.clearDisplayCache();
     }
 
@@ -425,8 +425,8 @@ public class CommentScreen extends Screen {
         if (currentText.isEmpty()) {
             return CommentScreen.Page.EMPTY;
         }
-        int i = this.pageEdit.getEndIndex();
-        int j = this.pageEdit.getStartIndex();
+        int i = this.pageEdit.getCursorPos();
+        int j = this.pageEdit.getSelectionPos();
         // List of indexes where a new line starts.
         IntList lineStarts = new IntArrayList();
         // All parsed lines.
@@ -436,9 +436,9 @@ public class CommentScreen extends Screen {
         // Tracking if the entire page is ending in a new line.
         // Used to properly shift the cursor down.
         MutableBoolean trailingNewLine = new MutableBoolean();
-        CharacterManager splitter = this.font.getCharacterManager();
-        // func_238353_a_ -> splitLines
-        splitter.func_238353_a_(currentText, 114, Style.EMPTY, true, (style, begin, endExclusive) -> {
+        CharacterManager splitter = this.font.getSplitter();
+        // splitLines -> splitLines
+        splitter.splitLines(currentText, 114, Style.EMPTY, true, (style, begin, endExclusive) -> {
             int currentLine = lineNum.getAndIncrement();
             String raw = currentText.substring(begin, endExclusive);
             trailingNewLine.setValue(raw.endsWith("\n"));
@@ -455,7 +455,7 @@ public class CommentScreen extends Screen {
             cursorPos = new CommentScreen.Point(0, lines.size() * 9);
         } else {
             int k = findLineFromPos(aint, i);
-            int l = this.font.getStringWidth(currentText.substring(aint[k], i));
+            int l = this.font.width(currentText.substring(aint[k], i));
             cursorPos = new CommentScreen.Point(l, k * 9);
         }
 
@@ -476,7 +476,7 @@ public class CommentScreen extends Screen {
                 for (int j3 = j1 + 1; j3 < k1; ++j3) {
                     int j2 = j3 * 9;
                     String s1 = currentText.substring(aint[j3], aint[j3 + 1]);
-                    int k2 = (int) splitter.func_238350_a_(s1); // func_238350_a_ -> stringWidth
+                    int k2 = (int) splitter.stringWidth(s1); // stringWidth -> stringWidth
                     list1.add(
                             this.createSelection(new CommentScreen.Point(0, j2), new CommentScreen.Point(k2, j2 + 9)));
                 }
@@ -498,9 +498,9 @@ public class CommentScreen extends Screen {
             int p_238761_4_, int p_238761_5_, int p_238761_6_) {
         String s = p_238761_1_.substring(p_238761_6_, p_238761_3_);
         String s1 = p_238761_1_.substring(p_238761_6_, p_238761_4_);
-        // func_238350_a_ -> stringWidth
-        CommentScreen.Point p1 = new CommentScreen.Point((int) splitter.func_238350_a_(s), p_238761_5_);
-        CommentScreen.Point p2 = new CommentScreen.Point((int) splitter.func_238350_a_(s1), p_238761_5_ + 9);
+        // stringWidth -> stringWidth
+        CommentScreen.Point p1 = new CommentScreen.Point((int) splitter.stringWidth(s), p_238761_5_);
+        CommentScreen.Point p2 = new CommentScreen.Point((int) splitter.stringWidth(s1), p_238761_5_ + 9);
         return this.createSelection(p1, p2);
     }
 
@@ -559,9 +559,9 @@ public class CommentScreen extends Screen {
                 return this.fullText.length();
             } else {
                 CommentScreen.Line line = this.lines[i];
-                // func_238352_a_ -> plainIndexAtWidth
+                // plainIndexAtWidth -> plainIndexAtWidth
                 return this.lineStarts[i]
-                        + font.getCharacterManager().func_238352_a_(line.contents, p_238789_2_.x, line.style);
+                        + font.getSplitter().plainIndexAtWidth(line.contents, p_238789_2_.x, line.style);
             }
         }
 

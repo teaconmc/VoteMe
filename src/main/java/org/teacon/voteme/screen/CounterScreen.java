@@ -34,12 +34,14 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import net.minecraft.client.gui.widget.button.Button.IPressable;
+
 @OnlyIn(Dist.CLIENT)
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class CounterScreen extends Screen {
     private static final ResourceLocation TEXTURE = new ResourceLocation("voteme:textures/gui/counter.png");
-    private static final ITextComponent EMPTY_ARTIFACT_TEXT = new TranslationTextComponent("gui.voteme.counter.empty_artifact").modifyStyle(style -> style.setItalic(true));
+    private static final ITextComponent EMPTY_ARTIFACT_TEXT = new TranslationTextComponent("gui.voteme.counter.empty_artifact").withStyle(style -> style.withItalic(true));
 
     private static final int BUTTON_TEXT_COLOR = 0xFF9DA95D;
     private static final int TEXT_COLOR = 0xFF000000 | DyeColor.BLACK.getTextColor();
@@ -65,7 +67,7 @@ public final class CounterScreen extends Screen {
 
     public CounterScreen(UUID artifactUUID, String artifactName, int inventoryIndex,
                          ResourceLocation category, List<ShowCounterPacket.Info> infos) {
-        super(NarratorChatListener.EMPTY);
+        super(NarratorChatListener.NO_TITLE);
         this.artifactUUID = artifactUUID;
         this.inventoryIndex = inventoryIndex;
         this.artifact = this.oldArtifact = artifactName;
@@ -83,7 +85,7 @@ public final class CounterScreen extends Screen {
         this.cancelButton = this.addButton(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onCancelButtonClick, new TranslationTextComponent("gui.voteme.counter.cancel")));
         this.renameButton = this.addButton(new BottomButton(this.width / 2 + 19, this.height / 2 + 77, this::onRenameButtonClick, new TranslationTextComponent("gui.voteme.counter.rename")));
         this.bottomSwitch = this.addButton(new BottomSwitch(this.width / 2 - 98, this.height / 2 + 76, () -> this.enabledInfos.contains(this.infoCollection.iterator().next().id), this::onSwitchClick, new TranslationTextComponent("gui.voteme.counter.switch")));
-        this.artifactInput = new TextInputUtil(() -> this.artifact, text -> this.artifact = text, TextInputUtil.getClipboardTextSupplier(mc), TextInputUtil.getClipboardTextSetter(mc), text -> mc.fontRenderer.getStringWidth(text) * ARTIFACT_SCALE_FACTOR <= 199);
+        this.artifactInput = new TextInputUtil(() -> this.artifact, text -> this.artifact = text, TextInputUtil.createClipboardGetter(mc), TextInputUtil.createClipboardSetter(mc), text -> mc.font.width(text) * ARTIFACT_SCALE_FACTOR <= 199);
         this.cancelButton.visible = this.renameButton.visible = this.bottomSwitch.visible = false;
     }
 
@@ -113,17 +115,17 @@ public final class CounterScreen extends Screen {
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
         // unicode texts input
-        return this.artifactInput.putChar(codePoint);
+        return this.artifactInput.charTyped(codePoint);
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         // physical keys input
-        return this.artifactInput.specialKeyPressed(keyCode) || super.keyPressed(keyCode, scanCode, modifiers);
+        return this.artifactInput.keyPressed(keyCode) || super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
-    public void onClose() {
+    public void removed() {
         if (!this.oldArtifact.isEmpty()) {
             ShowCounterPacket.Info info = this.infoCollection.iterator().next();
             Iterable<ResourceLocation> enabled = () -> this.infoCollection.stream()
@@ -144,7 +146,7 @@ public final class CounterScreen extends Screen {
     }
 
     private void onOKButtonClick(Button button) {
-        this.closeScreen();
+        this.onClose();
     }
 
     private void onCancelButtonClick(Button button) {
@@ -198,7 +200,7 @@ public final class CounterScreen extends Screen {
                     }
                 }
             }
-            this.func_243308_b(matrixStack, tooltipList, mouseX, mouseY);
+            this.renderComponentTooltip(matrixStack, tooltipList, mouseX, mouseY);
         }
         if (dx >= -98 && dy >= 76 && dx < -61 && dy < 96) {
             this.renderTooltip(matrixStack, new TranslationTextComponent("gui.voteme.counter.switch"), mouseX, mouseY);
@@ -209,62 +211,62 @@ public final class CounterScreen extends Screen {
     private void drawGuiContainerBackgroundLayer(MatrixStack matrixStack, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
         RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-        mc.getTextureManager().bindTexture(TEXTURE);
+        mc.getTextureManager().bind(TEXTURE);
         this.blit(matrixStack, this.width / 2 - 111, this.height / 2 - 97, 0, 0, 234, 206);
     }
 
     private void drawGuiContainerForegroundLayer(MatrixStack matrixStack, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
         ShowCounterPacket.Info info = this.infoCollection.iterator().next();
-        this.drawCategoryName(matrixStack, info, mc.fontRenderer);
-        this.drawCategoryDescription(matrixStack, info, mc.fontRenderer);
-        this.drawCategoryScore(matrixStack, info, mc.fontRenderer);
-        this.drawArtifactName(matrixStack, mc.fontRenderer);
+        this.drawCategoryName(matrixStack, info, mc.font);
+        this.drawCategoryDescription(matrixStack, info, mc.font);
+        this.drawCategoryScore(matrixStack, info, mc.font);
+        this.drawArtifactName(matrixStack, mc.font);
     }
 
     private void drawCategoryName(MatrixStack matrixStack, ShowCounterPacket.Info info, FontRenderer font) {
         int x0 = this.width / 2 - 52, y0 = this.height / 2 - 14;
-        font.func_243248_b(matrixStack, info.category.name, x0, y0, TEXT_COLOR);
+        font.draw(matrixStack, info.category.name, x0, y0, TEXT_COLOR);
     }
 
     private void drawCategoryDescription(MatrixStack matrixStack, ShowCounterPacket.Info info, FontRenderer font) {
-        List<IReorderingProcessor> descriptions = font.trimStringToWidth(info.category.description, 191);
+        List<IReorderingProcessor> descriptions = font.split(info.category.description, 191);
         for (int size = Math.min(7, descriptions.size()), i = 0; i < size; ++i) {
             IReorderingProcessor description = descriptions.get(i);
             int x1 = this.width / 2 - 95, y1 = 9 * i + this.height / 2 + 6;
-            font.func_238422_b_(matrixStack, description, x1, y1, TEXT_COLOR);
+            font.draw(matrixStack, description, x1, y1, TEXT_COLOR);
         }
     }
 
     private void drawCategoryScore(MatrixStack matrixStack, ShowCounterPacket.Info info, FontRenderer font) {
         ITextComponent score = new StringTextComponent(this.enabledInfos.contains(info.id) ? String.format("%.1f", info.finalStat.getFinalScore(6.0F)) : "--");
-        int x2 = this.width / 2 - font.getStringPropertyWidth(score) / 2 + 87, y2 = this.height / 2 - 14;
-        font.func_243248_b(matrixStack, score, x2, y2, TEXT_COLOR);
+        int x2 = this.width / 2 - font.width(score) / 2 + 87, y2 = this.height / 2 - 14;
+        font.draw(matrixStack, score, x2, y2, TEXT_COLOR);
     }
 
     private void drawArtifactName(MatrixStack matrixStack, FontRenderer font) {
-        matrixStack.push();
+        matrixStack.pushPose();
         float scale = ARTIFACT_SCALE_FACTOR;
         matrixStack.scale(scale, scale, scale);
         int x3 = this.width / 2 + 1, y3 = this.height / 2 - 43;
-        int start = this.artifactInput.getStartIndex(), end = this.artifactInput.getEndIndex();
+        int start = this.artifactInput.getSelectionPos(), end = this.artifactInput.getCursorPos();
         if (this.artifact.isEmpty()) {
             // draw hint text
-            int dx0 = font.getStringPropertyWidth(EMPTY_ARTIFACT_TEXT) / 2;
-            font.func_243248_b(matrixStack, EMPTY_ARTIFACT_TEXT, x3 / scale - dx0, y3 / scale, SUGGESTION_COLOR);
+            int dx0 = font.width(EMPTY_ARTIFACT_TEXT) / 2;
+            font.draw(matrixStack, EMPTY_ARTIFACT_TEXT, x3 / scale - dx0, y3 / scale, SUGGESTION_COLOR);
         } else {
             // draw actual text
-            int dx = font.getStringWidth(this.artifact) / 2;
+            int dx = font.width(this.artifact) / 2;
             boolean renderArtifactCursor = this.artifactCursorTick / 6 % 2 == 0;
-            font.func_243248_b(matrixStack, new StringTextComponent(this.artifact), x3 / scale - dx, y3 / scale, TEXT_COLOR);
+            font.draw(matrixStack, new StringTextComponent(this.artifact), x3 / scale - dx, y3 / scale, TEXT_COLOR);
             if (end >= 0) {
                 // draw cursor
                 if (renderArtifactCursor) {
                     if (end >= this.artifact.length()) {
-                        int dx1 = font.getStringWidth(this.artifact);
-                        font.func_243248_b(matrixStack, new StringTextComponent("_"), x3 / scale - dx + dx1, y3 / scale, TEXT_COLOR);
+                        int dx1 = font.width(this.artifact);
+                        font.draw(matrixStack, new StringTextComponent("_"), x3 / scale - dx + dx1, y3 / scale, TEXT_COLOR);
                     } else {
-                        int dx1 = font.getStringWidth(this.artifact.substring(0, end));
+                        int dx1 = font.width(this.artifact.substring(0, end));
                         fill(matrixStack, (int) (x3 / scale - dx + dx1), (int) (y3 / scale) - 1, (int) (x3 / scale - dx + dx1) + 1, (int) (y3 / scale) + 9, TEXT_COLOR);
                     }
                 }
@@ -273,15 +275,15 @@ public final class CounterScreen extends Screen {
                     RenderSystem.disableTexture();
                     RenderSystem.enableColorLogicOp();
                     RenderSystem.logicOp(GlStateManager.LogicOp.OR_REVERSE);
-                    int dx2 = font.getStringWidth(this.artifact.substring(0, end));
-                    int dx3 = font.getStringWidth(this.artifact.substring(0, start));
+                    int dx2 = font.width(this.artifact.substring(0, end));
+                    int dx3 = font.width(this.artifact.substring(0, start));
                     fill(matrixStack, (int) (x3 / scale - dx + dx2), (int) (y3 / scale), (int) (x3 / scale - dx + dx3), (int) (y3 / scale) + 9, SELECTION_COLOR);
                     RenderSystem.disableColorLogicOp();
                     RenderSystem.enableTexture();
                 }
             }
         }
-        matrixStack.pop();
+        matrixStack.popPose();
     }
 
     private static <T> List<T> rotateAsFirst(List<T> initial, Predicate<T> filter) {
@@ -299,10 +301,10 @@ public final class CounterScreen extends Screen {
         @Override
         public void renderButton(MatrixStack matrixStack, int mouseX, int mouseY, float partialTicks) {
             super.renderButton(matrixStack, mouseX, mouseY, partialTicks);
-            FontRenderer fontRenderer = Minecraft.getInstance().fontRenderer;
-            float dx = fontRenderer.getStringPropertyWidth(this.getMessage()) / 2F;
+            FontRenderer fontRenderer = Minecraft.getInstance().font;
+            float dx = fontRenderer.width(this.getMessage()) / 2F;
             float x = this.x + (this.width + 1) / 2F - dx, y = this.y + (this.height - 9) / 2F;
-            fontRenderer.func_243248_b(matrixStack, this.getMessage(), x, y, BUTTON_TEXT_COLOR);
+            fontRenderer.draw(matrixStack, this.getMessage(), x, y, BUTTON_TEXT_COLOR);
         }
     }
 
@@ -334,7 +336,7 @@ public final class CounterScreen extends Screen {
             // render background and switch-off button
             RenderSystem.enableDepthTest();
             Minecraft mc = Minecraft.getInstance();
-            mc.getTextureManager().bindTexture(CounterScreen.TEXTURE);
+            mc.getTextureManager().bind(CounterScreen.TEXTURE);
             blit(matrixStack, this.x, this.y, 13, 228, this.width, this.height, 256, 256);
             blit(matrixStack, this.x + offset + 2, this.y + 2, 69, 230, 16, 16, 256, 256);
 

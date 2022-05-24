@@ -40,14 +40,14 @@ public final class SyncArtifactNamePacket {
     public void write(PacketBuffer buffer) {
         for (Map.Entry<UUID, String> entry : this.artifactNames.entrySet()) {
             buffer.writeBoolean(true);
-            buffer.writeUniqueId(entry.getKey());
-            buffer.writeString(entry.getValue());
+            buffer.writeUUID(entry.getKey());
+            buffer.writeUtf(entry.getValue());
         }
         buffer.writeBoolean(false);
         for (Map.Entry<UUID, String> entry : this.artifactAliases.entrySet()) {
             buffer.writeBoolean(true);
-            buffer.writeUniqueId(entry.getKey());
-            buffer.writeString(entry.getValue());
+            buffer.writeUUID(entry.getKey());
+            buffer.writeUtf(entry.getValue());
         }
         buffer.writeBoolean(false);
     }
@@ -55,11 +55,11 @@ public final class SyncArtifactNamePacket {
     public static SyncArtifactNamePacket read(PacketBuffer buffer) {
         ImmutableMap.Builder<UUID, String> namesBuilder = ImmutableMap.builder();
         for (boolean b = buffer.readBoolean(); b; b = buffer.readBoolean()) {
-            namesBuilder.put(buffer.readUniqueId(), buffer.readString(Short.MAX_VALUE));
+            namesBuilder.put(buffer.readUUID(), buffer.readUtf(Short.MAX_VALUE));
         }
         ImmutableMap.Builder<UUID, String> aliasesBuilder = ImmutableMap.builder();
         for (boolean b = buffer.readBoolean(); b; b = buffer.readBoolean()) {
-            aliasesBuilder.put(buffer.readUniqueId(), buffer.readString(Short.MAX_VALUE));
+            aliasesBuilder.put(buffer.readUUID(), buffer.readUtf(Short.MAX_VALUE));
         }
         return new SyncArtifactNamePacket(namesBuilder.build(), aliasesBuilder.build());
     }

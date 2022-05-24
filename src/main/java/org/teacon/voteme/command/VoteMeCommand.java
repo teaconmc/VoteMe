@@ -133,13 +133,13 @@ public final class VoteMeCommand {
                         .then(literal("clear")
                                 .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.clear"))
                                 .then(argument("artifact", artifact())
-                                        .then(argument("category", resourceLocation())
+                                        .then(argument("category", id())
                                                 .suggests(CATEGORY_SUGGESTION_ENABLED)
                                                 .executes(VoteMeCommand::adminClearVotes))))
                         .then(literal("switch")
                                 .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.switch"))
                                 .then(argument("artifact", artifact())
-                                        .then(argument("category", resourceLocation())
+                                        .then(argument("category", id())
                                                 .suggests(CATEGORY_SUGGESTION)
                                                 .then(literal("unset")
                                                         .executes(VoteMeCommand::adminSwitchUnsetVotes))
@@ -150,7 +150,7 @@ public final class VoteMeCommand {
                 .then(literal("switch")
                         .requires(permission(2, "voteme", "voteme.switch", "voteme.admin", "voteme.admin.switch"))
                         .then(argument("artifact", artifact())
-                                .then(argument("category", resourceLocation())
+                                .then(argument("category", id())
                                         .suggests(CATEGORY_SUGGESTION_MODIFIABLE)
                                         .then(literal("unset")
                                                 .executes(VoteMeCommand::switchUnsetVotes))
@@ -173,10 +173,10 @@ public final class VoteMeCommand {
                         .requires(permission(2, "voteme", "voteme.query"))
                         .then(argument("target", gameProfile())
                                 .then(argument("artifact", artifact())
-                                        .then(argument("category", resourceLocation())
+                                        .then(argument("category", id())
                                                 .suggests(CATEGORY_SUGGESTION)
                                                 .executes(VoteMeCommand::queryVoter)))
-                                .then(argument("category", resourceLocation())
+                                .then(argument("category", id())
                                         .suggests(CATEGORY_SUGGESTION)
                                         .executes(VoteMeCommand::queryVoterList))))
                 .then(literal("open")
@@ -193,7 +193,7 @@ public final class VoteMeCommand {
                                                 .executes(VoteMeCommand::giveVoter)))
                                 .then(literal("counter")
                                         .then(argument("artifact", artifact())
-                                                .then(argument("category", resourceLocation())
+                                                .then(argument("category", id())
                                                         .suggests(CATEGORY_SUGGESTION)
                                                         .executes(VoteMeCommand::giveCounter))))))
                 .then(literal("list")
@@ -216,7 +216,7 @@ public final class VoteMeCommand {
                 ServerPlayerEntity player = (ServerPlayerEntity) source.source;
                 return Arrays.stream(permissionNodes).anyMatch(n -> PermissionAPI.hasPermission(player, n));
             }
-            return source.hasPermissionLevel(level);
+            return source.hasPermission(level);
         };
     }
 
@@ -224,10 +224,10 @@ public final class VoteMeCommand {
         Collection<? extends ResourceLocation> roles = VoteRoleHandler.getIds();
         int size = roles.size();
         if (size > 0) {
-            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.list.roles.success",
-                    size, TextComponentUtils.func_240649_b_(roles, VoteMeCommand::toRoleText)), false);
+            context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.list.roles.success",
+                    size, TextComponentUtils.formatList(roles, VoteMeCommand::toRoleText)), false);
         } else {
-            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.list.roles.none"), false);
+            context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.list.roles.none"), false);
         }
         return size;
     }
@@ -236,10 +236,10 @@ public final class VoteMeCommand {
         Collection<? extends ResourceLocation> categories = VoteCategoryHandler.getIds();
         int size = categories.size();
         if (size > 0) {
-            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.list.categories.success",
-                    size, TextComponentUtils.func_240649_b_(categories, VoteMeCommand::toCategoryText)), false);
+            context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.list.categories.success",
+                    size, TextComponentUtils.formatList(categories, VoteMeCommand::toCategoryText)), false);
         } else {
-            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.list.categories.none"), false);
+            context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.list.categories.none"), false);
         }
         return size;
     }
@@ -249,10 +249,10 @@ public final class VoteMeCommand {
         Collection<? extends UUID> artifactIDs = VoteListHandler.getArtifacts();
         int size = artifactIDs.size();
         if (size > 0) {
-            source.sendFeedback(new TranslationTextComponent("commands.voteme.list.artifacts.success", size,
-                    TextComponentUtils.func_240649_b_(artifactIDs, VoteMeCommand::toArtifactText)), false);
+            source.sendSuccess(new TranslationTextComponent("commands.voteme.list.artifacts.success", size,
+                    TextComponentUtils.formatList(artifactIDs, VoteMeCommand::toArtifactText)), false);
         } else {
-            source.sendFeedback(new TranslationTextComponent("commands.voteme.list.artifacts.none"), false);
+            source.sendSuccess(new TranslationTextComponent("commands.voteme.list.artifacts.none"), false);
         }
         return size;
     }
@@ -260,13 +260,13 @@ public final class VoteMeCommand {
     private static int giveCounter(CommandContext<CommandSource> context) throws CommandSyntaxException {
         UUID artifactID = getArtifact(context, "artifact");
         Collection<ServerPlayerEntity> targets = getPlayers(context, "targets");
-        ResourceLocation location = getResourceLocation(context, "category");
+        ResourceLocation location = getId(context, "category");
         Optional<VoteCategory> result = VoteCategoryHandler.getCategory(location);
         Pair<ResourceLocation, VoteCategory> category = Pair.of(location, result.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location)));
         for (ServerPlayerEntity player : targets) {
             ItemStack item = new ItemStack(CounterItem.INSTANCE);
             item.getOrCreateTag().putString("CurrentCategory", category.getKey().toString());
-            item.getOrCreateTag().putUniqueId("CurrentArtifact", artifactID);
+            item.getOrCreateTag().putUUID("CurrentArtifact", artifactID);
             processGiveItemToPlayer(player, item);
         }
         return targets.size();
@@ -277,7 +277,7 @@ public final class VoteMeCommand {
         Collection<ServerPlayerEntity> targets = getPlayers(context, "targets");
         for (ServerPlayerEntity player : targets) {
             ItemStack item = new ItemStack(VoterItem.INSTANCE);
-            item.getOrCreateTag().putUniqueId("CurrentArtifact", artifactID);
+            item.getOrCreateTag().putUUID("CurrentArtifact", artifactID);
             processGiveItemToPlayer(player, item);
         }
         return targets.size();
@@ -288,7 +288,7 @@ public final class VoteMeCommand {
         Collection<ServerPlayerEntity> targets = getPlayers(context, "targets");
         for (ServerPlayerEntity player : targets) {
             CompoundNBT tag = new CompoundNBT();
-            tag.putUniqueId("CurrentArtifact", artifactID);
+            tag.putUUID("CurrentArtifact", artifactID);
             VoterItem.INSTANCE.open(player, tag);
         }
         return targets.size();
@@ -297,7 +297,7 @@ public final class VoteMeCommand {
     private static int queryVoter(CommandContext<CommandSource> context) throws CommandSyntaxException {
         UUID artifactID = getArtifact(context, "artifact");
         Collection<GameProfile> profiles = getGameProfiles(context, "target");
-        ResourceLocation location = getResourceLocation(context, "category");
+        ResourceLocation location = getId(context, "category");
         MinecraftServer server = context.getSource().getServer();
         VoteListHandler handler = VoteListHandler.get(server);
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
@@ -314,15 +314,15 @@ public final class VoteMeCommand {
                     Collection<? extends ResourceLocation> roles = votes.getRoles(profile.getId());
                     Instant time = votes.getTime(profile.getId()).orElse(Instant.EPOCH).truncatedTo(ChronoUnit.SECONDS);
                     String timeString = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(time.atZone(ZoneId.systemDefault()));
-                    if (Objects.equals(context.getSource().source, server.getPlayerList().getPlayerByUUID(profile.getId()))) {
-                        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.success." + voteLevel,
+                    if (Objects.equals(context.getSource().source, server.getPlayerList().getPlayer(profile.getId()))) {
+                        context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.query.success." + voteLevel,
                                 profile.getName(), toCategoryText(location), toArtifactText(artifactID), timeString,
-                                TextComponentUtils.func_240649_b_(roles, VoteMeCommand::toRoleText)), false);
+                                TextComponentUtils.formatList(roles, VoteMeCommand::toRoleText)), false);
                     } else if (voteLevel > 0) {
-                        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.success.voted",
+                        context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.query.success.voted",
                                 profile.getName(), toCategoryText(location), toArtifactText(artifactID)), false);
                     } else {
-                        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.success.0",
+                        context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.query.success.0",
                                 profile.getName(), toCategoryText(location), toArtifactText(artifactID)), false);
                     }
                     voted += voteLevel > 0 ? 1 : 0;
@@ -336,7 +336,7 @@ public final class VoteMeCommand {
 
     private static int queryVoterList(CommandContext<CommandSource> context) throws CommandSyntaxException {
         Collection<GameProfile> profiles = getGameProfiles(context, "target");
-        ResourceLocation location = getResourceLocation(context, "category");
+        ResourceLocation location = getId(context, "category");
         MinecraftServer server = context.getSource().getServer();
         VoteListHandler handler = VoteListHandler.get(server);
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
@@ -364,12 +364,12 @@ public final class VoteMeCommand {
             int voted = 0;
             for (Map.Entry<GameProfile, ListMultimap<Integer, UUID>> entry : totalVoted.entrySet()) {
                 GameProfile profile = entry.getKey();
-                if (Objects.equals(context.getSource().source, server.getPlayerList().getPlayerByUUID(profile.getId()))) {
+                if (Objects.equals(context.getSource().source, server.getPlayerList().getPlayer(profile.getId()))) {
                     for (int voteLevel = 5; voteLevel >= 0; --voteLevel) {
                         Collection<UUID> artifactIDs = entry.getValue().get(voteLevel);
                         if (!artifactIDs.isEmpty()) {
-                            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.list.success." + voteLevel,
-                                    profile.getName(), toCategoryText(location), TextComponentUtils.func_240649_b_(artifactIDs, VoteMeCommand::toArtifactText)), false);
+                            context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.query.list.success." + voteLevel,
+                                    profile.getName(), toCategoryText(location), TextComponentUtils.formatList(artifactIDs, VoteMeCommand::toArtifactText)), false);
                             voted += voteLevel > 0 ? artifactIDs.size() : 0;
                         }
                     }
@@ -377,19 +377,19 @@ public final class VoteMeCommand {
                     Collection<UUID> nonVotedArtifactIDs = entry.getValue().removeAll(0);
                     Collection<UUID> artifactIDs = entry.getValue().values();
                     if (!artifactIDs.isEmpty()) {
-                        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.list.success.voted",
-                                profile.getName(), toCategoryText(location), TextComponentUtils.func_240649_b_(artifactIDs, VoteMeCommand::toArtifactText)), false);
+                        context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.query.list.success.voted",
+                                profile.getName(), toCategoryText(location), TextComponentUtils.formatList(artifactIDs, VoteMeCommand::toArtifactText)), false);
                         voted += artifactIDs.size();
                     }
                     if (!nonVotedArtifactIDs.isEmpty()) {
-                        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.list.success.0",
-                                profile.getName(), toCategoryText(location), TextComponentUtils.func_240649_b_(nonVotedArtifactIDs, VoteMeCommand::toArtifactText)), false);
+                        context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.query.list.success.0",
+                                profile.getName(), toCategoryText(location), TextComponentUtils.formatList(nonVotedArtifactIDs, VoteMeCommand::toArtifactText)), false);
                     }
                 }
             }
             if (!disabledArtifacts.isEmpty()) {
-                context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.query.list.success.disabled",
-                        toCategoryText(location), TextComponentUtils.func_240649_b_(disabledArtifacts, VoteMeCommand::toArtifactText)), true);
+                context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.query.list.success.disabled",
+                        toCategoryText(location), TextComponentUtils.formatList(disabledArtifacts, VoteMeCommand::toArtifactText)), true);
             }
             return voted;
         }
@@ -404,8 +404,8 @@ public final class VoteMeCommand {
         if (!name.equals(newName)) {
             VoteListHandler.putArtifactName(context.getSource(), artifactID, newName);
             IFormattableTextComponent artifactTextNew = toArtifactText(artifactID);
-            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.modify.success",
-                    artifactText.mergeStyle(TextFormatting.STRIKETHROUGH), artifactTextNew), true);
+            context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.modify.success",
+                    artifactText.withStyle(TextFormatting.STRIKETHROUGH), artifactTextNew), true);
             return Command.SINGLE_SUCCESS;
         }
         throw ARTIFACT_SAME_NAME.create(artifactText);
@@ -419,8 +419,8 @@ public final class VoteMeCommand {
         if (!conflict.isPresent()) {
             VoteListHandler.putArtifactAlias(context.getSource(), artifactID, newAlias);
             IFormattableTextComponent artifactTextNew = toArtifactText(artifactID);
-            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.modify.success",
-                    artifactText.mergeStyle(TextFormatting.STRIKETHROUGH), artifactTextNew), true);
+            context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.modify.success",
+                    artifactText.withStyle(TextFormatting.STRIKETHROUGH), artifactTextNew), true);
             return Command.SINGLE_SUCCESS;
         }
         throw ARTIFACT_SAME_ALIAS.create(newAlias, toArtifactText(conflict.get()));
@@ -431,48 +431,48 @@ public final class VoteMeCommand {
         IFormattableTextComponent artifactText = toArtifactText(artifactID);
         VoteListHandler.putArtifactAlias(context.getSource(), artifactID, "");
         IFormattableTextComponent artifactTextNew = toArtifactText(artifactID);
-        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.modify.success",
-                artifactText.mergeStyle(TextFormatting.STRIKETHROUGH), artifactTextNew), true);
+        context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.modify.success",
+                artifactText.withStyle(TextFormatting.STRIKETHROUGH), artifactTextNew), true);
         return Command.SINGLE_SUCCESS;
     }
 
     private static int switchOnVotes(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        ResourceLocation location = getResourceLocation(context, "category");
+        ResourceLocation location = getId(context, "category");
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
         VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
         return processSwitchOn(context, Pair.of(location, category), getArtifact(context, "artifact"), false);
     }
 
     private static int switchOffVotes(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        ResourceLocation location = getResourceLocation(context, "category");
+        ResourceLocation location = getId(context, "category");
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
         VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
         return processSwitchOff(context, Pair.of(location, category), getArtifact(context, "artifact"), false);
     }
 
     private static int switchUnsetVotes(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        ResourceLocation location = getResourceLocation(context, "category");
+        ResourceLocation location = getId(context, "category");
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
         VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
         return processSwitchUnset(context, Pair.of(location, category), getArtifact(context, "artifact"), false);
     }
 
     private static int adminSwitchOnVotes(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        ResourceLocation location = getResourceLocation(context, "category");
+        ResourceLocation location = getId(context, "category");
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
         VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
         return processSwitchOn(context, Pair.of(location, category), getArtifact(context, "artifact"), true);
     }
 
     private static int adminSwitchOffVotes(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        ResourceLocation location = getResourceLocation(context, "category");
+        ResourceLocation location = getId(context, "category");
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
         VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
         return processSwitchOff(context, Pair.of(location, category), getArtifact(context, "artifact"), true);
     }
 
     private static int adminSwitchUnsetVotes(CommandContext<CommandSource> context) throws CommandSyntaxException {
-        ResourceLocation location = getResourceLocation(context, "category");
+        ResourceLocation location = getId(context, "category");
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
         VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
         return processSwitchUnset(context, Pair.of(location, category), getArtifact(context, "artifact"), true);
@@ -480,13 +480,13 @@ public final class VoteMeCommand {
 
     private static int adminClearVotes(CommandContext<CommandSource> context) throws CommandSyntaxException {
         UUID artifactID = getArtifact(context, "artifact");
-        ResourceLocation location = getResourceLocation(context, "category");
+        ResourceLocation location = getId(context, "category");
         Optional<VoteCategory> result = VoteCategoryHandler.getCategory(location);
         Pair<ResourceLocation, VoteCategory> category = Pair.of(location, result.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location)));
         VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
         int id = handler.getIdOrCreate(artifactID, category.getKey());
         handler.getEntry(id).orElseThrow(IllegalStateException::new).votes.clear();
-        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.clear.success",
+        context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.clear.success",
                 toCategoryText(category.getKey()), toArtifactText(artifactID)), true);
         return Command.SINGLE_SUCCESS;
     }
@@ -497,7 +497,7 @@ public final class VoteMeCommand {
         for (ResourceLocation location : VoteCategoryHandler.getIds()) {
             VoteListEntry entryFrom = handler.getEntry(handler.getIdOrCreate(artifactIDFrom, location)).orElseThrow(IllegalStateException::new);
             VoteListEntry entry = handler.getEntry(handler.getIdOrCreate(artifactID, location)).orElseThrow(IllegalStateException::new);
-            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.merge.success",
+            context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.merge.success",
                     entry.votes.merge(entryFrom.votes), toCategoryText(location), toArtifactText(artifactIDFrom), toArtifactText(artifactID)), true);
         }
         if (!Objects.equals(artifactIDFrom, artifactID)) {
@@ -506,7 +506,7 @@ public final class VoteMeCommand {
                 VoteListHandler.putCommentFor(handler, artifactID, uuid, ImmutableList.<String>builder().addAll(comments).addAll(commentsFrom).build());
             });
         }
-        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.merge.success.comments",
+        context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.merge.success.comments",
                 toArtifactText(artifactIDFrom), toArtifactText(artifactID)), true);
         return Command.SINGLE_SUCCESS;
     }
@@ -515,8 +515,8 @@ public final class VoteMeCommand {
         UUID artifactID = getArtifact(context, "artifact");
         IFormattableTextComponent artifactText = toArtifactText(artifactID);
         VoteListHandler.putArtifactName(context.getSource(), artifactID, "");
-        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.admin.remove.success",
-                artifactText.mergeStyle(TextFormatting.STRIKETHROUGH)), true);
+        context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.admin.remove.success",
+                artifactText.withStyle(TextFormatting.STRIKETHROUGH)), true);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -525,7 +525,7 @@ public final class VoteMeCommand {
         String newName = getString(context, "title");
         VoteListHandler.putArtifactName(context.getSource(), newArtifactID, newName);
         IFormattableTextComponent artifactText = toArtifactText(newArtifactID);
-        context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.admin.create.success", artifactText), true);
+        context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.admin.create.success", artifactText), true);
 
         return Command.SINGLE_SUCCESS;
     }
@@ -538,7 +538,7 @@ public final class VoteMeCommand {
         if (!conflict.isPresent()) {
             VoteListHandler.putArtifactName(context.getSource(), newArtifactID, newName);
             VoteListHandler.putArtifactAlias(context.getSource(), newArtifactID, newAlias);
-            context.getSource().sendFeedback(new TranslationTextComponent(
+            context.getSource().sendSuccess(new TranslationTextComponent(
                     "commands.voteme.admin.create.success", toArtifactText(newArtifactID)), true);
 
             return Command.SINGLE_SUCCESS;
@@ -555,7 +555,7 @@ public final class VoteMeCommand {
         if (entryOptional.isPresent()) {
             if (category.getValue().enabledModifiable || force) {
                 entryOptional.get().votes.setEnabled(true);
-                context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.switch.on",
+                context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.switch.on",
                         toCategoryText(category.getKey()), toArtifactText(artifactID)), true);
                 return Command.SINGLE_SUCCESS;
             }
@@ -573,7 +573,7 @@ public final class VoteMeCommand {
         if (entryOptional.isPresent()) {
             if (category.getValue().enabledModifiable || force) {
                 entryOptional.get().votes.setEnabled(false);
-                context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.switch.off",
+                context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.switch.off",
                         toCategoryText(category.getKey()), toArtifactText(artifactID)), true);
                 return Command.SINGLE_SUCCESS;
             }
@@ -589,7 +589,7 @@ public final class VoteMeCommand {
         int id = handler.getIdOrCreate(artifactID, category.getKey());
         if (category.getValue().enabledModifiable || force) {
             handler.getEntry(id).orElseThrow(NullPointerException::new).votes.unsetEnabled();
-            context.getSource().sendFeedback(new TranslationTextComponent("commands.voteme.switch.unset",
+            context.getSource().sendSuccess(new TranslationTextComponent("commands.voteme.switch.unset",
                     toCategoryText(category.getKey()), toArtifactText(artifactID)), true);
             return Command.SINGLE_SUCCESS;
         }
@@ -597,25 +597,25 @@ public final class VoteMeCommand {
     }
 
     private static void processGiveItemToPlayer(ServerPlayerEntity player, ItemStack item) {
-        boolean succeed = player.inventory.addItemStackToInventory(item);
+        boolean succeed = player.inventory.add(item);
         if (!succeed) {
-            ItemEntity itemEntity = player.dropItem(item, false);
+            ItemEntity itemEntity = player.drop(item, false);
             if (itemEntity != null) {
-                itemEntity.setNoPickupDelay();
-                itemEntity.setOwnerId(player.getUniqueID());
+                itemEntity.setNoPickUpDelay();
+                itemEntity.setOwner(player.getUUID());
             }
         }
     }
 
     private static IFormattableTextComponent toRoleText(ResourceLocation input) {
-        return VoteRoleHandler.getText(input).mergeStyle(TextFormatting.LIGHT_PURPLE);
+        return VoteRoleHandler.getText(input).withStyle(TextFormatting.LIGHT_PURPLE);
     }
 
     private static IFormattableTextComponent toCategoryText(ResourceLocation input) {
-        return VoteCategoryHandler.getText(input).mergeStyle(TextFormatting.YELLOW);
+        return VoteCategoryHandler.getText(input).withStyle(TextFormatting.YELLOW);
     }
 
     private static IFormattableTextComponent toArtifactText(UUID input) {
-        return VoteListHandler.getArtifactText(input).mergeStyle(TextFormatting.GREEN);
+        return VoteListHandler.getArtifactText(input).withStyle(TextFormatting.GREEN);
     }
 }

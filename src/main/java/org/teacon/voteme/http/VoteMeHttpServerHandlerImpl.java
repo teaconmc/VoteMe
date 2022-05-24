@@ -113,7 +113,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
         List<String> sorts = parameters.getOrDefault("sort", Collections.emptyList())
                 .stream().flatMap(s -> Arrays.stream(s.split(","))).collect(Collectors.toList());
         @Nullable List<ResourceLocation> filteredCategories = !parameters.containsKey("category") ? null : parameters
-                .get("category").stream().map(ResourceLocation::tryCreate).filter(Objects::nonNull).collect(Collectors.toList());
+                .get("category").stream().map(ResourceLocation::tryParse).filter(Objects::nonNull).collect(Collectors.toList());
         @Nullable List<UUID> filteredArtifacts = !parameters.containsKey("artifact") ? null : parameters
                 .get("artifact").stream().map(VoteListHandler::getArtifactByAliasOrUUID).flatMap(Streams::stream).collect(Collectors.toList());
         Comparator<Integer> comparator = Comparator.naturalOrder();

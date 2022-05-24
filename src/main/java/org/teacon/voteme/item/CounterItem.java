@@ -35,6 +35,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+import net.minecraft.item.Item.Properties;
+
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
@@ -47,7 +49,7 @@ public final class CounterItem extends Item {
 
     @SubscribeEvent
     public static void register(RegistryEvent.Register<Item> event) {
-        event.getRegistry().register(new CounterItem(new Properties().maxStackSize(1).group(VoteMeItemGroup.INSTANCE)));
+        event.getRegistry().register(new CounterItem(new Properties().stacksTo(1).tab(VoteMeItemGroup.INSTANCE)));
     }
 
     private CounterItem(Properties properties) {
@@ -57,14 +59,14 @@ public final class CounterItem extends Item {
 
     @Override
     @OnlyIn(Dist.CLIENT)
-    public void addInformation(ItemStack stack, @Nullable World world, List<ITextComponent> tooltip, ITooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, @Nullable World world, List<ITextComponent> tooltip, ITooltipFlag flag) {
         CompoundNBT tag = stack.getTag();
         tooltip.add(new StringTextComponent(""));
-        if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
-            UUID artifactID = tag.getUniqueId("CurrentArtifact");
+        if (tag != null && tag.hasUUID("CurrentArtifact")) {
+            UUID artifactID = tag.getUUID("CurrentArtifact");
             if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
-                IFormattableTextComponent artifactText = VoteListHandler.getArtifactText(artifactID).mergeStyle(TextFormatting.GREEN);
-                tooltip.add(new TranslationTextComponent("gui.voteme.counter.current_artifact_hint", artifactText).mergeStyle(TextFormatting.GRAY));
+                IFormattableTextComponent artifactText = VoteListHandler.getArtifactText(artifactID).withStyle(TextFormatting.GREEN);
+                tooltip.add(new TranslationTextComponent("gui.voteme.counter.current_artifact_hint", artifactText).withStyle(TextFormatting.GRAY));
                 ResourceLocation currentCategoryID = new ResourceLocation(tag.getString("CurrentCategory"));
                 if (!VoteCategoryHandler.getIds().isEmpty()) {
                     tooltip.add(new StringTextComponent(""));
@@ -74,49 +76,49 @@ public final class CounterItem extends Item {
                     if (categoryOptional.isPresent()) {
                         ITextComponent categoryName = categoryOptional.get().name;
                         TextFormatting color = categoryID.equals(currentCategoryID) ? TextFormatting.GOLD : TextFormatting.YELLOW;
-                        IFormattableTextComponent categoryText = new StringTextComponent("").append(categoryName).mergeStyle(color);
-                        tooltip.add(new TranslationTextComponent("gui.voteme.counter.category_hint", categoryText).mergeStyle(TextFormatting.GRAY));
+                        IFormattableTextComponent categoryText = new StringTextComponent("").append(categoryName).withStyle(color);
+                        tooltip.add(new TranslationTextComponent("gui.voteme.counter.category_hint", categoryText).withStyle(TextFormatting.GRAY));
                     }
                 }
             } else {
-                tooltip.add(new TranslationTextComponent("gui.voteme.counter.empty_artifact_hint").mergeStyle(TextFormatting.GRAY));
+                tooltip.add(new TranslationTextComponent("gui.voteme.counter.empty_artifact_hint").withStyle(TextFormatting.GRAY));
             }
         } else {
-            tooltip.add(new TranslationTextComponent("gui.voteme.counter.empty_artifact_hint").mergeStyle(TextFormatting.GRAY));
+            tooltip.add(new TranslationTextComponent("gui.voteme.counter.empty_artifact_hint").withStyle(TextFormatting.GRAY));
         }
     }
 
     @Override
-    public ActionResult<ItemStack> onItemRightClick(World world, PlayerEntity player, Hand hand) {
-        ItemStack itemStack = player.getHeldItem(hand);
+    public ActionResult<ItemStack> use(World world, PlayerEntity player, Hand hand) {
+        ItemStack itemStack = player.getItemInHand(hand);
         CompoundNBT tag = itemStack.getOrCreateTag();
         if (player instanceof ServerPlayerEntity) {
             Optional<ShowCounterPacket> packet = Optional.empty();
             MinecraftServer server = Objects.requireNonNull(player.getServer());
-            int inventoryId = hand == Hand.MAIN_HAND ? player.inventory.currentItem : 40;
-            if (tag.hasUniqueId("CurrentArtifact")) {
+            int inventoryId = hand == Hand.MAIN_HAND ? player.inventory.selected : 40;
+            if (tag.hasUUID("CurrentArtifact")) {
                 ResourceLocation category = new ResourceLocation(tag.getString("CurrentCategory"));
-                packet = ShowCounterPacket.create(inventoryId, tag.getUniqueId("CurrentArtifact"), category, server);
+                packet = ShowCounterPacket.create(inventoryId, tag.getUUID("CurrentArtifact"), category, server);
             }
             if (!packet.isPresent()) {
-                packet = ShowCounterPacket.create(inventoryId, uuid -> tag.putUniqueId("CurrentArtifact", uuid));
+                packet = ShowCounterPacket.create(inventoryId, uuid -> tag.putUUID("CurrentArtifact", uuid));
             }
             if (packet.isPresent()) {
                 PacketDistributor.PacketTarget target = PacketDistributor.PLAYER.with(() -> (ServerPlayerEntity) player);
                 VoteMePacketManager.CHANNEL.send(target, packet.get());
-                return ActionResult.resultConsume(itemStack);
+                return ActionResult.consume(itemStack);
             }
         } else {
-            return ActionResult.resultSuccess(itemStack);
+            return ActionResult.success(itemStack);
         }
-        return ActionResult.resultFail(itemStack);
+        return ActionResult.fail(itemStack);
     }
 
     @Override
-    public ITextComponent getDisplayName(ItemStack stack) {
+    public ITextComponent getName(ItemStack stack) {
         CompoundNBT tag = stack.getTag();
-        if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
-            UUID artifactID = tag.getUniqueId("CurrentArtifact");
+        if (tag != null && tag.hasUUID("CurrentArtifact")) {
+            UUID artifactID = tag.getUUID("CurrentArtifact");
             String artifactName = VoteListHandler.getArtifactName(artifactID);
             if (!artifactName.isEmpty()) {
                 return new TranslationTextComponent("item.voteme.counter.with_artifact", artifactName);
@@ -127,7 +129,7 @@ public final class CounterItem extends Item {
 
     public void rename(ServerPlayerEntity sender, ItemStack stack, UUID artifactID, String newArtifactName) {
         if (this.checkMatchedArtifact(stack, artifactID)) {
-            VoteListHandler.putArtifactName(sender.getCommandSource(), artifactID, newArtifactName);
+            VoteListHandler.putArtifactName(sender.createCommandSourceStack(), artifactID, newArtifactName);
         } else {
             VoteMe.LOGGER.warn("Unmatched vote artifact {} submitted by {}.", artifactID, sender.getGameProfile());
         }
@@ -138,7 +140,7 @@ public final class CounterItem extends Item {
         VoteListHandler handler = VoteListHandler.get(Objects.requireNonNull(sender.getServer()));
         if (this.checkMatchedArtifact(stack, artifactID)) {
             stack.getOrCreateTag().putString("CurrentCategory", currentCategory.toString());
-            stack.getOrCreateTag().putUniqueId("CurrentArtifact", artifactID);
+            stack.getOrCreateTag().putUUID("CurrentArtifact", artifactID);
             for (ResourceLocation category : enabledCategories) {
                 if (VoteCategoryHandler.getCategory(category).filter(c -> c.enabledModifiable).isPresent()) {
                     int entryID = handler.getIdOrCreate(artifactID, category);
@@ -162,8 +164,8 @@ public final class CounterItem extends Item {
 
     private boolean checkMatchedArtifact(ItemStack stack, UUID artifactID) {
         CompoundNBT tag = stack.getTag();
-        if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
-            return tag.getUniqueId("CurrentArtifact").equals(artifactID);
+        if (tag != null && tag.hasUUID("CurrentArtifact")) {
+            return tag.getUUID("CurrentArtifact").equals(artifactID);
         }
         return false;
     }

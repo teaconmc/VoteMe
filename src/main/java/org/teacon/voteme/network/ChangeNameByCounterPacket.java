@@ -36,7 +36,7 @@ public final class ChangeNameByCounterPacket {
                     ? Stream.of("voteme.modify.counter", "voteme.modify", "voteme")
                     : Stream.of("voteme.create.counter", "voteme.create", "voteme.admin.create", "voteme.admin", "voteme");
             if (permissions.anyMatch(p -> PermissionAPI.hasPermission(sender, p))) {
-                ItemStack stack = sender.inventory.getStackInSlot(this.inventoryIndex);
+                ItemStack stack = sender.inventory.getItem(this.inventoryIndex);
                 if (CounterItem.INSTANCE.equals(stack.getItem())) {
                     CounterItem.INSTANCE.rename(sender, stack, this.artifactUUID, this.newArtifactName);
                 }
@@ -47,14 +47,14 @@ public final class ChangeNameByCounterPacket {
 
     public void write(PacketBuffer buffer) {
         buffer.writeVarInt(this.inventoryIndex);
-        buffer.writeUniqueId(this.artifactUUID);
-        buffer.writeString(this.newArtifactName);
+        buffer.writeUUID(this.artifactUUID);
+        buffer.writeUtf(this.newArtifactName);
     }
 
     public static ChangeNameByCounterPacket read(PacketBuffer buffer) {
         int inventoryIndex = buffer.readVarInt();
-        UUID artifactUUID = buffer.readUniqueId();
-        String artifactName = buffer.readString(Short.MAX_VALUE);
+        UUID artifactUUID = buffer.readUUID();
+        String artifactName = buffer.readUtf(Short.MAX_VALUE);
         return new ChangeNameByCounterPacket(inventoryIndex, artifactUUID, artifactName);
     }
 

@@ -96,7 +96,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     }
 
     public int get(ServerPlayerEntity player) {
-        return this.get(player.getUniqueID());
+        return this.get(player.getUUID());
     }
 
     public int get(UUID uuid) {
@@ -113,7 +113,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
 
     public void set(ServerPlayerEntity player, int level) {
         Preconditions.checkArgument(level >= 0 && level <= 5);
-        this.set(player.getUniqueID(), level, VoteRoleHandler.getRoles(player), Instant.now());
+        this.set(player.getUUID(), level, VoteRoleHandler.getRoles(player), Instant.now());
     }
 
     public void set(UUID uuid, int level, Collection<? extends ResourceLocation> roles, Instant voteTime) {
@@ -197,7 +197,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
         ListNBT nbt = new ListNBT();
         for (Map.Entry<UUID, Triple<Integer, ImmutableSet<ResourceLocation>, Instant>> entry : this.votes.entrySet()) {
             CompoundNBT child = new CompoundNBT();
-            child.putUniqueId("UUID", entry.getKey());
+            child.putUUID("UUID", entry.getKey());
             child.putInt("Level", entry.getValue().getLeft());
             child.put("VoteRoles", Util.make(new ListNBT(), roles -> {
                 for (ResourceLocation r : entry.getValue().getMiddle()) {
@@ -226,7 +226,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
             int level = MathHelper.clamp(child.getInt("Level"), 1, 5);
             ImmutableSet.Builder<ResourceLocation> roleBuilder = ImmutableSet.builder();
             for (INBT roleNBT : child.getList("VoteRoles", Constants.NBT.TAG_STRING)) {
-                roleBuilder.add(new ResourceLocation(roleNBT.getString()));
+                roleBuilder.add(new ResourceLocation(roleNBT.getAsString()));
             }
             ImmutableSet<ResourceLocation> roles = roleBuilder.build();
             for (ResourceLocation role : roles) {
@@ -238,7 +238,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
             if (child.contains("VoteTime", Constants.NBT.TAG_LONG)) {
                 voteTime = Instant.ofEpochMilli(child.getLong("VoteTime"));
             }
-            this.votes.put(child.getUniqueId("UUID"), Triple.of(level, roles, voteTime));
+            this.votes.put(child.getUUID("UUID"), Triple.of(level, roles, voteTime));
         }
         this.cachedScores.clear();
         this.onVoteChange.run();

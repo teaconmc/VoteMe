@@ -52,7 +52,7 @@ public final class ShowCounterPacket {
                     ShowCounterPacket p = ShowCounterPacket.this;
                     String artifactName = VoteListHandler.getArtifactName(p.artifactUUID);
                     CounterScreen gui = new CounterScreen(p.artifactUUID, artifactName, p.invIndex, p.category, p.infos);
-                    supplier.get().enqueueWork(() -> Minecraft.getInstance().displayGuiScreen(gui));
+                    supplier.get().enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
                 }
             });
         }
@@ -61,7 +61,7 @@ public final class ShowCounterPacket {
 
     public void write(PacketBuffer buffer) {
         buffer.writeInt(this.invIndex);
-        buffer.writeUniqueId(this.artifactUUID);
+        buffer.writeUUID(this.artifactUUID);
         buffer.writeResourceLocation(this.category);
         buffer.writeVarInt(this.infos.size());
         for (Info info : this.infos) {
@@ -71,7 +71,7 @@ public final class ShowCounterPacket {
                 buffer.writeFloat(stats.getFinalScore(Float.NaN));
                 buffer.writeVarInt(stats.getEffectiveCount());
                 buffer.writeVarIntArray(stats.getVoteCountArray());
-                buffer.writeTextComponent(entry.getKey());
+                buffer.writeComponent(entry.getKey());
             }
             buffer.writeFloat(Float.NaN);
             buffer.writeResourceLocation(info.id);
@@ -81,7 +81,7 @@ public final class ShowCounterPacket {
 
     public static ShowCounterPacket read(PacketBuffer buffer) {
         int inventoryIndex = buffer.readInt();
-        UUID artifactUUID = buffer.readUniqueId();
+        UUID artifactUUID = buffer.readUUID();
         ResourceLocation category = buffer.readResourceLocation();
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
         for (int i = 0, size = buffer.readVarInt(); i < size; ++i) {
@@ -90,7 +90,7 @@ public final class ShowCounterPacket {
                 float finalScore = buffer.readFloat();
                 int effectiveVoteCount = buffer.readVarInt();
                 int[] countsByLevel = buffer.readVarIntArray(6);
-                ITextComponent subgroup = buffer.readTextComponent();
+                ITextComponent subgroup = buffer.readComponent();
                 scoresBuilder.add(Pair.of(subgroup, new VoteList.Stats(weight, finalScore, effectiveVoteCount, countsByLevel)));
             }
             ResourceLocation id = buffer.readResourceLocation();
@@ -117,7 +117,7 @@ public final class ShowCounterPacket {
                 if (category.enabledDefault || category.enabledModifiable || enabledCurrently) {
                     ImmutableList.Builder<Pair<ITextComponent, VoteList.Stats>> scoresBuilder = ImmutableList.builder();
                     entry.votes.buildFinalScore(location).forEach((subgroup, scores) -> scoresBuilder.add(Pair.of(Optional
-                            .ofNullable(ResourceLocation.tryCreate(subgroup)).flatMap(VoteRoleHandler::getRole)
+                            .ofNullable(ResourceLocation.tryParse(subgroup)).flatMap(VoteRoleHandler::getRole)
                             .map(role -> role.name).orElse(new StringTextComponent(subgroup)), scores)));
                     builder.add(new Info(location, category, scoresBuilder.build(), enabledCurrently));
                 }

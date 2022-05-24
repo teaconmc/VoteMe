@@ -33,6 +33,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import net.minecraft.item.Item.Properties;
+
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
@@ -45,7 +47,7 @@ public final class VoterItem extends Item {
 
     @SubscribeEvent
     public static void register(RegistryEvent.Register<Item> event) {
-        event.getRegistry().register(new VoterItem(new Properties().group(VoteMeItemGroup.INSTANCE)));
+        event.getRegistry().register(new VoterItem(new Properties().tab(VoteMeItemGroup.INSTANCE)));
     }
 
     private VoterItem(Properties properties) {
@@ -55,14 +57,14 @@ public final class VoterItem extends Item {
 
     @Override
     @OnlyIn(Dist.CLIENT)
-    public void addInformation(ItemStack stack, @Nullable World world, List<ITextComponent> tooltip, ITooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, @Nullable World world, List<ITextComponent> tooltip, ITooltipFlag flag) {
         CompoundNBT tag = stack.getTag();
         tooltip.add(new StringTextComponent(""));
-        if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
-            UUID artifactID = tag.getUniqueId("CurrentArtifact");
+        if (tag != null && tag.hasUUID("CurrentArtifact")) {
+            UUID artifactID = tag.getUUID("CurrentArtifact");
             if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
-                IFormattableTextComponent artifactText = VoteListHandler.getArtifactText(artifactID).mergeStyle(TextFormatting.GREEN);
-                tooltip.add(new TranslationTextComponent("gui.voteme.voter.current_artifact_hint", artifactText).mergeStyle(TextFormatting.GRAY));
+                IFormattableTextComponent artifactText = VoteListHandler.getArtifactText(artifactID).withStyle(TextFormatting.GREEN);
+                tooltip.add(new TranslationTextComponent("gui.voteme.voter.current_artifact_hint", artifactText).withStyle(TextFormatting.GRAY));
                 if (!VoteCategoryHandler.getIds().isEmpty()) {
                     tooltip.add(new StringTextComponent(""));
                 }
@@ -70,39 +72,39 @@ public final class VoterItem extends Item {
                     Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
                     if (categoryOptional.isPresent()) {
                         ITextComponent categoryName = categoryOptional.get().name;
-                        IFormattableTextComponent categoryText = new StringTextComponent("").append(categoryName).mergeStyle(TextFormatting.YELLOW);
-                        tooltip.add(new TranslationTextComponent("gui.voteme.counter.category_hint", categoryText).mergeStyle(TextFormatting.GRAY));
+                        IFormattableTextComponent categoryText = new StringTextComponent("").append(categoryName).withStyle(TextFormatting.YELLOW);
+                        tooltip.add(new TranslationTextComponent("gui.voteme.counter.category_hint", categoryText).withStyle(TextFormatting.GRAY));
                     }
                 }
             } else {
-                tooltip.add(new TranslationTextComponent("gui.voteme.voter.empty_artifact_hint").mergeStyle(TextFormatting.GRAY));
+                tooltip.add(new TranslationTextComponent("gui.voteme.voter.empty_artifact_hint").withStyle(TextFormatting.GRAY));
             }
         } else {
-            tooltip.add(new TranslationTextComponent("gui.voteme.voter.empty_artifact_hint").mergeStyle(TextFormatting.GRAY));
+            tooltip.add(new TranslationTextComponent("gui.voteme.voter.empty_artifact_hint").withStyle(TextFormatting.GRAY));
         }
     }
 
     @Override
-    public ActionResult<ItemStack> onItemRightClick(World world, PlayerEntity player, Hand hand) {
-        ItemStack itemStack = player.getHeldItem(hand);
+    public ActionResult<ItemStack> use(World world, PlayerEntity player, Hand hand) {
+        ItemStack itemStack = player.getItemInHand(hand);
         CompoundNBT tag = itemStack.getTag();
         if (player instanceof ServerPlayerEntity) {
             ServerPlayerEntity serverPlayer = (ServerPlayerEntity) player;
             if (this.open(serverPlayer, tag)) {
-                return ActionResult.resultConsume(itemStack);
+                return ActionResult.consume(itemStack);
             }
-        } else if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
-            return ActionResult.resultSuccess(itemStack);
+        } else if (tag != null && tag.hasUUID("CurrentArtifact")) {
+            return ActionResult.success(itemStack);
         }
-        return ActionResult.resultFail(itemStack);
+        return ActionResult.fail(itemStack);
     }
 
     public boolean open(ServerPlayerEntity player, @Nullable CompoundNBT tag) {
         Stream<String> permissions = Stream.of("voteme.open.voter", "voteme.open", "voteme");
         if (permissions.anyMatch(p -> PermissionAPI.hasPermission(player, p))) {
             Optional<ShowVoterPacket> packet = Optional.empty();
-            if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
-                packet = ShowVoterPacket.create(tag.getUniqueId("CurrentArtifact"), player);
+            if (tag != null && tag.hasUUID("CurrentArtifact")) {
+                packet = ShowVoterPacket.create(tag.getUUID("CurrentArtifact"), player);
             }
             if (packet.isPresent()) {
                 PacketDistributor.PacketTarget target = PacketDistributor.PLAYER.with(() -> player);
@@ -114,10 +116,10 @@ public final class VoterItem extends Item {
     }
 
     @Override
-    public ITextComponent getDisplayName(ItemStack stack) {
+    public ITextComponent getName(ItemStack stack) {
         CompoundNBT tag = stack.getTag();
-        if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
-            UUID artifactID = tag.getUniqueId("CurrentArtifact");
+        if (tag != null && tag.hasUUID("CurrentArtifact")) {
+            UUID artifactID = tag.getUUID("CurrentArtifact");
             String artifactName = VoteListHandler.getArtifactName(artifactID);
             if (!artifactName.isEmpty()) {
                 return new TranslationTextComponent("item.voteme.voter.with_artifact", artifactName);
@@ -128,8 +130,8 @@ public final class VoterItem extends Item {
 
     public ItemStack copyFrom(int voterSize, ItemStack stack) {
         CompoundNBT tag = stack.getTag(), newTag = new CompoundNBT();
-        if (tag != null && tag.hasUniqueId("CurrentArtifact")) {
-            newTag.putUniqueId("CurrentArtifact", tag.getUniqueId("CurrentArtifact"));
+        if (tag != null && tag.hasUUID("CurrentArtifact")) {
+            newTag.putUUID("CurrentArtifact", tag.getUUID("CurrentArtifact"));
         }
         ItemStack result = new ItemStack(this, voterSize);
         result.setTag(newTag);

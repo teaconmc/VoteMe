@@ -22,7 +22,7 @@ abstract class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpO
         if (msg instanceof HttpRequest) {
             HttpRequest request = (HttpRequest) msg;
             QueryStringDecoder decoder = new QueryStringDecoder(request.uri());
-            VoteMeHttpServer.getMinecraftServer().runAsync(() -> {
+            VoteMeHttpServer.getMinecraftServer().submit(() -> {
                 ByteBuf buf = Unpooled.buffer();
                 HttpResponseStatus status = this.handle(decoder, buf);
                 this.sendResponse(ctx, request, buf, status);

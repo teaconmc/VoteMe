@@ -42,8 +42,8 @@ public final class SyncCategoryPacket {
             buffer.writeBoolean(true);
             buffer.writeResourceLocation(entry.getKey());
             VoteCategory category = entry.getValue();
-            buffer.writeTextComponent(category.name);
-            buffer.writeTextComponent(category.description);
+            buffer.writeComponent(category.name);
+            buffer.writeComponent(category.description);
             buffer.writeBoolean(category.enabledDefault);
             buffer.writeBoolean(category.enabledModifiable);
         }
@@ -54,8 +54,8 @@ public final class SyncCategoryPacket {
         ImmutableMap.Builder<ResourceLocation, VoteCategory> builder = ImmutableMap.builder();
         for (boolean b = buffer.readBoolean(); b; b = buffer.readBoolean()) {
             ResourceLocation id = buffer.readResourceLocation();
-            ITextComponent name = buffer.readTextComponent();
-            ITextComponent description = buffer.readTextComponent();
+            ITextComponent name = buffer.readComponent();
+            ITextComponent description = buffer.readComponent();
             boolean enabledDefault = buffer.readBoolean();
             boolean enabledModifiable = buffer.readBoolean();
             builder.put(id, new VoteCategory(name, description, enabledDefault, enabledModifiable));

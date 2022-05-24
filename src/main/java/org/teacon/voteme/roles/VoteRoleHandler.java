@@ -46,7 +46,7 @@ public final class VoteRoleHandler extends JsonReloadListener {
         for (Map.Entry<ResourceLocation, VoteRole> entry : roleMap.entrySet()) {
             try {
                 EntitySelector selector = entry.getValue().selector;
-                List<ServerPlayerEntity> selected = selector.selectPlayers(player.server.getCommandSource());
+                List<ServerPlayerEntity> selected = selector.findPlayers(player.server.createCommandSourceStack());
                 if (selected.contains(player)) {
                     builder.add(entry.getKey());
                 }
@@ -78,9 +78,9 @@ public final class VoteRoleHandler extends JsonReloadListener {
     public static IFormattableTextComponent getText(ResourceLocation id) {
         Optional<VoteRole> roleOptional = VoteRoleHandler.getRole(id);
         if (roleOptional.isPresent()) {
-            IFormattableTextComponent base = wrapWithSquareBrackets(new StringTextComponent(id.toString()));
-            ITextComponent hover = new StringTextComponent("").append(roleOptional.get().name).appendString("\n");
-            return base.modifyStyle(style -> style.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover)));
+            IFormattableTextComponent base = wrapInSquareBrackets(new StringTextComponent(id.toString()));
+            ITextComponent hover = new StringTextComponent("").append(roleOptional.get().name).append("\n");
+            return base.withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover)));
         }
         return new StringTextComponent("");
     }

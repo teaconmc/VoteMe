@@ -40,7 +40,7 @@ public final class ChangePropsByCounterPacket {
             ServerPlayerEntity sender = Objects.requireNonNull(supplier.get().getSender());
             Stream<String> permissions = Stream.of("voteme.switch.counter", "voteme.switch", "voteme.admin.switch", "voteme.admin", "voteme");
             if (permissions.anyMatch(p -> PermissionAPI.hasPermission(sender, p))) {
-                ItemStack stack = sender.inventory.getStackInSlot(this.inventoryIndex);
+                ItemStack stack = sender.inventory.getItem(this.inventoryIndex);
                 if (CounterItem.INSTANCE.equals(stack.getItem())) {
                     CounterItem.INSTANCE.applyChanges(sender, stack, this.artifactUUID, this.categoryID, this.enabled, this.disabled);
                 }
@@ -51,7 +51,7 @@ public final class ChangePropsByCounterPacket {
 
     public void write(PacketBuffer buffer) {
         buffer.writeVarInt(this.inventoryIndex);
-        buffer.writeUniqueId(this.artifactUUID);
+        buffer.writeUUID(this.artifactUUID);
         buffer.writeResourceLocation(this.categoryID);
         buffer.writeInt(this.enabled.size());
         buffer.writeInt(this.disabled.size());
@@ -61,7 +61,7 @@ public final class ChangePropsByCounterPacket {
 
     public static ChangePropsByCounterPacket read(PacketBuffer buffer) {
         int inventoryIndex = buffer.readVarInt();
-        UUID artifactUUID = buffer.readUniqueId();
+        UUID artifactUUID = buffer.readUUID();
         ResourceLocation category = buffer.readResourceLocation();
         int enabledSize = buffer.readInt(), disabledSize = buffer.readInt();
         ImmutableList.Builder<ResourceLocation> enabledBuilder = ImmutableList.builder();

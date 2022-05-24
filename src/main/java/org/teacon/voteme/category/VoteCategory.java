@@ -33,11 +33,11 @@ public final class VoteCategory {
 
     public static VoteCategory fromJson(JsonElement json) {
         JsonObject root = json.getAsJsonObject();
-        JsonObject enabled = JSONUtils.getJsonObject(root, "enabled");
-        boolean enabledDefault = JSONUtils.getBoolean(enabled, "default");
-        boolean enabledModifiable = JSONUtils.getBoolean(enabled, "modifiable");
-        ITextComponent name = ITextComponent.Serializer.getComponentFromJson(root.get("name"));
-        ITextComponent desc = ITextComponent.Serializer.getComponentFromJson(root.get("description"));
+        JsonObject enabled = JSONUtils.getAsJsonObject(root, "enabled");
+        boolean enabledDefault = JSONUtils.getAsBoolean(enabled, "default");
+        boolean enabledModifiable = JSONUtils.getAsBoolean(enabled, "modifiable");
+        ITextComponent name = ITextComponent.Serializer.fromJson(root.get("name"));
+        ITextComponent desc = ITextComponent.Serializer.fromJson(root.get("description"));
         if (name == null || desc == null) {
             throw new JsonSyntaxException("Both name and description are expected");
         }

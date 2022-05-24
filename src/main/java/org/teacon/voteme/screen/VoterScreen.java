@@ -30,6 +30,8 @@ import org.teacon.voteme.vote.VoteListHandler;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
 
+import net.minecraft.client.gui.widget.button.Button.IPressable;
+
 @OnlyIn(Dist.CLIENT)
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -54,7 +56,7 @@ public final class VoterScreen extends Screen {
     private BottomButton clearButton, unsetButton;
 
     public VoterScreen(UUID artifactID, String artifactName, List<ShowVoterPacket.Info> infos, List<String> comments) {
-        super(NarratorChatListener.EMPTY);
+        super(NarratorChatListener.NO_TITLE);
         this.artifactID = artifactID;
         this.artifact = artifactName;
         this.currentComments = (this.oldComments = comments);
@@ -93,7 +95,7 @@ public final class VoterScreen extends Screen {
     }
 
     @Override
-    public void onClose() {
+    public void removed() {
         if (!this.votes.isEmpty()) {
             SubmitVotePacket packet = SubmitVotePacket.create(this.artifactID, this.votes);
             VoteMePacketManager.CHANNEL.sendToServer(packet);
@@ -105,11 +107,11 @@ public final class VoterScreen extends Screen {
     }
 
     private void onOKButtonClick(Button button) {
-        this.closeScreen();
+        this.onClose();
     }
     
     private void onCommentButtonClick(Button button) {
-        this.minecraft.displayGuiScreen(new CommentScreen(this));
+        this.minecraft.setScreen(new CommentScreen(this));
     }
 
     private void onClearButtonClick(Button button) {
@@ -148,7 +150,7 @@ public final class VoterScreen extends Screen {
             int current = (this.slideTop + dy + 55) / 24;
             if (current >= 0 && current < this.infoCollection.size()) {
                 ITextComponent desc = this.infoCollection.get(current).category.description;
-                List<IReorderingProcessor> descList = this.font.trimStringToWidth(desc, 191);
+                List<IReorderingProcessor> descList = this.font.split(desc, 191);
                 this.renderTooltip(matrixStack, descList.subList(0, Math.min(7, descList.size())), mouseX, mouseY);
             }
         }
@@ -158,7 +160,7 @@ public final class VoterScreen extends Screen {
     private void drawGuiContainerBackgroundLayer(MatrixStack matrixStack, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
         RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-        mc.getTextureManager().bindTexture(TEXTURE);
+        mc.getTextureManager().bind(TEXTURE);
         this.blit(matrixStack, this.width / 2 - 111, this.height / 2 - 55, 0, 42, 234, 132);
         this.drawCategoriesInSlide(matrixStack, mc);
         this.blit(matrixStack, this.width / 2 - 111, this.height / 2 - 97, 0, 0, 234, 42);
@@ -167,7 +169,7 @@ public final class VoterScreen extends Screen {
 
     private void drawGuiContainerForegroundLayer(MatrixStack matrixStack, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
-        this.drawArtifactName(matrixStack, mc.fontRenderer);
+        this.drawArtifactName(matrixStack, mc.font);
     }
 
     private void drawCategoriesInSlide(MatrixStack matrixStack, Minecraft mc) {
@@ -180,11 +182,11 @@ public final class VoterScreen extends Screen {
             this.blit(matrixStack, x0, y0, 8, 207, 192, 24);
             ShowVoterPacket.Info info = this.infoCollection.get(i);
             // draw category string
-            int x1 = x0 + 48 - font.getStringPropertyWidth(info.category.name) / 2, y1 = y0 + 8;
-            mc.fontRenderer.func_243248_b(matrixStack, info.category.name, x1, y1, TEXT_COLOR);
+            int x1 = x0 + 48 - font.width(info.category.name) / 2, y1 = y0 + 8;
+            mc.font.draw(matrixStack, info.category.name, x1, y1, TEXT_COLOR);
             // draw votes
             int voteLevel = this.votes.getOrDefault(info.id, info.level);
-            mc.getTextureManager().bindTexture(TEXTURE);
+            mc.getTextureManager().bind(TEXTURE);
             for (int j = 0; j < 5; ++j) {
                 int x2 = x0 + 106 + 15 * j, y2 = y0 + 4, u2 = 221, v2 = voteLevel > j ? 239 : 206;
                 this.blit(matrixStack, x2, y2, u2, v2, 15, 15);
@@ -193,12 +195,12 @@ public final class VoterScreen extends Screen {
     }
 
     private void drawArtifactName(MatrixStack matrixStack, FontRenderer font) {
-        matrixStack.push();
+        matrixStack.pushPose();
         float scale = ARTIFACT_SCALE_FACTOR;
         matrixStack.scale(scale, scale, scale);
-        int x3 = this.width / 2 + 1, y3 = this.height / 2 - 82, dx = font.getStringWidth(this.artifact) / 2;
-        font.func_243248_b(matrixStack, new StringTextComponent(this.artifact), x3 / scale - dx, y3 / scale, TEXT_COLOR);
-        matrixStack.pop();
+        int x3 = this.width / 2 + 1, y3 = this.height / 2 - 82, dx = font.width(this.artifact) / 2;
+        font.draw(matrixStack, new StringTextComponent(this.artifact), x3 / scale - dx, y3 / scale, TEXT_COLOR);
+        matrixStack.popPose();
     }
 
     private static class BottomButton extends Button {
@@ -212,7 +214,7 @@ public final class VoterScreen extends Screen {
         @Override
         public void renderButton(MatrixStack matrixStack, int mouseX, int mouseY, float partialTicks) {
             Minecraft mc = Minecraft.getInstance();
-            mc.getTextureManager().bindTexture(VoterScreen.TEXTURE);
+            mc.getTextureManager().bind(VoterScreen.TEXTURE);
             // render button texture
             RenderSystem.enableDepthTest();
             int u0 = (this.isRed ? 7 : 60) + (this.isHovered() ? 106 : 0), v0 = 234;
@@ -222,10 +224,10 @@ public final class VoterScreen extends Screen {
                 this.renderToolTip(matrixStack, mouseX, mouseY);
             }
             // render button text
-            FontRenderer font = Minecraft.getInstance().fontRenderer;
-            float dx = font.getStringPropertyWidth(this.getMessage()) / 2F;
+            FontRenderer font = Minecraft.getInstance().font;
+            float dx = font.width(this.getMessage()) / 2F;
             float x = this.x + (this.width + 1) / 2F - dx, y = this.y + (this.height - 8) / 2F;
-            font.func_243248_b(matrixStack, this.getMessage(), x, y, BUTTON_TEXT_COLOR);
+            font.draw(matrixStack, this.getMessage(), x, y, BUTTON_TEXT_COLOR);
         }
     }
 
@@ -252,7 +254,7 @@ public final class VoterScreen extends Screen {
             int min = 6 + this.halfSliderHeight, max = 126 - this.halfSliderHeight;
             center = MathHelper.clamp(center, min, max);
             if (this.slideCenter != center) {
-                double ratio = MathHelper.func_233020_c_(this.slideCenter = center, min, max);
+                double ratio = MathHelper.inverseLerp(this.slideCenter = center, min, max);
                 int top = Math.toIntExact(Math.round(ratio * (this.totalHeight - 132)));
                 this.changeListener.onChange(top, top + 132);
             }
@@ -262,7 +264,7 @@ public final class VoterScreen extends Screen {
         @SuppressWarnings("deprecation")
         public void renderButton(MatrixStack matrixStack, int mouseX, int mouseY, float partialTicks) {
             RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-            Minecraft.getInstance().getTextureManager().bindTexture(TEXTURE);
+            Minecraft.getInstance().getTextureManager().bind(TEXTURE);
             double dx = mouseX - this.x, dy = mouseY - this.y - this.slideCenter;
             int x0 = this.x + 192, y0 = Math.toIntExact(Math.round(mouseY - dy));
             int v0 = this.isHovered && dx >= 192 && dy < this.halfSliderHeight && dy >= -this.halfSliderHeight ? 133 : 4;
@@ -304,7 +306,7 @@ public final class VoterScreen extends Screen {
 
         @Override
         public void onRelease(double mouseX, double mouseY) {
-            super.playDownSound(Minecraft.getInstance().getSoundHandler());
+            super.playDownSound(Minecraft.getInstance().getSoundManager());
         }
 
         @Override
@@ -318,7 +320,7 @@ public final class VoterScreen extends Screen {
         }
 
         @Override
-        protected IFormattableTextComponent getNarrationMessage() {
+        protected IFormattableTextComponent createNarrationMessage() {
             return new TranslationTextComponent("gui.narrate.slider", this.getMessage());
         }
 

@@ -19,7 +19,7 @@ public final class VoteMeItemGroup extends ItemGroup {
 
     @Override
     @OnlyIn(Dist.CLIENT)
-    public ItemStack createIcon() {
+    public ItemStack makeIcon() {
         return new ItemStack(VoterItem.INSTANCE);
     }
 }

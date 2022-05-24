@@ -35,8 +35,8 @@ public final class VoteRole {
     public static VoteRole fromJson(ResourceLocation id, JsonElement json) {
         JsonObject jsonObject = json.getAsJsonObject();
         ITextComponent name = parseName(jsonObject.get("name"));
-        JsonArray participationsRaw = JSONUtils.getJsonArray(jsonObject, "participations");
-        EntitySelector selector = parseSelector(JSONUtils.getString(jsonObject, "selector", "@a"));
+        JsonArray participationsRaw = JSONUtils.getAsJsonArray(jsonObject, "participations");
+        EntitySelector selector = parseSelector(JSONUtils.getAsString(jsonObject, "selector", "@a"));
         Multimap<ResourceLocation, Participation> participations = parseParticipations(id, participationsRaw);
         return new VoteRole(name, selector, participations);
     }
@@ -44,11 +44,11 @@ public final class VoteRole {
     private static Multimap<ResourceLocation, Participation> parseParticipations(ResourceLocation id, JsonArray array) {
         ImmutableListMultimap.Builder<ResourceLocation, Participation> builder = ImmutableListMultimap.builder();
         for (JsonElement child : array) {
-            JsonObject participationObject = JSONUtils.getJsonObject(child, "participations");
-            ResourceLocation category = new ResourceLocation(JSONUtils.getString(participationObject, "category"));
-            String subgroup = JSONUtils.getString(participationObject, "subgroup", id.toString());
-            int truncation = JSONUtils.getInt(participationObject, "truncation", 0);
-            float weight = JSONUtils.getFloat(participationObject, "weight", 1.0F);
+            JsonObject participationObject = JSONUtils.convertToJsonObject(child, "participations");
+            ResourceLocation category = new ResourceLocation(JSONUtils.getAsString(participationObject, "category"));
+            String subgroup = JSONUtils.getAsString(participationObject, "subgroup", id.toString());
+            int truncation = JSONUtils.getAsInt(participationObject, "truncation", 0);
+            float weight = JSONUtils.getAsFloat(participationObject, "weight", 1.0F);
             builder.put(category, new Participation(weight, truncation, subgroup));
         }
         return builder.build();
@@ -65,7 +65,7 @@ public final class VoteRole {
     }
 
     private static ITextComponent parseName(JsonElement elem) {
-        ITextComponent name = ITextComponent.Serializer.getComponentFromJson(elem);
+        ITextComponent name = ITextComponent.Serializer.fromJson(elem);
         if (name == null) {
             throw new JsonSyntaxException("The name is expected in a role for voting");
         }
