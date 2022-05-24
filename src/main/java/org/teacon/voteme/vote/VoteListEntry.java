@@ -3,10 +3,10 @@ package org.teacon.voteme.vote;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.Util;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.Util;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Map;
@@ -27,7 +27,7 @@ public final class VoteListEntry {
         this.votes = votes;
     }
 
-    public static VoteListEntry fromNBT(CompoundNBT compound, Runnable onChange) {
+    public static VoteListEntry fromNBT(CompoundTag compound, Runnable onChange) {
         VoteList votes = new VoteList(onChange);
         votes.deserializeNBT(compound);
         UUID artifactID = compound.getUUID("ArtifactUUID");
@@ -35,8 +35,8 @@ public final class VoteListEntry {
         return new VoteListEntry(artifactID, category, votes);
     }
 
-    public CompoundNBT toNBT() {
-        CompoundNBT nbt = this.votes.serializeNBT();
+    public CompoundTag toNBT() {
+        CompoundTag nbt = this.votes.serializeNBT();
         nbt.putUUID("ArtifactUUID", Objects.requireNonNull(this.artifactID));
         nbt.putString("Category", Objects.requireNonNull(this.category).toString());
         return nbt;

@@ -6,30 +6,30 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.command.CommandSource;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.nbt.ListNBT;
-import net.minecraft.nbt.StringNBT;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.Util;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.TextComponent;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.Util;
-import net.minecraft.util.text.IFormattableTextComponent;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.StringTextComponent;
-import net.minecraft.util.text.event.HoverEvent;
-import net.minecraft.world.storage.DimensionSavedDataManager;
-import net.minecraft.world.storage.WorldSavedData;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.storage.DimensionDataStorage;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
-import net.minecraftforge.fml.network.PacketDistributor;
+import net.minecraftforge.network.PacketDistributor;
 import org.teacon.voteme.VoteMe;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.network.SyncArtifactNamePacket;
@@ -38,12 +38,12 @@ import org.teacon.voteme.network.VoteMePacketManager;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
 
-import static net.minecraft.util.StringUtils.isNullOrEmpty;
+import static net.minecraft.util.StringUtil.isNullOrEmpty;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
-public final class VoteListHandler extends WorldSavedData {
+public final class VoteListHandler extends SavedData {
     private static final Map<UUID, String> voteArtifactNames = new TreeMap<>();
     private static final BiMap<UUID, String> voteArtifactAliases = HashBiMap.create();
 
@@ -54,16 +54,23 @@ public final class VoteListHandler extends WorldSavedData {
     private final Table<UUID, UUID, ImmutableList<String>> comments;
 
     public static VoteListHandler get(MinecraftServer server) {
-        DimensionSavedDataManager manager = server.overworld().getDataStorage();
-        return manager.computeIfAbsent(() -> new VoteListHandler("vote_lists"), "vote_lists");
+        DimensionDataStorage manager = server.overworld().getDataStorage();
+        return manager.computeIfAbsent(VoteListHandler::new, VoteListHandler::new, "vote_lists");
     }
 
-    public VoteListHandler(String name) {
-        super(name);
+    public VoteListHandler() {
         this.nextIndex = 1;
         this.voteListIndices = TreeBasedTable.create();
         this.voteEntries = new Int2ObjectRBTreeMap<>();
         this.comments = HashBasedTable.create();
+    }
+
+    public VoteListHandler(CompoundTag nbt) {
+        this.nextIndex = 1;
+        this.voteListIndices = TreeBasedTable.create();
+        this.voteEntries = new Int2ObjectRBTreeMap<>();
+        this.comments = HashBasedTable.create();
+        this.load(nbt);
     }
 
     public boolean hasEnabled(ResourceLocation category) {
@@ -88,18 +95,18 @@ public final class VoteListHandler extends WorldSavedData {
     public Optional<VoteListEntry> getEntry(int id) {
         return Optional.ofNullable(this.voteEntries.get(id));
     }
-    
+
     public static ImmutableList<String> getCommentFor(VoteListHandler handler, UUID artifactID, UUID voterID) {
         if (handler.comments.contains(artifactID, voterID)) {
             return handler.comments.get(artifactID, voterID);
         }
         return ImmutableList.of();
     }
-    
+
     public static Map<UUID, ImmutableList<String>> getAllCommentsFor(VoteListHandler handler, UUID artifactID) {
         return Collections.unmodifiableMap(handler.comments.row(artifactID));
     }
-    
+
     public static void putCommentFor(VoteListHandler handler, UUID artifactID, UUID voterID, List<String> newComments) {
         if (newComments.isEmpty()) {
             handler.comments.remove(artifactID, voterID);
@@ -139,7 +146,7 @@ public final class VoteListHandler extends WorldSavedData {
         return Optional.ofNullable(voteArtifactAliases.inverse().get(alias));
     }
 
-    public static void putArtifactName(CommandSource source, UUID uuid, String name) {
+    public static void putArtifactName(CommandSourceStack source, UUID uuid, String name) {
         VoteListHandler handler = get(source.getServer());
         if (!name.isEmpty()) {
             String oldName = voteArtifactNames.put(uuid, name);
@@ -150,7 +157,7 @@ public final class VoteListHandler extends WorldSavedData {
                     VoteMe.LOGGER.info("{} ({}) has renamed artifact from {} to {} ({})", source.getTextName(), source.getDisplayName().getString(), oldName, name, uuid);
                 }
                 SyncArtifactNamePacket packet = SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases);
-                VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),packet);
+                VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(), packet);
                 handler.setDirty();
             }
         } else if (voteArtifactNames.containsKey(uuid)) {
@@ -158,11 +165,11 @@ public final class VoteListHandler extends WorldSavedData {
             voteArtifactAliases.remove(uuid);
             String oldName = voteArtifactNames.remove(uuid);
             VoteMe.LOGGER.info("{} ({}) has removed artifact {} ({})", source.getTextName(), source.getDisplayName().getString(), oldName, uuid);
-            VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(),SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases));
+            VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(), SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases));
         }
     }
 
-    public static void putArtifactAlias(CommandSource source, UUID uuid, String alias) {
+    public static void putArtifactAlias(CommandSourceStack source, UUID uuid, String alias) {
         VoteListHandler handler = get(source.getServer());
         if (!alias.isEmpty()) {
             Preconditions.checkArgument(!isNullOrEmpty(voteArtifactNames.get(uuid)));
@@ -190,18 +197,18 @@ public final class VoteListHandler extends WorldSavedData {
         }
     }
 
-    public static IFormattableTextComponent getArtifactText(UUID artifactID) {
+    public static MutableComponent getArtifactText(UUID artifactID) {
         String alias = getArtifactAlias(artifactID);
-        ITextComponent hover = new StringTextComponent(artifactID.toString());
+        Component hover = new TextComponent(artifactID.toString());
         HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover);
         if (alias.isEmpty()) {
             String shortID = artifactID.toString().substring(0, 8);
             String base = String.format("%s (%s...)", getArtifactName(artifactID), shortID);
-            return new StringTextComponent(base).withStyle(style -> style.withHoverEvent(hoverEvent));
+            return new TextComponent(base).withStyle(style -> style.withHoverEvent(hoverEvent));
         } else {
             String shortID = artifactID.toString().substring(0, 8);
             String base = String.format("%s (%s, %s...)", getArtifactName(artifactID), alias, shortID);
-            return new StringTextComponent(base).withStyle(style -> style.withHoverEvent(hoverEvent));
+            return new TextComponent(base).withStyle(style -> style.withHoverEvent(hoverEvent));
         }
     }
 
@@ -259,17 +266,17 @@ public final class VoteListHandler extends WorldSavedData {
     }
 
     @SubscribeEvent
-    public static void onServerStarting(FMLServerStartingEvent event) {
+    public static void onServerStarting(ServerStartingEvent event) {
         VoteListHandler.get(event.getServer());
     }
 
     @SubscribeEvent
     public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
-        PlayerEntity player = event.getPlayer();
-        if (player instanceof ServerPlayerEntity) {
+        Player player = event.getPlayer();
+        if (player instanceof ServerPlayer serverPlayer) {
             VoteListHandler.get(Objects.requireNonNull(player.getServer()));
             SyncArtifactNamePacket packet = SyncArtifactNamePacket.create(voteArtifactNames, voteArtifactAliases);
-            VoteMePacketManager.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (ServerPlayerEntity) player), packet);
+            VoteMePacketManager.CHANNEL.send(PacketDistributor.PLAYER.with(() -> serverPlayer), packet);
         }
     }
 
@@ -281,8 +288,7 @@ public final class VoteListHandler extends WorldSavedData {
         voteArtifactAliases.putAll(packet.artifactAliases);
     }
 
-    @Override
-    public void load(CompoundNBT nbt) {
+    public void load(CompoundTag nbt) {
         VoteMe.LOGGER.info("Loading vote list data on server ...");
         voteArtifactNames.clear();
         voteArtifactAliases.clear();
@@ -290,9 +296,9 @@ public final class VoteListHandler extends WorldSavedData {
         this.voteListIndices.clear();
         this.comments.clear();
         this.nextIndex = nbt.getInt("VoteListNextIndex");
-        ListNBT lists = nbt.getList("VoteLists", Constants.NBT.TAG_COMPOUND);
+        ListTag lists = nbt.getList("VoteLists", Tag.TAG_COMPOUND);
         for (int i = 0, size = lists.size(); i < size; ++i) {
-            CompoundNBT child = lists.getCompound(i);
+            CompoundTag child = lists.getCompound(i);
             int id = child.getInt("VoteListIndex");
             if (id < this.nextIndex) {
                 VoteListEntry entry = VoteListEntry.fromNBT(child, this::setDirty);
@@ -300,9 +306,9 @@ public final class VoteListHandler extends WorldSavedData {
                 this.voteEntries.put(id, entry);
             }
         }
-        ListNBT names = nbt.getList("VoteArtifacts", Constants.NBT.TAG_COMPOUND);
+        ListTag names = nbt.getList("VoteArtifacts", Tag.TAG_COMPOUND);
         for (int i = 0, size = names.size(); i < size; ++i) {
-            CompoundNBT child = names.getCompound(i);
+            CompoundTag child = names.getCompound(i);
             UUID id = child.getUUID("UUID");
             String name = child.getString("Name");
             String alias = child.getString("Alias");
@@ -313,15 +319,12 @@ public final class VoteListHandler extends WorldSavedData {
                 }
             }
         }
-        CompoundNBT commentsCollection = nbt.getCompound("VoteComments");
+        CompoundTag commentsCollection = nbt.getCompound("VoteComments");
         for (String artifactID : commentsCollection.getAllKeys()) {
-            CompoundNBT allComments = commentsCollection.getCompound(artifactID);
+            CompoundTag allComments = commentsCollection.getCompound(artifactID);
             for (String voterID : allComments.getAllKeys()) {
-                ImmutableList<String> comments = allComments.getList(voterID, Constants.NBT.TAG_STRING)
-                    .stream()
-                    .filter(t -> t instanceof StringNBT)
-                    .map(t -> ((StringNBT) t).getAsString())
-                    .collect(ImmutableList.toImmutableList());
+                ImmutableList<String> comments = allComments.getList(voterID, Tag.TAG_STRING)
+                        .stream().map(Tag::getAsString).collect(ImmutableList.toImmutableList());
                 if (!comments.isEmpty()) {
                     this.comments.put(UUID.fromString(artifactID), UUID.fromString(voterID), comments);
                 }
@@ -331,38 +334,38 @@ public final class VoteListHandler extends WorldSavedData {
     }
 
     @Override
-    public CompoundNBT save(CompoundNBT compound) {
+    public CompoundTag save(CompoundTag compound) {
         VoteMe.LOGGER.info("Saving vote list data on server ...");
-        ListNBT lists = new ListNBT();
+        ListTag lists = new ListTag();
         for (int id = 0; id < this.nextIndex; ++id) {
             VoteListEntry entry = this.voteEntries.get(id);
             if (entry != null) {
-                CompoundNBT child = entry.toNBT();
+                CompoundTag child = entry.toNBT();
                 child.putInt("VoteListIndex", id);
                 lists.add(child);
             }
         }
-        ListNBT names = new ListNBT();
+        ListTag names = new ListTag();
         for (Map.Entry<UUID, String> entry : voteArtifactNames.entrySet()) {
-            CompoundNBT child = new CompoundNBT();
+            CompoundTag child = new CompoundTag();
             child.putUUID("UUID", entry.getKey());
             child.putString("Name", entry.getValue());
             Optional.ofNullable(voteArtifactAliases.get(entry.getKey())).ifPresent(a -> child.putString("Alias", a));
             names.add(child);
         }
-        CompoundNBT commentsCollection = new CompoundNBT();
+        CompoundTag commentsCollection = new CompoundTag();
         for (UUID artifactID : this.comments.rowKeySet()) {
-            CompoundNBT artifactComments = new CompoundNBT();
+            CompoundTag artifactComments = new CompoundTag();
             for (Map.Entry<UUID, ImmutableList<String>> commentsByVoter : this.comments.row(artifactID).entrySet()) {
-                ListNBT comments = new ListNBT();
+                ListTag comments = new ListTag();
                 for (String c : commentsByVoter.getValue()) {
-                    comments.add(StringNBT.valueOf(c));
+                    comments.add(StringTag.valueOf(c));
                 }
                 artifactComments.put(commentsByVoter.getKey().toString(), comments);
             }
             commentsCollection.put(artifactID.toString(), artifactComments);
         }
-        CompoundNBT nbt = new CompoundNBT();
+        CompoundTag nbt = new CompoundTag();
         nbt.putInt("VoteListNextIndex", this.nextIndex);
         nbt.put("VoteArtifacts", names);
         nbt.put("VoteLists", lists);

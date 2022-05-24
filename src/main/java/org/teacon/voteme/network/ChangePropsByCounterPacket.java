@@ -1,13 +1,12 @@
 package org.teacon.voteme.network;
 
 import com.google.common.collect.ImmutableList;
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.PacketBuffer;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.network.NetworkEvent;
-import net.minecraftforge.server.permission.PermissionAPI;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.network.NetworkEvent;
 import org.teacon.voteme.VoteMe;
 import org.teacon.voteme.item.CounterItem;
 
@@ -15,7 +14,6 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -37,10 +35,12 @@ public final class ChangePropsByCounterPacket {
 
     public void handle(Supplier<NetworkEvent.Context> supplier) {
         supplier.get().enqueueWork(() -> {
-            ServerPlayerEntity sender = Objects.requireNonNull(supplier.get().getSender());
+            ServerPlayer sender = Objects.requireNonNull(supplier.get().getSender());
+            /* TODO
             Stream<String> permissions = Stream.of("voteme.switch.counter", "voteme.switch", "voteme.admin.switch", "voteme.admin", "voteme");
-            if (permissions.anyMatch(p -> PermissionAPI.hasPermission(sender, p))) {
-                ItemStack stack = sender.inventory.getItem(this.inventoryIndex);
+            if (permissions.anyMatch(p -> PermissionAPI.hasPermission(sender, p)))*/
+            {
+                ItemStack stack = sender.getInventory().getItem(this.inventoryIndex);
                 if (CounterItem.INSTANCE.equals(stack.getItem())) {
                     CounterItem.INSTANCE.applyChanges(sender, stack, this.artifactUUID, this.categoryID, this.enabled, this.disabled);
                 }
@@ -49,7 +49,7 @@ public final class ChangePropsByCounterPacket {
         supplier.get().setPacketHandled(true);
     }
 
-    public void write(PacketBuffer buffer) {
+    public void write(FriendlyByteBuf buffer) {
         buffer.writeVarInt(this.inventoryIndex);
         buffer.writeUUID(this.artifactUUID);
         buffer.writeResourceLocation(this.categoryID);
@@ -59,7 +59,7 @@ public final class ChangePropsByCounterPacket {
         this.disabled.forEach(buffer::writeResourceLocation);
     }
 
-    public static ChangePropsByCounterPacket read(PacketBuffer buffer) {
+    public static ChangePropsByCounterPacket read(FriendlyByteBuf buffer) {
         int inventoryIndex = buffer.readVarInt();
         UUID artifactUUID = buffer.readUUID();
         ResourceLocation category = buffer.readResourceLocation();

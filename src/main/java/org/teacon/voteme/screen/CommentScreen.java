@@ -1,88 +1,87 @@
 package org.teacon.voteme.screen;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
-import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.*;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
-import net.minecraft.client.gui.AbstractGui;
-import net.minecraft.client.gui.DialogTexts;
-import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.gui.fonts.TextInputUtil;
-import net.minecraft.client.gui.screen.EditBookScreen;
-import net.minecraft.client.gui.screen.ReadBookScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.button.Button;
-import net.minecraft.client.gui.widget.button.ChangePageButton;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.Rectangle2d;
-import net.minecraft.client.renderer.Tessellator;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.util.SharedConstants;
-import net.minecraft.util.Util;
-import net.minecraft.util.text.CharacterManager;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.StringTextComponent;
-import net.minecraft.util.text.Style;
-import net.minecraft.util.text.TranslationTextComponent;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.SharedConstants;
+import net.minecraft.Util;
+import net.minecraft.client.StringSplitter;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.font.TextFieldHelper;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.BookEditScreen;
+import net.minecraft.client.gui.screens.inventory.BookViewScreen;
+import net.minecraft.client.gui.screens.inventory.PageButton;
+import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.network.chat.*;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.lwjgl.glfw.GLFW;
-import org.lwjgl.opengl.GL11;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 
 /**
- * A partial replica of {@link EditBookScreen}, adapted for our own use case.
+ * A partial replica of {@link BookEditScreen}, adapted for our own use case.
  * Used for allowing voter to provide additional comments.
- * 
+ *
  * @author 3TUSK
  */
+@OnlyIn(Dist.CLIENT)
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
 public class CommentScreen extends Screen {
 
     private boolean isModified;
     private int frameTick;
     private int currentPage;
     private final List<String> pages;
-    private final TextInputUtil pageEdit;
+    private final TextFieldHelper pageEdit;
     private long lastClickTime;
     private int lastIndex = -1;
-    private ChangePageButton forwardButton;
-    private ChangePageButton backButton;
+    private PageButton forwardButton;
+    private PageButton backButton;
     @Nullable
     private CommentScreen.Page displayCache = CommentScreen.Page.EMPTY;
-    private ITextComponent pageMsg = StringTextComponent.EMPTY;
+    private Component pageMsg = TextComponent.EMPTY;
 
     private final VoterScreen parent;
 
     public CommentScreen(@Nonnull VoterScreen parent) {
-        super(StringTextComponent.EMPTY);
+        super(TextComponent.EMPTY);
         this.parent = parent;
         this.pages = new ArrayList<>(parent.currentComments);
         if (this.pages.isEmpty()) {
             this.pages.add("");
         }
         // Must be initialized after this.pages
-        this.pageEdit = new TextInputUtil(this::getCurrentPageText, this::setCurrentPageText,
+        this.pageEdit = new TextFieldHelper(this::getCurrentPageText, this::setCurrentPageText,
                 this::getClipboard, this::setClipboard, (p_238774_1_) -> {
-                    return p_238774_1_.length() < 1024 && this.font.wordWrapHeight(p_238774_1_, 114) <= 128;
-                });
+            return p_238774_1_.length() < 1024 && this.font.wordWrapHeight(p_238774_1_, 114) <= 128;
+        });
     }
 
     private void setClipboard(String srcText) {
         if (this.minecraft != null) {
-            TextInputUtil.setClipboardContents(this.minecraft, srcText);
+            TextFieldHelper.setClipboardContents(this.minecraft, srcText);
         }
     }
 
     private String getClipboard() {
-        return this.minecraft != null ? TextInputUtil.getClipboardContents(this.minecraft) : "";
+        return this.minecraft != null ? TextFieldHelper.getClipboardContents(this.minecraft) : "";
     }
 
     private int getNumPages() {
@@ -98,18 +97,18 @@ public class CommentScreen extends Screen {
     @Override
     protected void init() {
         this.clearDisplayCache();
-        this.minecraft.keyboardHandler.setSendRepeatsToGui(true);
+        Objects.requireNonNull(this.minecraft).keyboardHandler.setSendRepeatsToGui(true);
         // Done button
-        this.addButton(new Button(this.width / 2 + 2, 196, 98, 20, DialogTexts.GUI_DONE, button -> this.handleExit(true)));
+        this.addWidget(new Button(this.width / 2 + 2, 196, 98, 20, CommonComponents.GUI_DONE, button -> this.handleExit(true)));
         // Cancel button
-        this.addButton(new Button(this.width / 2 - 100, 196, 98, 20, DialogTexts.GUI_CANCEL, button -> this.handleExit(false)));
+        this.addWidget(new Button(this.width / 2 - 100, 196, 98, 20, CommonComponents.GUI_CANCEL, button -> this.handleExit(false)));
         int x = (this.width - 192) / 2;
         int y = 159;
-        this.forwardButton = this.addButton(new ChangePageButton(x + 116, y, true, button -> this.pageForward(), true));
-        this.backButton = this.addButton(new ChangePageButton(x + 43, y, false, button -> this.pageBack(), true));
+        this.forwardButton = this.addWidget(new PageButton(x + 116, y, true, button -> this.pageForward(), true));
+        this.backButton = this.addWidget(new PageButton(x + 43, y, false, button -> this.pageBack(), true));
         this.backButton.visible = this.currentPage > 0;
     }
-    
+
     private void handleExit(boolean publish) {
         if (publish && this.isModified) {
             // Eliminate all empty pages
@@ -142,14 +141,14 @@ public class CommentScreen extends Screen {
 
     @Override
     public void removed() {
-        this.minecraft.keyboardHandler.setSendRepeatsToGui(false);
+        Objects.requireNonNull(this.minecraft).keyboardHandler.setSendRepeatsToGui(false);
     }
-    
+
     @Override
     public void onClose() {
         this.handleExit(false);
     }
-    
+
     private static final int MAX_PAGES = 10; // TODO(3TUSK): Configurable value
 
     private void appendPageToBook() {
@@ -280,16 +279,17 @@ public class CommentScreen extends Screen {
 
     @SuppressWarnings("deprecation")
     @Override
-    public void render(MatrixStack xform, int mouseX, int mouseY, float partialTick) {
+    public void render(PoseStack xform, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(xform);
         this.setFocused(null);
         // 1.17: no longer needed due to programmable pipeline usage
-        RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-        this.minecraft.getTextureManager().bind(ReadBookScreen.BOOK_LOCATION);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        Objects.requireNonNull(this.minecraft).getTextureManager().bindForSetup(BookViewScreen.BOOK_LOCATION);
         int x = (this.width - 192) / 2;
         int y = 2;
         this.blit(xform, x, 2, 0, 0, 192, 192);
-        /* Begin rendering lines */ {
+        /* Begin rendering lines */
+        {
             int pageIndicatorWidth = this.font.width(this.pageMsg);
             this.font.draw(xform, this.pageMsg, x - pageIndicatorWidth + 192 - 44, 18.0F, 0);
 
@@ -304,11 +304,11 @@ public class CommentScreen extends Screen {
         super.render(xform, mouseX, mouseY, partialTick);
     }
 
-    private void renderCursor(MatrixStack xform, CommentScreen.Point cursorPos, boolean p_238756_3_) {
+    private void renderCursor(PoseStack xform, CommentScreen.Point cursorPos, boolean p_238756_3_) {
         if (this.frameTick / 6 % 2 == 0) {
             cursorPos = this.convertLocalToScreen(cursorPos);
             if (!p_238756_3_) {
-                AbstractGui.fill(xform, cursorPos.x, cursorPos.y - 1, cursorPos.x + 1, cursorPos.y + 9, 0xFF000000);
+                Gui.fill(xform, cursorPos.x, cursorPos.y - 1, cursorPos.x + 1, cursorPos.y + 9, 0xFF000000);
             } else {
                 this.font.draw(xform, "_", (float) cursorPos.x, (float) cursorPos.y, 0);
             }
@@ -317,17 +317,17 @@ public class CommentScreen extends Screen {
     }
 
     @SuppressWarnings("deprecation")
-    private void renderHighlight(Rectangle2d[] highlights) {
-        Tessellator t = Tessellator.getInstance();
+    private void renderHighlight(Rect2i[] highlights) {
+        Tesselator t = Tesselator.getInstance();
         BufferBuilder builder = t.getBuilder();
         // 1.17: no longer needed due to programmable pipeline usage
-        RenderSystem.color4f(0.0F, 0.0F, 255.0F, 255.0F);
+        RenderSystem.setShaderColor(0.0F, 0.0F, 1.0F, 1.0F);
         RenderSystem.disableTexture();
         RenderSystem.enableColorLogicOp();
         RenderSystem.logicOp(GlStateManager.LogicOp.OR_REVERSE);
-        builder.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION);
+        builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
 
-        for (Rectangle2d highlight : highlights) {
+        for (Rect2i highlight : highlights) {
             int minX = highlight.getX();
             int minY = highlight.getY();
             int maxX = minX + highlight.getWidth();
@@ -384,8 +384,8 @@ public class CommentScreen extends Screen {
     private void selectWord(int p_238765_1_) {
         String currentText = this.getCurrentPageText();
         // getWordPosition -> getWordPosition
-        this.pageEdit.setSelectionRange(CharacterManager.getWordPosition(currentText, -1, p_238765_1_, false),
-                CharacterManager.getWordPosition(currentText, 1, p_238765_1_, false));
+        this.pageEdit.setSelectionRange(StringSplitter.getWordPosition(currentText, -1, p_238765_1_, false),
+                StringSplitter.getWordPosition(currentText, 1, p_238765_1_, false));
     }
 
     @Override
@@ -406,7 +406,7 @@ public class CommentScreen extends Screen {
     private CommentScreen.Page getDisplayCache() {
         if (this.displayCache == null) {
             this.displayCache = this.rebuildDisplayCache();
-            this.pageMsg = new TranslationTextComponent("book.pageIndicator", this.currentPage + 1, this.getNumPages());
+            this.pageMsg = new TranslatableComponent("book.pageIndicator", this.currentPage + 1, this.getNumPages());
         }
         return this.displayCache;
     }
@@ -436,7 +436,7 @@ public class CommentScreen extends Screen {
         // Tracking if the entire page is ending in a new line.
         // Used to properly shift the cursor down.
         MutableBoolean trailingNewLine = new MutableBoolean();
-        CharacterManager splitter = this.font.getSplitter();
+        StringSplitter splitter = this.font.getSplitter();
         // splitLines -> splitLines
         splitter.splitLines(currentText, 114, Style.EMPTY, true, (style, begin, endExclusive) -> {
             int currentLine = lineNum.getAndIncrement();
@@ -459,7 +459,7 @@ public class CommentScreen extends Screen {
             cursorPos = new CommentScreen.Point(l, k * 9);
         }
 
-        List<Rectangle2d> list1 = new ArrayList<>();
+        List<Rect2i> list1 = new ArrayList<>();
         if (i != j) {
             int l2 = Math.min(i, j);
             int i1 = Math.max(i, j);
@@ -486,7 +486,7 @@ public class CommentScreen extends Screen {
         }
 
         return new CommentScreen.Page(currentText, cursorPos, cursorAtEnd, aint,
-                lines.toArray(new CommentScreen.Line[0]), list1.toArray(new Rectangle2d[0]));
+                lines.toArray(new CommentScreen.Line[0]), list1.toArray(new Rect2i[0]));
     }
 
     private static int findLineFromPos(int[] p_238768_0_, int p_238768_1_) {
@@ -494,8 +494,8 @@ public class CommentScreen extends Screen {
         return i < 0 ? -(i + 2) : i;
     }
 
-    private Rectangle2d createPartialLineSelection(String p_238761_1_, CharacterManager splitter, int p_238761_3_,
-            int p_238761_4_, int p_238761_5_, int p_238761_6_) {
+    private Rect2i createPartialLineSelection(String p_238761_1_, StringSplitter splitter, int p_238761_3_,
+                                              int p_238761_4_, int p_238761_5_, int p_238761_6_) {
         String s = p_238761_1_.substring(p_238761_6_, p_238761_3_);
         String s1 = p_238761_1_.substring(p_238761_6_, p_238761_4_);
         // stringWidth -> stringWidth
@@ -504,20 +504,20 @@ public class CommentScreen extends Screen {
         return this.createSelection(p1, p2);
     }
 
-    private Rectangle2d createSelection(CommentScreen.Point p1, CommentScreen.Point p2) {
+    private Rect2i createSelection(CommentScreen.Point p1, CommentScreen.Point p2) {
         CommentScreen.Point screenP1 = this.convertLocalToScreen(p1);
         CommentScreen.Point screenP2 = this.convertLocalToScreen(p2);
         int minX = Math.min(screenP1.x, screenP2.x);
         int maxX = Math.max(screenP1.x, screenP2.x);
         int minY = Math.min(screenP1.y, screenP2.y);
         int maxY = Math.max(screenP1.y, screenP2.y);
-        return new Rectangle2d(minX, minY, maxX - minX, maxY - minY);
+        return new Rect2i(minX, minY, maxX - minX, maxY - minY);
     }
 
     static class Line {
         final Style style;
         final String contents;
-        final ITextComponent asComponent;
+        final Component asComponent;
         final int x;
         final int y;
 
@@ -526,23 +526,23 @@ public class CommentScreen extends Screen {
             this.contents = text;
             this.x = x;
             this.y = y;
-            this.asComponent = new StringTextComponent(text).setStyle(style);
+            this.asComponent = new TextComponent(text).setStyle(style);
         }
     }
 
     static class Page {
         static final CommentScreen.Page EMPTY = new CommentScreen.Page("", new CommentScreen.Point(0, 0), true,
-                new int[] { 0 }, new CommentScreen.Line[] { new CommentScreen.Line(Style.EMPTY, "", 0, 0) },
-                new Rectangle2d[0]);
+                new int[]{0}, new CommentScreen.Line[]{new CommentScreen.Line(Style.EMPTY, "", 0, 0)},
+                new Rect2i[0]);
         final String fullText;
         final CommentScreen.Point cursor;
         final boolean cursorAtEnd;
         final int[] lineStarts;
         final CommentScreen.Line[] lines;
-        final Rectangle2d[] selection;
+        final Rect2i[] selection;
 
         public Page(String text, CommentScreen.Point cursorPos, boolean isCursorAtEnd, int[] p_i232288_4_,
-                CommentScreen.Line[] lines, Rectangle2d[] p_i232288_6_) {
+                    CommentScreen.Line[] lines, Rect2i[] p_i232288_6_) {
             this.fullText = text;
             this.cursor = cursorPos;
             this.cursorAtEnd = isCursorAtEnd;
@@ -551,7 +551,7 @@ public class CommentScreen extends Screen {
             this.selection = p_i232288_6_;
         }
 
-        public int getIndexAtPosition(FontRenderer font, CommentScreen.Point p_238789_2_) {
+        public int getIndexAtPosition(Font font, CommentScreen.Point p_238789_2_) {
             int i = p_238789_2_.y / 9;
             if (i < 0) {
                 return 0;
@@ -591,13 +591,7 @@ public class CommentScreen extends Screen {
         }
     }
 
-    static class Point {
-        public final int x;
-        public final int y;
-
-        Point(int x, int y) {
-            this.x = x;
-            this.y = y;
-        }
+    record Point(int x, int y) {
+        // nothing here
     }
 }

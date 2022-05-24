@@ -2,12 +2,11 @@ package org.teacon.voteme.network;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.network.PacketBuffer;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.network.NetworkEvent;
-import net.minecraftforge.server.permission.PermissionAPI;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.network.NetworkEvent;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.vote.VoteListHandler;
 
@@ -16,7 +15,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -31,9 +29,11 @@ public final class SubmitVotePacket {
 
     public void handle(Supplier<NetworkEvent.Context> supplier) {
         supplier.get().enqueueWork(() -> {
-            ServerPlayerEntity sender = Objects.requireNonNull(supplier.get().getSender());
+            ServerPlayer sender = Objects.requireNonNull(supplier.get().getSender());
+            /* TODO
             Stream<String> permissions = Stream.of("voteme.open.voter", "voteme.open", "voteme");
-            if (permissions.anyMatch(p -> PermissionAPI.hasPermission(sender, p))) {
+            if (permissions.anyMatch(p -> PermissionAPI.hasPermission(sender, p)))*/
+            {
                 VoteListHandler handler = VoteListHandler.get(sender.server);
                 for (Map.Entry<ResourceLocation, Integer> entry : this.entries.entrySet()) {
                     ResourceLocation categoryID = entry.getKey();
@@ -47,7 +47,7 @@ public final class SubmitVotePacket {
         supplier.get().setPacketHandled(true);
     }
 
-    public void write(PacketBuffer buffer) {
+    public void write(FriendlyByteBuf buffer) {
         buffer.writeUUID(this.artifactID);
         for (Map.Entry<ResourceLocation, Integer> entry : this.entries.entrySet()) {
             buffer.writeInt(entry.getValue());
@@ -56,7 +56,7 @@ public final class SubmitVotePacket {
         buffer.writeInt(Integer.MIN_VALUE);
     }
 
-    public static SubmitVotePacket read(PacketBuffer buffer) {
+    public static SubmitVotePacket read(FriendlyByteBuf buffer) {
         UUID artifactID = buffer.readUUID();
         ImmutableMap.Builder<ResourceLocation, Integer> builder = ImmutableMap.builder();
         for (int level = buffer.readInt(); level != Integer.MIN_VALUE; level = buffer.readInt()) {

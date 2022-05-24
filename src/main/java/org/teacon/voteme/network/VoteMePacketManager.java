@@ -1,12 +1,12 @@
 package org.teacon.voteme.network;
 
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.network.NetworkRegistry;
-import net.minecraftforge.fml.network.simple.SimpleChannel;
+import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.simple.SimpleChannel;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -14,7 +14,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class VoteMePacketManager {
-    public static final String VERSION = "3"; // Last Update: Mon, 23 Aug 2021 22:00:00 +0800
+    public static final String VERSION = "4"; // Last Update: Wed, 25 May 2022 02:00:00 +0800
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation("voteme:network"), () -> VERSION, VERSION::equals, VERSION::equals);
 

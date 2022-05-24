@@ -1,14 +1,14 @@
 package org.teacon.voteme.crafting;
 
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.inventory.CraftingInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.crafting.IRecipeSerializer;
-import net.minecraft.item.crafting.SpecialRecipe;
-import net.minecraft.item.crafting.SpecialRecipeSerializer;
-import net.minecraft.util.NonNullList;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.world.World;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.core.NonNullList;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.inventory.CraftingContainer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.CustomRecipe;
+import net.minecraft.world.item.crafting.RecipeSerializer;
+import net.minecraft.world.item.crafting.SimpleRecipeSerializer;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -21,15 +21,15 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
-public final class VoterFromCounterRecipe extends SpecialRecipe {
+public final class VoterFromCounterRecipe extends CustomRecipe {
     public static final String ID = "voteme:crafting_special_counter_from_voter";
 
     @ObjectHolder(ID)
-    public static SpecialRecipeSerializer<VoterFromCounterRecipe> SERIALIZER;
+    public static SimpleRecipeSerializer<VoterFromCounterRecipe> SERIALIZER;
 
     @SubscribeEvent
-    public static void register(RegistryEvent.Register<IRecipeSerializer<?>> event) {
-        event.getRegistry().register(new SpecialRecipeSerializer<>(VoterFromCounterRecipe::new).setRegistryName(ID));
+    public static void register(RegistryEvent.Register<RecipeSerializer<?>> event) {
+        event.getRegistry().register(new SimpleRecipeSerializer<>(VoterFromCounterRecipe::new).setRegistryName(ID));
     }
 
     private VoterFromCounterRecipe(ResourceLocation location) {
@@ -37,7 +37,7 @@ public final class VoterFromCounterRecipe extends SpecialRecipe {
     }
 
     @Override
-    public boolean matches(CraftingInventory inv, World worldIn) {
+    public boolean matches(CraftingContainer inv, Level worldIn) {
         int voterSize = 0;
         ItemStack counter = ItemStack.EMPTY;
         for (int i = 0, size = inv.getContainerSize(); i < size; ++i) {
@@ -45,11 +45,11 @@ public final class VoterFromCounterRecipe extends SpecialRecipe {
             if (stack.isEmpty()) {
                 continue;
             }
-            if (stack.getItem() == VoterItem.INSTANCE) {
+            if (stack.is(VoterItem.INSTANCE)) {
                 ++voterSize;
                 continue;
             }
-            if (counter.isEmpty() && stack.getItem() == CounterItem.INSTANCE) {
+            if (counter.isEmpty() && stack.is(CounterItem.INSTANCE)) {
                 counter = stack;
                 continue;
             }
@@ -59,16 +59,16 @@ public final class VoterFromCounterRecipe extends SpecialRecipe {
     }
 
     @Override
-    public ItemStack assemble(CraftingInventory inv) {
+    public ItemStack assemble(CraftingContainer inv) {
         int voterSize = 0;
         ItemStack counter = ItemStack.EMPTY;
         for (int i = 0, size = inv.getContainerSize(); i < size; ++i) {
             ItemStack stack = inv.getItem(i);
-            if (counter.isEmpty() && stack.getItem() == CounterItem.INSTANCE) {
+            if (counter.isEmpty() && stack.is(CounterItem.INSTANCE)) {
                 counter = stack;
                 continue;
             }
-            if (stack.getItem() == VoterItem.INSTANCE) {
+            if (stack.is(VoterItem.INSTANCE)) {
                 ++voterSize;
                 continue;
             }
@@ -84,13 +84,13 @@ public final class VoterFromCounterRecipe extends SpecialRecipe {
     }
 
     @Override
-    public NonNullList<ItemStack> getRemainingItems(CraftingInventory inv) {
+    public NonNullList<ItemStack> getRemainingItems(CraftingContainer inv) {
         NonNullList<ItemStack> list = NonNullList.withSize(inv.getContainerSize(), ItemStack.EMPTY);
         for (int i = 0, size = list.size(); i < size; ++i) {
             ItemStack stack = inv.getItem(i);
             if (stack.hasContainerItem()) {
                 list.set(i, stack.getContainerItem());
-            } else if (stack.getItem() == CounterItem.INSTANCE) {
+            } else if (stack.is(CounterItem.INSTANCE)) {
                 list.set(i, stack.copy());
             }
         }
@@ -103,7 +103,7 @@ public final class VoterFromCounterRecipe extends SpecialRecipe {
     }
 
     @Override
-    public IRecipeSerializer<?> getSerializer() {
+    public RecipeSerializer<?> getSerializer() {
         return SERIALIZER;
     }
 }

@@ -1,11 +1,10 @@
 package org.teacon.voteme.network;
 
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.PacketBuffer;
-import net.minecraftforge.fml.network.NetworkEvent;
-import net.minecraftforge.server.permission.PermissionAPI;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.network.NetworkEvent;
 import org.teacon.voteme.item.CounterItem;
 import org.teacon.voteme.vote.VoteListHandler;
 
@@ -13,7 +12,6 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -30,13 +28,15 @@ public final class ChangeNameByCounterPacket {
 
     public void handle(Supplier<NetworkEvent.Context> supplier) {
         supplier.get().enqueueWork(() -> {
-            ServerPlayerEntity sender = Objects.requireNonNull(supplier.get().getSender());
+            ServerPlayer sender = Objects.requireNonNull(supplier.get().getSender());
             boolean isCreating = VoteListHandler.getArtifactName(this.artifactUUID).isEmpty();
+            /* TODO
             Stream<String> permissions = !isCreating
                     ? Stream.of("voteme.modify.counter", "voteme.modify", "voteme")
                     : Stream.of("voteme.create.counter", "voteme.create", "voteme.admin.create", "voteme.admin", "voteme");
-            if (permissions.anyMatch(p -> PermissionAPI.hasPermission(sender, p))) {
-                ItemStack stack = sender.inventory.getItem(this.inventoryIndex);
+            if (permissions.anyMatch(p -> PermissionAPI.hasPermission(sender, p)))*/
+            {
+                ItemStack stack = sender.getInventory().getItem(this.inventoryIndex);
                 if (CounterItem.INSTANCE.equals(stack.getItem())) {
                     CounterItem.INSTANCE.rename(sender, stack, this.artifactUUID, this.newArtifactName);
                 }
@@ -45,13 +45,13 @@ public final class ChangeNameByCounterPacket {
         supplier.get().setPacketHandled(true);
     }
 
-    public void write(PacketBuffer buffer) {
+    public void write(FriendlyByteBuf buffer) {
         buffer.writeVarInt(this.inventoryIndex);
         buffer.writeUUID(this.artifactUUID);
         buffer.writeUtf(this.newArtifactName);
     }
 
-    public static ChangeNameByCounterPacket read(PacketBuffer buffer) {
+    public static ChangeNameByCounterPacket read(FriendlyByteBuf buffer) {
         int inventoryIndex = buffer.readVarInt();
         UUID artifactUUID = buffer.readUUID();
         String artifactName = buffer.readUtf(Short.MAX_VALUE);

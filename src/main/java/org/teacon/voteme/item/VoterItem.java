@@ -1,25 +1,26 @@
 package org.teacon.voteme.item;
 
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.client.util.ITooltipFlag;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.*;
-import net.minecraft.world.World;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.ChatFormatting;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.TextComponent;
+import net.minecraft.network.chat.TranslatableComponent;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.network.PacketDistributor;
+import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.registries.ObjectHolder;
-import net.minecraftforge.server.permission.PermissionAPI;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.network.ShowVoterPacket;
@@ -31,9 +32,6 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Stream;
-
-import net.minecraft.item.Item.Properties;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -56,52 +54,52 @@ public final class VoterItem extends Item {
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void appendHoverText(ItemStack stack, @Nullable World world, List<ITextComponent> tooltip, ITooltipFlag flag) {
-        CompoundNBT tag = stack.getTag();
-        tooltip.add(new StringTextComponent(""));
+    public void appendHoverText(ItemStack stack, @Nullable Level world, List<Component> tooltip, TooltipFlag flag) {
+        CompoundTag tag = stack.getTag();
+        tooltip.add(new TextComponent(""));
         if (tag != null && tag.hasUUID("CurrentArtifact")) {
             UUID artifactID = tag.getUUID("CurrentArtifact");
             if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
-                IFormattableTextComponent artifactText = VoteListHandler.getArtifactText(artifactID).withStyle(TextFormatting.GREEN);
-                tooltip.add(new TranslationTextComponent("gui.voteme.voter.current_artifact_hint", artifactText).withStyle(TextFormatting.GRAY));
+                MutableComponent artifactText = VoteListHandler.getArtifactText(artifactID).withStyle(ChatFormatting.GREEN);
+                tooltip.add(new TranslatableComponent("gui.voteme.voter.current_artifact_hint", artifactText).withStyle(ChatFormatting.GRAY));
                 if (!VoteCategoryHandler.getIds().isEmpty()) {
-                    tooltip.add(new StringTextComponent(""));
+                    tooltip.add(new TextComponent(""));
                 }
                 for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
                     Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
                     if (categoryOptional.isPresent()) {
-                        ITextComponent categoryName = categoryOptional.get().name;
-                        IFormattableTextComponent categoryText = new StringTextComponent("").append(categoryName).withStyle(TextFormatting.YELLOW);
-                        tooltip.add(new TranslationTextComponent("gui.voteme.counter.category_hint", categoryText).withStyle(TextFormatting.GRAY));
+                        Component categoryName = categoryOptional.get().name;
+                        MutableComponent categoryText = new TextComponent("").append(categoryName).withStyle(ChatFormatting.YELLOW);
+                        tooltip.add(new TranslatableComponent("gui.voteme.counter.category_hint", categoryText).withStyle(ChatFormatting.GRAY));
                     }
                 }
             } else {
-                tooltip.add(new TranslationTextComponent("gui.voteme.voter.empty_artifact_hint").withStyle(TextFormatting.GRAY));
+                tooltip.add(new TranslatableComponent("gui.voteme.voter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
             }
         } else {
-            tooltip.add(new TranslationTextComponent("gui.voteme.voter.empty_artifact_hint").withStyle(TextFormatting.GRAY));
+            tooltip.add(new TranslatableComponent("gui.voteme.voter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
         }
     }
 
     @Override
-    public ActionResult<ItemStack> use(World world, PlayerEntity player, Hand hand) {
+    public InteractionResultHolder<ItemStack> use(Level world, Player player, InteractionHand hand) {
         ItemStack itemStack = player.getItemInHand(hand);
-        CompoundNBT tag = itemStack.getTag();
-        if (player instanceof ServerPlayerEntity) {
-            ServerPlayerEntity serverPlayer = (ServerPlayerEntity) player;
+        CompoundTag tag = itemStack.getTag();
+        if (player instanceof ServerPlayer serverPlayer) {
             if (this.open(serverPlayer, tag)) {
-                return ActionResult.consume(itemStack);
+                return InteractionResultHolder.consume(itemStack);
             }
         } else if (tag != null && tag.hasUUID("CurrentArtifact")) {
-            return ActionResult.success(itemStack);
+            return InteractionResultHolder.success(itemStack);
         }
-        return ActionResult.fail(itemStack);
+        return InteractionResultHolder.fail(itemStack);
     }
 
-    public boolean open(ServerPlayerEntity player, @Nullable CompoundNBT tag) {
+    public boolean open(ServerPlayer player, @Nullable CompoundTag tag) {
+        /* TODO
         Stream<String> permissions = Stream.of("voteme.open.voter", "voteme.open", "voteme");
-        if (permissions.anyMatch(p -> PermissionAPI.hasPermission(player, p))) {
+        if (permissions.anyMatch(p -> PermissionAPI.hasPermission(player, p)))*/
+        {
             Optional<ShowVoterPacket> packet = Optional.empty();
             if (tag != null && tag.hasUUID("CurrentArtifact")) {
                 packet = ShowVoterPacket.create(tag.getUUID("CurrentArtifact"), player);
@@ -116,20 +114,20 @@ public final class VoterItem extends Item {
     }
 
     @Override
-    public ITextComponent getName(ItemStack stack) {
-        CompoundNBT tag = stack.getTag();
+    public Component getName(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
         if (tag != null && tag.hasUUID("CurrentArtifact")) {
             UUID artifactID = tag.getUUID("CurrentArtifact");
             String artifactName = VoteListHandler.getArtifactName(artifactID);
             if (!artifactName.isEmpty()) {
-                return new TranslationTextComponent("item.voteme.voter.with_artifact", artifactName);
+                return new TranslatableComponent("item.voteme.voter.with_artifact", artifactName);
             }
         }
-        return new TranslationTextComponent("item.voteme.voter");
+        return new TranslatableComponent("item.voteme.voter");
     }
 
     public ItemStack copyFrom(int voterSize, ItemStack stack) {
-        CompoundNBT tag = stack.getTag(), newTag = new CompoundNBT();
+        CompoundTag tag = stack.getTag(), newTag = new CompoundTag();
         if (tag != null && tag.hasUUID("CurrentArtifact")) {
             newTag.putUUID("CurrentArtifact", tag.getUUID("CurrentArtifact"));
         }

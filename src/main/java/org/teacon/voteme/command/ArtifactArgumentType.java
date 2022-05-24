@@ -6,8 +6,8 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
-import net.minecraft.command.CommandSource;
-import net.minecraft.command.ISuggestionProvider;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.SharedSuggestionProvider;
 import org.teacon.voteme.vote.VoteListHandler;
 
 import java.util.Collection;
@@ -26,7 +26,7 @@ public final class ArtifactArgumentType implements ArgumentType<UUID> {
         return new ArtifactArgumentType();
     }
 
-    public static UUID getArtifact(CommandContext<CommandSource> context, String name) {
+    public static UUID getArtifact(CommandContext<CommandSourceStack> context, String name) {
         return context.getArgument(name, UUID.class);
     }
 
@@ -64,7 +64,7 @@ public final class ArtifactArgumentType implements ArgumentType<UUID> {
 
     @Override
     public <S> CompletableFuture<Suggestions> listSuggestions(CommandContext<S> context, SuggestionsBuilder builder) {
-        return ISuggestionProvider.suggest(Stream.concat(
+        return SharedSuggestionProvider.suggest(Stream.concat(
                 VoteListHandler.getArtifactAliases().stream(),
                 VoteListHandler.getArtifacts().stream().map(UUID::toString)), builder);
     }

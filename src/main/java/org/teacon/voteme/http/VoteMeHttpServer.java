@@ -12,14 +12,14 @@ import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.cors.CorsConfig;
 import io.netty.handler.codec.http.cors.CorsConfigBuilder;
 import io.netty.handler.codec.http.cors.CorsHandler;
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.network.NetworkSystem;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.network.Connection;
 import net.minecraft.server.MinecraftServer;
+import net.minecraftforge.event.server.ServerStartingEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
-import net.minecraftforge.fml.event.server.FMLServerStoppingEvent;
-import net.minecraftforge.fml.server.ServerLifecycleHooks;
+import net.minecraftforge.server.ServerLifecycleHooks;
 import org.teacon.voteme.VoteMe;
 
 import javax.annotation.Nullable;
@@ -42,10 +42,10 @@ public final class VoteMeHttpServer {
     }
 
     @SubscribeEvent
-    public static void start(FMLServerStartingEvent event) {
+    public static void start(ServerStartingEvent event) {
         try {
             VoteMe.LOGGER.info("Starting the vote server on port {} ...", PORT);
-            ServerBootstrap bootstrap = new ServerBootstrap().group(NetworkSystem.SERVER_EVENT_GROUP.get());
+            ServerBootstrap bootstrap = new ServerBootstrap().group(Connection.NETWORK_WORKER_GROUP.get());
             future = bootstrap.channel(NioServerSocketChannel.class).childHandler(new Handler()).bind(PORT).sync();
             VoteMe.LOGGER.info("Successfully started the vote server on port {}.", PORT);
         } catch (Exception e) {
@@ -54,7 +54,7 @@ public final class VoteMeHttpServer {
     }
 
     @SubscribeEvent
-    public static void stop(FMLServerStoppingEvent event) {
+    public static void stop(ServerStoppingEvent event) {
         try {
             VoteMe.LOGGER.info("Stopping the vote server ...");
             Objects.requireNonNull(future).channel().close().sync();

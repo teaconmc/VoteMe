@@ -1,14 +1,14 @@
 package org.teacon.voteme.network;
 
 import com.google.common.collect.ImmutableList;
-import mcp.MethodsReturnNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.network.PacketBuffer;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.fml.network.NetworkEvent;
+import net.minecraftforge.network.NetworkEvent;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.roles.VoteRole;
@@ -18,23 +18,17 @@ import org.teacon.voteme.vote.VoteListEntry;
 import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Supplier;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ShowVoterPacket {
-    
-    /** 
-     * Maximum permitted length in bytes that a single page of comment may contain. 
-     * 
-     * A CJK Unified Ideograph typically has 3 bytes; 1024 would means ~340 Chinese 
+
+    /**
+     * Maximum permitted length in bytes that a single page of comment may contain.
+     * <p>
+     * A CJK Unified Ideograph typically has 3 bytes; 1024 would means ~340 Chinese
      * characters.
      */
     private static final int MAX_LENGTH_PER_PAGE = 1024;
@@ -42,7 +36,7 @@ public final class ShowVoterPacket {
      * Maximum permitted number of pages that one may comment on a given artifact.
      */
     private static final int MAX_PAGE_NUMBER = 10;
-    
+
     public final UUID artifactID;
     public final ImmutableList<Info> infos;
     public final List<String> comments;
@@ -72,7 +66,7 @@ public final class ShowVoterPacket {
         supplier.get().setPacketHandled(true);
     }
 
-    public void write(PacketBuffer buffer) {
+    public void write(FriendlyByteBuf buffer) {
         buffer.writeUUID(this.artifactID);
         for (Info info : this.infos) {
             buffer.writeInt(info.level);
@@ -85,7 +79,7 @@ public final class ShowVoterPacket {
         }
     }
 
-    public static ShowVoterPacket read(PacketBuffer buffer) {
+    public static ShowVoterPacket read(FriendlyByteBuf buffer) {
         UUID artifactID = buffer.readUUID();
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
         for (int level = buffer.readInt(); level != Integer.MIN_VALUE; level = buffer.readInt()) {
@@ -103,7 +97,7 @@ public final class ShowVoterPacket {
         return new ShowVoterPacket(artifactID, builder.build(), comments);
     }
 
-    public static Optional<ShowVoterPacket> create(UUID artifactID, ServerPlayerEntity player) {
+    public static Optional<ShowVoterPacket> create(UUID artifactID, ServerPlayer player) {
         if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
             VoteListHandler handler = VoteListHandler.get(player.server);
             ImmutableList.Builder<Info> builder = ImmutableList.builder();

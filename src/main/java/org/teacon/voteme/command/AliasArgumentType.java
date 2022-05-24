@@ -4,7 +4,7 @@ import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.arguments.ArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import net.minecraft.command.CommandSource;
+import net.minecraft.commands.CommandSourceStack;
 import org.teacon.voteme.vote.VoteListHandler;
 
 import java.util.Collection;
@@ -16,7 +16,7 @@ public final class AliasArgumentType implements ArgumentType<String> {
         return new AliasArgumentType();
     }
 
-    public static String getAlias(CommandContext<CommandSource> context, String name) {
+    public static String getAlias(CommandContext<CommandSourceStack> context, String name) {
         return context.getArgument(name, String.class);
     }
 

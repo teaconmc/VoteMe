@@ -1,16 +1,16 @@
 package org.teacon.voteme.network;
 
 import com.google.common.collect.ImmutableList;
-import mcp.MethodsReturnNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.PacketBuffer;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextComponent;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.StringTextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.fml.network.NetworkEvent;
+import net.minecraftforge.network.NetworkEvent;
 import org.apache.commons.lang3.tuple.Pair;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
@@ -59,13 +59,13 @@ public final class ShowCounterPacket {
         supplier.get().setPacketHandled(true);
     }
 
-    public void write(PacketBuffer buffer) {
+    public void write(FriendlyByteBuf buffer) {
         buffer.writeInt(this.invIndex);
         buffer.writeUUID(this.artifactUUID);
         buffer.writeResourceLocation(this.category);
         buffer.writeVarInt(this.infos.size());
         for (Info info : this.infos) {
-            for (Pair<ITextComponent, VoteList.Stats> entry : info.scores) {
+            for (Pair<Component, VoteList.Stats> entry : info.scores) {
                 VoteList.Stats stats = entry.getValue();
                 buffer.writeFloat(stats.getWeight());
                 buffer.writeFloat(stats.getFinalScore(Float.NaN));
@@ -79,18 +79,18 @@ public final class ShowCounterPacket {
         }
     }
 
-    public static ShowCounterPacket read(PacketBuffer buffer) {
+    public static ShowCounterPacket read(FriendlyByteBuf buffer) {
         int inventoryIndex = buffer.readInt();
         UUID artifactUUID = buffer.readUUID();
         ResourceLocation category = buffer.readResourceLocation();
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
         for (int i = 0, size = buffer.readVarInt(); i < size; ++i) {
-            ImmutableList.Builder<Pair<ITextComponent, VoteList.Stats>> scoresBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Pair<Component, VoteList.Stats>> scoresBuilder = ImmutableList.builder();
             for (float weight = buffer.readFloat(); !Float.isNaN(weight); weight = buffer.readFloat()) {
                 float finalScore = buffer.readFloat();
                 int effectiveVoteCount = buffer.readVarInt();
                 int[] countsByLevel = buffer.readVarIntArray(6);
-                ITextComponent subgroup = buffer.readComponent();
+                Component subgroup = buffer.readComponent();
                 scoresBuilder.add(Pair.of(subgroup, new VoteList.Stats(weight, finalScore, effectiveVoteCount, countsByLevel)));
             }
             ResourceLocation id = buffer.readResourceLocation();
@@ -115,10 +115,10 @@ public final class ShowCounterPacket {
                 VoteListEntry entry = handler.getEntry(handler.getIdOrCreate(artifactID, location)).orElseThrow(IllegalStateException::new);
                 boolean enabledCurrently = entry.votes.getEnabled().orElse(category.enabledDefault);
                 if (category.enabledDefault || category.enabledModifiable || enabledCurrently) {
-                    ImmutableList.Builder<Pair<ITextComponent, VoteList.Stats>> scoresBuilder = ImmutableList.builder();
+                    ImmutableList.Builder<Pair<Component, VoteList.Stats>> scoresBuilder = ImmutableList.builder();
                     entry.votes.buildFinalScore(location).forEach((subgroup, scores) -> scoresBuilder.add(Pair.of(Optional
                             .ofNullable(ResourceLocation.tryParse(subgroup)).flatMap(VoteRoleHandler::getRole)
-                            .map(role -> role.name).orElse(new StringTextComponent(subgroup)), scores)));
+                            .map(role -> role.name).orElse(new TextComponent(subgroup)), scores)));
                     builder.add(new Info(location, category, scoresBuilder.build(), enabledCurrently));
                 }
             }
@@ -158,9 +158,9 @@ public final class ShowCounterPacket {
         public final VoteCategory category;
         public final boolean enabledCurrently;
         public final VoteList.Stats finalStat;
-        public final List<Pair<ITextComponent, VoteList.Stats>> scores;
+        public final List<Pair<Component, VoteList.Stats>> scores;
 
-        public Info(ResourceLocation id, VoteCategory category, List<Pair<ITextComponent, VoteList.Stats>> scores, boolean enabledCurrently) {
+        public Info(ResourceLocation id, VoteCategory category, List<Pair<Component, VoteList.Stats>> scores, boolean enabledCurrently) {
             this.id = id;
             this.scores = scores;
             this.category = category;

@@ -5,16 +5,15 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ListMultimap;
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.nbt.INBT;
-import net.minecraft.nbt.ListNBT;
-import net.minecraft.nbt.StringNBT;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.MathHelper;
-import net.minecraftforge.common.util.Constants;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.Util;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraftforge.common.util.INBTSerializable;
 import org.apache.commons.lang3.tuple.Triple;
 import org.teacon.voteme.roles.VoteRole;
@@ -29,7 +28,7 @@ import java.util.stream.IntStream;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class VoteList implements INBTSerializable<CompoundNBT> {
+public final class VoteList implements INBTSerializable<CompoundTag> {
     public static final Instant DEFAULT_VOTE_TIME = DateTimeFormatter.RFC_1123_DATE_TIME.parse("Sat, 9 Jan 2021 02:00:00 +0800", Instant::from);
 
     private @Nullable Boolean enabled;
@@ -95,7 +94,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
         return countArray[0];
     }
 
-    public int get(ServerPlayerEntity player) {
+    public int get(ServerPlayer player) {
         return this.get(player.getUUID());
     }
 
@@ -111,7 +110,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
         return this.votes.containsKey(uuid) ? this.votes.get(uuid).getMiddle() : ImmutableSet.of();
     }
 
-    public void set(ServerPlayerEntity player, int level) {
+    public void set(ServerPlayer player, int level) {
         Preconditions.checkArgument(level >= 0 && level <= 5);
         this.set(player.getUUID(), level, VoteRoleHandler.getRoles(player), Instant.now());
     }
@@ -193,21 +192,21 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     }
 
     @Override
-    public CompoundNBT serializeNBT() {
-        ListNBT nbt = new ListNBT();
+    public CompoundTag serializeNBT() {
+        ListTag nbt = new ListTag();
         for (Map.Entry<UUID, Triple<Integer, ImmutableSet<ResourceLocation>, Instant>> entry : this.votes.entrySet()) {
-            CompoundNBT child = new CompoundNBT();
+            CompoundTag child = new CompoundTag();
             child.putUUID("UUID", entry.getKey());
             child.putInt("Level", entry.getValue().getLeft());
-            child.put("VoteRoles", Util.make(new ListNBT(), roles -> {
+            child.put("VoteRoles", Util.make(new ListTag(), roles -> {
                 for (ResourceLocation r : entry.getValue().getMiddle()) {
-                    roles.add(StringNBT.valueOf(r.toString()));
+                    roles.add(StringTag.valueOf(r.toString()));
                 }
             }));
             child.putLong("VoteTime", entry.getValue().getRight().toEpochMilli());
             nbt.add(child);
         }
-        CompoundNBT result = new CompoundNBT();
+        CompoundTag result = new CompoundTag();
         result.put("Votes", nbt);
         if (this.enabled != null) {
             result.putBoolean("Disabled", !this.enabled);
@@ -216,16 +215,16 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
     }
 
     @Override
-    public void deserializeNBT(CompoundNBT compound) {
+    public void deserializeNBT(CompoundTag compound) {
         this.votes.clear();
         this.countMap.clear();
-        this.enabled = compound.contains("Disabled", Constants.NBT.TAG_ANY_NUMERIC) ? !compound.getBoolean("Disabled") : null;
-        ListNBT nbt = compound.getList("Votes", Constants.NBT.TAG_COMPOUND);
+        this.enabled = compound.contains("Disabled", Tag.TAG_ANY_NUMERIC) ? !compound.getBoolean("Disabled") : null;
+        ListTag nbt = compound.getList("Votes", Tag.TAG_COMPOUND);
         for (int i = 0, size = nbt.size(); i < size; ++i) {
-            CompoundNBT child = nbt.getCompound(i);
-            int level = MathHelper.clamp(child.getInt("Level"), 1, 5);
+            CompoundTag child = nbt.getCompound(i);
+            int level = Mth.clamp(child.getInt("Level"), 1, 5);
             ImmutableSet.Builder<ResourceLocation> roleBuilder = ImmutableSet.builder();
-            for (INBT roleNBT : child.getList("VoteRoles", Constants.NBT.TAG_STRING)) {
+            for (Tag roleNBT : child.getList("VoteRoles", Tag.TAG_STRING)) {
                 roleBuilder.add(new ResourceLocation(roleNBT.getAsString()));
             }
             ImmutableSet<ResourceLocation> roles = roleBuilder.build();
@@ -235,7 +234,7 @@ public final class VoteList implements INBTSerializable<CompoundNBT> {
                 --countsByLevel[0];
             }
             Instant voteTime = DEFAULT_VOTE_TIME;
-            if (child.contains("VoteTime", Constants.NBT.TAG_LONG)) {
+            if (child.contains("VoteTime", Tag.TAG_LONG)) {
                 voteTime = Instant.ofEpochMilli(child.getLong("VoteTime"));
             }
             this.votes.put(child.getUUID("UUID"), Triple.of(level, roles, voteTime));

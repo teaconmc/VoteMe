@@ -7,19 +7,17 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.client.resources.JsonReloadListener;
-import net.minecraft.command.arguments.EntitySelector;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.profiler.IProfiler;
-import net.minecraft.resources.IResourceManager;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.IFormattableTextComponent;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.StringTextComponent;
-import net.minecraft.util.text.event.HoverEvent;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.commands.arguments.selector.EntitySelector;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.TextComponent;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
+import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -27,12 +25,12 @@ import net.minecraftforge.fml.common.Mod;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
 
-import static net.minecraft.util.text.TextComponentUtils.wrapWithSquareBrackets;
+import static net.minecraft.network.chat.ComponentUtils.wrapInSquareBrackets;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
-public final class VoteRoleHandler extends JsonReloadListener {
+public final class VoteRoleHandler extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new GsonBuilder().create();
 
     private static SortedMap<ResourceLocation, VoteRole> roleMap = ImmutableSortedMap.of();
@@ -41,12 +39,12 @@ public final class VoteRoleHandler extends JsonReloadListener {
         super(GSON, "vote_roles");
     }
 
-    public static Collection<? extends ResourceLocation> getRoles(ServerPlayerEntity player) {
+    public static Collection<? extends ResourceLocation> getRoles(ServerPlayer player) {
         ImmutableSet.Builder<ResourceLocation> builder = ImmutableSet.builder();
         for (Map.Entry<ResourceLocation, VoteRole> entry : roleMap.entrySet()) {
             try {
                 EntitySelector selector = entry.getValue().selector;
-                List<ServerPlayerEntity> selected = selector.findPlayers(player.server.createCommandSourceStack());
+                List<ServerPlayer> selected = selector.findPlayers(player.server.createCommandSourceStack());
                 if (selected.contains(player)) {
                     builder.add(entry.getKey());
                 }
@@ -66,7 +64,7 @@ public final class VoteRoleHandler extends JsonReloadListener {
     }
 
     @Override
-    protected void apply(Map<ResourceLocation, JsonElement> objects, IResourceManager manager, IProfiler profiler) {
+    protected void apply(Map<ResourceLocation, JsonElement> objects, ResourceManager manager, ProfilerFiller profiler) {
         roleMap = ImmutableSortedMap.copyOf(Maps.transformEntries(objects, VoteRole::fromJson), Comparator.naturalOrder());
     }
 
@@ -75,13 +73,13 @@ public final class VoteRoleHandler extends JsonReloadListener {
         event.addListener(new VoteRoleHandler());
     }
 
-    public static IFormattableTextComponent getText(ResourceLocation id) {
+    public static MutableComponent getText(ResourceLocation id) {
         Optional<VoteRole> roleOptional = VoteRoleHandler.getRole(id);
         if (roleOptional.isPresent()) {
-            IFormattableTextComponent base = wrapInSquareBrackets(new StringTextComponent(id.toString()));
-            ITextComponent hover = new StringTextComponent("").append(roleOptional.get().name).append("\n");
+            MutableComponent base = wrapInSquareBrackets(new TextComponent(id.toString()));
+            Component hover = new TextComponent("").append(roleOptional.get().name).append("\n");
             return base.withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover)));
         }
-        return new StringTextComponent("");
+        return new TextComponent("");
     }
 }

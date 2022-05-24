@@ -1,7 +1,6 @@
 package org.teacon.voteme.http;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
 import com.google.gson.*;
 import io.netty.buffer.ByteBuf;
@@ -12,9 +11,9 @@ import io.netty.handler.codec.http.QueryStringDecoder;
 import it.unimi.dsi.fastutil.ints.IntCollection;
 import it.unimi.dsi.fastutil.ints.IntComparators;
 import it.unimi.dsi.fastutil.ints.IntRBTreeSet;
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.Util;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.Util;
+import net.minecraft.resources.ResourceLocation;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.roles.VoteRole;
@@ -113,33 +112,22 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
         List<String> sorts = parameters.getOrDefault("sort", Collections.emptyList())
                 .stream().flatMap(s -> Arrays.stream(s.split(","))).collect(Collectors.toList());
         @Nullable List<ResourceLocation> filteredCategories = !parameters.containsKey("category") ? null : parameters
-                .get("category").stream().map(ResourceLocation::tryParse).filter(Objects::nonNull).collect(Collectors.toList());
+                .get("category").stream().map(ResourceLocation::tryParse).filter(Objects::nonNull).toList();
         @Nullable List<UUID> filteredArtifacts = !parameters.containsKey("artifact") ? null : parameters
-                .get("artifact").stream().map(VoteListHandler::getArtifactByAliasOrUUID).flatMap(Streams::stream).collect(Collectors.toList());
+                .get("artifact").stream().map(VoteListHandler::getArtifactByAliasOrUUID).flatMap(Optional::stream).toList();
         Comparator<Integer> comparator = Comparator.naturalOrder();
         for (String sort : Lists.reverse(sorts)) {
-            switch (sort) { // I want switch expression ...
-                case "score-ascending": {
-                    comparator = Comparator.comparingDouble((Integer id) -> handler.getEntry(id)
-                            .map(entry -> entry.getFinalScore(6.0F)).orElse(Float.NaN)).thenComparing(comparator);
-                    break;
-                }
-                case "score-descending": {
-                    comparator = Comparator.comparingDouble((Integer id) -> handler.getEntry(id)
-                            .map(entry -> entry.getFinalScore(6.0F)).orElse(Float.NaN)).reversed().thenComparing(comparator);
-                    break;
-                }
-                case "artifact-ascending": {
-                    comparator = Comparator.comparing((Integer id) -> handler.getEntry(id)
-                            .map(entry -> entry.artifactID).orElse(new UUID(0, 0))).thenComparing(comparator);
-                    break;
-                }
-                case "artifact-descending": {
-                    comparator = Comparator.comparing((Integer id) -> handler.getEntry(id)
-                            .map(entry -> entry.artifactID).orElse(new UUID(0, 0))).reversed().thenComparing(comparator);
-                    break;
-                }
-            }
+            comparator = switch (sort) {
+                case "score-ascending" -> Comparator.comparingDouble((Integer id) -> handler.getEntry(id)
+                        .map(entry -> entry.getFinalScore(6.0F)).orElse(Float.NaN)).thenComparing(comparator);
+                case "score-descending" -> Comparator.comparingDouble((Integer id) -> handler.getEntry(id)
+                        .map(entry -> entry.getFinalScore(6.0F)).orElse(Float.NaN)).reversed().thenComparing(comparator);
+                case "artifact-ascending" -> Comparator.comparing((Integer id) -> handler.getEntry(id)
+                        .map(entry -> entry.artifactID).orElse(new UUID(0, 0))).thenComparing(comparator);
+                case "artifact-descending" -> Comparator.comparing((Integer id) -> handler.getEntry(id)
+                        .map(entry -> entry.artifactID).orElse(new UUID(0, 0))).reversed().thenComparing(comparator);
+                default -> comparator;
+            };
         }
         Collection<? extends ResourceLocation> categories = VoteCategoryHandler.getIds();
         IntCollection ids = new IntRBTreeSet(IntComparators.asIntComparator(comparator));

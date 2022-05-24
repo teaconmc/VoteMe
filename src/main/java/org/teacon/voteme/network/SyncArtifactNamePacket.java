@@ -1,11 +1,11 @@
 package org.teacon.voteme.network;
 
 import com.google.common.collect.ImmutableMap;
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.network.PacketBuffer;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.fml.network.NetworkEvent;
+import net.minecraftforge.network.NetworkEvent;
 import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -37,7 +37,7 @@ public final class SyncArtifactNamePacket {
         supplier.get().setPacketHandled(true);
     }
 
-    public void write(PacketBuffer buffer) {
+    public void write(FriendlyByteBuf buffer) {
         for (Map.Entry<UUID, String> entry : this.artifactNames.entrySet()) {
             buffer.writeBoolean(true);
             buffer.writeUUID(entry.getKey());
@@ -52,7 +52,7 @@ public final class SyncArtifactNamePacket {
         buffer.writeBoolean(false);
     }
 
-    public static SyncArtifactNamePacket read(PacketBuffer buffer) {
+    public static SyncArtifactNamePacket read(FriendlyByteBuf buffer) {
         ImmutableMap.Builder<UUID, String> namesBuilder = ImmutableMap.builder();
         for (boolean b = buffer.readBoolean(); b; b = buffer.readBoolean()) {
             namesBuilder.put(buffer.readUUID(), buffer.readUtf(Short.MAX_VALUE));

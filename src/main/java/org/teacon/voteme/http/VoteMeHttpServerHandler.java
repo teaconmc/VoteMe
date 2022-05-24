@@ -6,7 +6,7 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.*;
-import mcp.MethodsReturnNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import org.teacon.voteme.VoteMe;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -19,8 +19,7 @@ import java.time.format.DateTimeFormatter;
 abstract class VoteMeHttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, HttpObject msg) {
-        if (msg instanceof HttpRequest) {
-            HttpRequest request = (HttpRequest) msg;
+        if (msg instanceof HttpRequest request) {
             QueryStringDecoder decoder = new QueryStringDecoder(request.uri());
             VoteMeHttpServer.getMinecraftServer().submit(() -> {
                 ByteBuf buf = Unpooled.buffer();

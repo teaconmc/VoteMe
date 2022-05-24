@@ -9,24 +9,24 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.command.arguments.EntitySelector;
-import net.minecraft.command.arguments.EntitySelectorParser;
-import net.minecraft.util.JSONUtils;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.Util;
-import net.minecraft.util.text.ITextComponent;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.Util;
+import net.minecraft.commands.arguments.selector.EntitySelector;
+import net.minecraft.commands.arguments.selector.EntitySelectorParser;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.GsonHelper;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class VoteRole {
-    public final ITextComponent name;
+    public final Component name;
     public final EntitySelector selector;
     public final ListMultimap<ResourceLocation, Participation> categories;
 
-    public VoteRole(ITextComponent name, EntitySelector selector, Multimap<ResourceLocation, Participation> participations) {
+    public VoteRole(Component name, EntitySelector selector, Multimap<ResourceLocation, Participation> participations) {
         this.name = name;
         this.selector = selector;
         this.categories = ImmutableListMultimap.copyOf(participations);
@@ -34,9 +34,9 @@ public final class VoteRole {
 
     public static VoteRole fromJson(ResourceLocation id, JsonElement json) {
         JsonObject jsonObject = json.getAsJsonObject();
-        ITextComponent name = parseName(jsonObject.get("name"));
-        JsonArray participationsRaw = JSONUtils.getAsJsonArray(jsonObject, "participations");
-        EntitySelector selector = parseSelector(JSONUtils.getAsString(jsonObject, "selector", "@a"));
+        Component name = parseName(jsonObject.get("name"));
+        JsonArray participationsRaw = GsonHelper.getAsJsonArray(jsonObject, "participations");
+        EntitySelector selector = parseSelector(GsonHelper.getAsString(jsonObject, "selector", "@a"));
         Multimap<ResourceLocation, Participation> participations = parseParticipations(id, participationsRaw);
         return new VoteRole(name, selector, participations);
     }
@@ -44,11 +44,11 @@ public final class VoteRole {
     private static Multimap<ResourceLocation, Participation> parseParticipations(ResourceLocation id, JsonArray array) {
         ImmutableListMultimap.Builder<ResourceLocation, Participation> builder = ImmutableListMultimap.builder();
         for (JsonElement child : array) {
-            JsonObject participationObject = JSONUtils.convertToJsonObject(child, "participations");
-            ResourceLocation category = new ResourceLocation(JSONUtils.getAsString(participationObject, "category"));
-            String subgroup = JSONUtils.getAsString(participationObject, "subgroup", id.toString());
-            int truncation = JSONUtils.getAsInt(participationObject, "truncation", 0);
-            float weight = JSONUtils.getAsFloat(participationObject, "weight", 1.0F);
+            JsonObject participationObject = GsonHelper.convertToJsonObject(child, "participations");
+            ResourceLocation category = new ResourceLocation(GsonHelper.getAsString(participationObject, "category"));
+            String subgroup = GsonHelper.getAsString(participationObject, "subgroup", id.toString());
+            int truncation = GsonHelper.getAsInt(participationObject, "truncation", 0);
+            float weight = GsonHelper.getAsFloat(participationObject, "weight", 1.0F);
             builder.put(category, new Participation(weight, truncation, subgroup));
         }
         return builder.build();
@@ -64,8 +64,8 @@ public final class VoteRole {
         }
     }
 
-    private static ITextComponent parseName(JsonElement elem) {
-        ITextComponent name = ITextComponent.Serializer.fromJson(elem);
+    private static Component parseName(JsonElement elem) {
+        Component name = Component.Serializer.fromJson(elem);
         if (name == null) {
             throw new JsonSyntaxException("The name is expected in a role for voting");
         }

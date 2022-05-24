@@ -1,22 +1,22 @@
 package org.teacon.voteme.network;
 
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.network.NetworkEvent;
+import org.teacon.voteme.vote.VoteListHandler;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.network.PacketBuffer;
-import net.minecraftforge.fml.network.NetworkEvent;
-import org.teacon.voteme.vote.VoteListHandler;
-
 public final class SubmitCommentPacket {
-    
-    /** 
-     * Maximum permitted length in bytes that a single page of comment may contain. 
-     * 
-     * A CJK Unified Ideograph typically has 3 bytes; 1024 would means ~340 Chinese 
+
+    /**
+     * Maximum permitted length in bytes that a single page of comment may contain.
+     * <p>
+     * A CJK Unified Ideograph typically has 3 bytes; 1024 would means ~340 Chinese
      * characters.
      */
     private static final int MAX_LENGTH_PER_PAGE = 1024;
@@ -24,21 +24,20 @@ public final class SubmitCommentPacket {
      * Maximum permitted number of pages that one may comment on a given artifact.
      */
     private static final int MAX_PAGE_NUMBER = 10;
-    
+
     public final UUID artifactID;
     public final List<String> comments;
     private transient boolean problematic = false;
-    private transient int readSize = -1;
-    
+
     public SubmitCommentPacket(UUID artifactID, List<String> comments) {
         this.artifactID = artifactID;
         this.comments = comments;
     }
-    
+
     public void handle(Supplier<NetworkEvent.Context> supplier) {
         NetworkEvent.Context ctx = supplier.get();
         ctx.enqueueWork(() -> {
-            ServerPlayerEntity sender = Objects.requireNonNull(ctx.getSender());
+            ServerPlayer sender = Objects.requireNonNull(ctx.getSender());
             VoteListHandler handler = VoteListHandler.get(sender.server);
             if (!this.problematic) {
                 VoteListHandler.putCommentFor(handler, this.artifactID, sender.getUUID(), this.comments);
@@ -46,16 +45,16 @@ public final class SubmitCommentPacket {
         });
         ctx.setPacketHandled(true);
     }
-    
-    public void write(PacketBuffer buffer) {
+
+    public void write(FriendlyByteBuf buffer) {
         buffer.writeUUID(this.artifactID);
         buffer.writeVarInt(this.comments.size());
-        for (int i = 0; i < this.comments.size(); i++) {
-            buffer.writeUtf(this.comments.get(i), MAX_LENGTH_PER_PAGE);
+        for (String comment : this.comments) {
+            buffer.writeUtf(comment, MAX_LENGTH_PER_PAGE);
         }
     }
-    
-    public static SubmitCommentPacket read(PacketBuffer buffer) {
+
+    public static SubmitCommentPacket read(FriendlyByteBuf buffer) {
         UUID artifactID = buffer.readUUID();
         List<String> comments = new ArrayList<>(MAX_PAGE_NUMBER);
         int claimedSize = buffer.readVarInt();
@@ -67,15 +66,13 @@ public final class SubmitCommentPacket {
         SubmitCommentPacket pkt = new SubmitCommentPacket(artifactID, comments);
         if (sanitizedSize != claimedSize) {
             pkt.problematic = true;
-            pkt.readSize = claimedSize;
         }
         return pkt;
     }
-    
+
     public static SubmitCommentPacket create(UUID artifactID, List<String> comments) {
         return new SubmitCommentPacket(artifactID, comments);
     }
-    
-    
-    
+
+
 }

@@ -4,11 +4,11 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.util.JSONUtils;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.Util;
-import net.minecraft.util.text.ITextComponent;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.Util;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.GsonHelper;
 import org.teacon.voteme.http.VoteMeHttpServer;
 import org.teacon.voteme.vote.VoteListEntry;
 import org.teacon.voteme.vote.VoteListHandler;
@@ -20,11 +20,11 @@ import java.util.UUID;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class VoteCategory {
-    public final ITextComponent name;
-    public final ITextComponent description;
+    public final Component name;
+    public final Component description;
     public final boolean enabledDefault, enabledModifiable;
 
-    public VoteCategory(ITextComponent name, ITextComponent description, boolean enabledDefault, boolean enabledModifiable) {
+    public VoteCategory(Component name, Component description, boolean enabledDefault, boolean enabledModifiable) {
         this.name = name;
         this.description = description;
         this.enabledDefault = enabledDefault;
@@ -33,11 +33,11 @@ public final class VoteCategory {
 
     public static VoteCategory fromJson(JsonElement json) {
         JsonObject root = json.getAsJsonObject();
-        JsonObject enabled = JSONUtils.getAsJsonObject(root, "enabled");
-        boolean enabledDefault = JSONUtils.getAsBoolean(enabled, "default");
-        boolean enabledModifiable = JSONUtils.getAsBoolean(enabled, "modifiable");
-        ITextComponent name = ITextComponent.Serializer.fromJson(root.get("name"));
-        ITextComponent desc = ITextComponent.Serializer.fromJson(root.get("description"));
+        JsonObject enabled = GsonHelper.getAsJsonObject(root, "enabled");
+        boolean enabledDefault = GsonHelper.getAsBoolean(enabled, "default");
+        boolean enabledModifiable = GsonHelper.getAsBoolean(enabled, "modifiable");
+        Component name = Component.Serializer.fromJson(root.get("name"));
+        Component desc = Component.Serializer.fromJson(root.get("description"));
         if (name == null || desc == null) {
             throw new JsonSyntaxException("Both name and description are expected");
         }
@@ -51,7 +51,7 @@ public final class VoteCategory {
         jsonObject.addProperty("description", this.description.getString());
         VoteListHandler voteListHandler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
         jsonObject.add("vote_lists", Util.make(new JsonArray(), array -> {
-            for (UUID artifactID : voteListHandler.getArtifacts()) {
+            for (UUID artifactID : VoteListHandler.getArtifacts()) {
                 int id = voteListHandler.getIdOrCreate(artifactID, categoryID);
                 Optional<VoteListEntry> entryOptional = voteListHandler.getEntry(id);
                 entryOptional.filter(e -> e.votes.getEnabled().orElse(this.enabledDefault)).ifPresent(e -> array.add(id));
