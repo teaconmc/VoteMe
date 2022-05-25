@@ -7,7 +7,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.server.permission.PermissionAPI;
 import net.minecraftforge.server.permission.nodes.PermissionNode;
-import org.teacon.voteme.command.VoteMeCommand;
 import org.teacon.voteme.item.CounterItem;
 import org.teacon.voteme.vote.VoteListHandler;
 
@@ -16,6 +15,8 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+
+import static org.teacon.voteme.command.VoteMePermissions.*;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -34,10 +35,8 @@ public final class ChangeNameByCounterPacket {
         supplier.get().enqueueWork(() -> {
             ServerPlayer sender = Objects.requireNonNull(supplier.get().getSender());
             boolean isCreating = VoteListHandler.getArtifactName(this.artifactUUID).isEmpty();
-            Stream<PermissionNode<Boolean>> permissions = isCreating ? Stream.concat(
-                    Stream.of(VoteMeCommand.PERMISSION_CREATE_COUNTER, VoteMeCommand.PERMISSION_CREATE),
-                    Stream.of(VoteMeCommand.PERMISSION_ADMIN_CREATE, VoteMeCommand.PERMISSION_ADMIN)) :
-                    Stream.of(VoteMeCommand.PERMISSION_MODIFY_COUNTER, VoteMeCommand.PERMISSION_MODIFY);
+            Stream<PermissionNode<Boolean>> permissions = isCreating
+                    ? Stream.of(CREATE_COUNTER, CREATE, ADMIN_CREATE, ADMIN) : Stream.of(MODIFY_COUNTER, MODIFY);
             if (permissions.anyMatch(p -> PermissionAPI.getPermission(sender, p))) {
                 ItemStack stack = sender.getInventory().getItem(this.inventoryIndex);
                 if (CounterItem.INSTANCE.equals(stack.getItem())) {

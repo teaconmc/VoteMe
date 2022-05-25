@@ -10,7 +10,6 @@ import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.server.permission.PermissionAPI;
 import net.minecraftforge.server.permission.nodes.PermissionNode;
 import org.teacon.voteme.VoteMe;
-import org.teacon.voteme.command.VoteMeCommand;
 import org.teacon.voteme.item.CounterItem;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -18,6 +17,8 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+
+import static org.teacon.voteme.command.VoteMePermissions.*;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -40,11 +41,8 @@ public final class ChangePropsByCounterPacket {
     public void handle(Supplier<NetworkEvent.Context> supplier) {
         supplier.get().enqueueWork(() -> {
             ServerPlayer sender = Objects.requireNonNull(supplier.get().getSender());
-            Stream<PermissionNode<Boolean>> permissions = Stream.of(
-                    VoteMeCommand.PERMISSION_SWITCH_COUNTER, VoteMeCommand.PERMISSION_SWITCH,
-                    VoteMeCommand.PERMISSION_ADMIN_SWITCH, VoteMeCommand.PERMISSION_ADMIN);
-            if (permissions.anyMatch(p -> PermissionAPI.getPermission(sender, p)))
-            {
+            Stream<PermissionNode<Boolean>> permissions = Stream.of(SWITCH_COUNTER, SWITCH, ADMIN_SWITCH, ADMIN);
+            if (permissions.anyMatch(p -> PermissionAPI.getPermission(sender, p))) {
                 ItemStack stack = sender.getInventory().getItem(this.inventoryIndex);
                 if (CounterItem.INSTANCE.equals(stack.getItem())) {
                     CounterItem.INSTANCE.applyChanges(sender, stack,

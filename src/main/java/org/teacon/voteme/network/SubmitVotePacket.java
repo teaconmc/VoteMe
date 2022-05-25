@@ -10,7 +10,6 @@ import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.server.permission.PermissionAPI;
 import net.minecraftforge.server.permission.nodes.PermissionNode;
 import org.teacon.voteme.category.VoteCategoryHandler;
-import org.teacon.voteme.command.VoteMeCommand;
 import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -19,6 +18,9 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+
+import static org.teacon.voteme.command.VoteMePermissions.OPEN;
+import static org.teacon.voteme.command.VoteMePermissions.OPEN_VOTER;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -34,10 +36,8 @@ public final class SubmitVotePacket {
     public void handle(Supplier<NetworkEvent.Context> supplier) {
         supplier.get().enqueueWork(() -> {
             ServerPlayer sender = Objects.requireNonNull(supplier.get().getSender());
-            Stream<PermissionNode<Boolean>> permissions = Stream.of(
-                    VoteMeCommand.PERMISSION_OPEN_VOTER, VoteMeCommand.PERMISSION_OPEN);
-            if (permissions.anyMatch(p -> PermissionAPI.getPermission(sender, p)))
-            {
+            Stream<PermissionNode<Boolean>> permissions = Stream.of(OPEN_VOTER, OPEN);
+            if (permissions.anyMatch(p -> PermissionAPI.getPermission(sender, p))) {
                 VoteListHandler handler = VoteListHandler.get(sender.server);
                 for (Map.Entry<ResourceLocation, Integer> entry : this.entries.entrySet()) {
                     ResourceLocation categoryID = entry.getKey();

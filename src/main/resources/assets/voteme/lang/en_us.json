@@ -99,8 +99,6 @@
   "permission.voteme.open.voter.name": "VoteMe Open by Voters",
   "permission.voteme.query.description": "Get votes for different players",
   "permission.voteme.query.name": "VoteMe Query",
-  "permission.voteme.select.description": "Select a particular artifact",
-  "permission.voteme.select.name": "VoteMe Select",
   "permission.voteme.switch.counter.description": "Switch on or switch off votes by counters",
   "permission.voteme.switch.counter.name": "VoteMe Switch by Counters",
   "permission.voteme.switch.description": "Switch on or switch off votes",

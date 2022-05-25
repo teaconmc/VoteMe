@@ -99,8 +99,6 @@
   "permission.voteme.open.voter.name": "VoteMe 通过表决器打开",
   "permission.voteme.query.description": "从其他玩家手里获取票数信息",
   "permission.voteme.query.name": "VoteMe 获取",
-  "permission.voteme.select.description": "选中特定的作品",
-  "permission.voteme.select.name": "VoteMe 选中",
   "permission.voteme.switch.counter.description": "通过计数器开关作品的投票权限",
   "permission.voteme.switch.counter.name": "VoteMe 通过计数器开关",
   "permission.voteme.switch.description": "开关作品的投票权限",

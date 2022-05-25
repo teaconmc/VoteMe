@@ -25,7 +25,6 @@ import net.minecraftforge.server.permission.PermissionAPI;
 import net.minecraftforge.server.permission.nodes.PermissionNode;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
-import org.teacon.voteme.command.VoteMeCommand;
 import org.teacon.voteme.network.ShowVoterPacket;
 import org.teacon.voteme.network.VoteMePacketManager;
 import org.teacon.voteme.vote.VoteListHandler;
@@ -36,6 +35,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
+
+import static org.teacon.voteme.command.VoteMePermissions.OPEN;
+import static org.teacon.voteme.command.VoteMePermissions.OPEN_VOTER;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -100,9 +102,8 @@ public final class VoterItem extends Item {
     }
 
     public boolean open(ServerPlayer player, @Nullable CompoundTag tag) {
-        Stream<PermissionNode<Boolean>> permissions = Stream.of(VoteMeCommand.PERMISSION_OPEN_VOTER, VoteMeCommand.PERMISSION_OPEN);
-        if (permissions.anyMatch(p -> PermissionAPI.getPermission(player, p)))
-        {
+        Stream<PermissionNode<Boolean>> permissions = Stream.of(OPEN_VOTER, OPEN);
+        if (permissions.anyMatch(p -> PermissionAPI.getPermission(player, p))) {
             Optional<ShowVoterPacket> packet = Optional.empty();
             if (tag != null && tag.hasUUID("CurrentArtifact")) {
                 packet = ShowVoterPacket.create(tag.getUUID("CurrentArtifact"), player);
