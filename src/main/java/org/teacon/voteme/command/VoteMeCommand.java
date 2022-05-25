@@ -14,6 +14,7 @@ import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.ChatFormatting;
 import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.Util;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.synchronization.ArgumentTypes;
@@ -33,6 +34,12 @@ import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.server.ServerLifecycleHooks;
+import net.minecraftforge.server.permission.PermissionAPI;
+import net.minecraftforge.server.permission.events.PermissionGatherEvent;
+import net.minecraftforge.server.permission.nodes.PermissionDynamicContext;
+import net.minecraftforge.server.permission.nodes.PermissionNode;
+import net.minecraftforge.server.permission.nodes.PermissionTypes;
 import org.apache.commons.lang3.tuple.Pair;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
@@ -43,6 +50,7 @@ import org.teacon.voteme.vote.VoteList;
 import org.teacon.voteme.vote.VoteListEntry;
 import org.teacon.voteme.vote.VoteListHandler;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -84,6 +92,25 @@ public final class VoteMeCommand {
     public static final SuggestionProvider<CommandSourceStack> CATEGORY_SUGGESTION_ENABLED = (c, b) -> SharedSuggestionProvider.suggest(VoteCategoryHandler.getIds().stream().filter(VoteListHandler.get(c.getSource().getServer())::hasEnabled).map(ResourceLocation::toString), b);
     public static final SuggestionProvider<CommandSourceStack> CATEGORY_SUGGESTION_MODIFIABLE = (c, b) -> SharedSuggestionProvider.suggest(VoteCategoryHandler.getIds().stream().filter(id -> VoteCategoryHandler.getCategory(id).filter(e -> e.enabledModifiable).isPresent()).map(ResourceLocation::toString), b);
 
+    public static final PermissionNode<Boolean> PERMISSION_ADMIN = Util.make(new PermissionNode<>("voteme", "admin", PermissionTypes.BOOLEAN, VoteMeCommand::moderator), p -> p.setInformation(new TranslatableComponent("permission.voteme.admin.name"), new TranslatableComponent("permission.voteme.admin.description")));
+    public static final PermissionNode<Boolean> PERMISSION_ADMIN_CREATE = Util.make(new PermissionNode<>("voteme", "admin.create", PermissionTypes.BOOLEAN, VoteMeCommand::moderator), p -> p.setInformation(new TranslatableComponent("permission.voteme.admin.create.name"), new TranslatableComponent("permission.voteme.admin.create.description")));
+    public static final PermissionNode<Boolean> PERMISSION_ADMIN_REMOVE = Util.make(new PermissionNode<>("voteme", "admin.remove", PermissionTypes.BOOLEAN, VoteMeCommand::moderator), p -> p.setInformation(new TranslatableComponent("permission.voteme.admin.remove.name"), new TranslatableComponent("permission.voteme.admin.remove.description")));
+    public static final PermissionNode<Boolean> PERMISSION_ADMIN_MERGE = Util.make(new PermissionNode<>("voteme", "admin.merge", PermissionTypes.BOOLEAN, VoteMeCommand::moderator), p -> p.setInformation(new TranslatableComponent("permission.voteme.admin.merge.name"), new TranslatableComponent("permission.voteme.admin.merge.description")));
+    public static final PermissionNode<Boolean> PERMISSION_ADMIN_CLEAR = Util.make(new PermissionNode<>("voteme", "admin.clear", PermissionTypes.BOOLEAN, VoteMeCommand::moderator), p -> p.setInformation(new TranslatableComponent("permission.voteme.admin.clear.name"), new TranslatableComponent("permission.voteme.admin.clear.description")));
+    public static final PermissionNode<Boolean> PERMISSION_ADMIN_SWITCH = Util.make(new PermissionNode<>("voteme", "admin.switch", PermissionTypes.BOOLEAN, VoteMeCommand::moderator), p -> p.setInformation(new TranslatableComponent("permission.voteme.admin.switch.name"), new TranslatableComponent("permission.voteme.admin.switch.description")));
+    public static final PermissionNode<Boolean> PERMISSION_CREATE = Util.make(new PermissionNode<>("voteme", "create", PermissionTypes.BOOLEAN, VoteMeCommand::function), p -> p.setInformation(new TranslatableComponent("permission.voteme.create.name"), new TranslatableComponent("permission.voteme.create.description")));
+    public static final PermissionNode<Boolean> PERMISSION_SWITCH = Util.make(new PermissionNode<>("voteme", "switch", PermissionTypes.BOOLEAN, VoteMeCommand::function), p -> p.setInformation(new TranslatableComponent("permission.voteme.switch.name"), new TranslatableComponent("permission.voteme.switch.description")));
+    public static final PermissionNode<Boolean> PERMISSION_MODIFY = Util.make(new PermissionNode<>("voteme", "modify", PermissionTypes.BOOLEAN, VoteMeCommand::function), p -> p.setInformation(new TranslatableComponent("permission.voteme.modify.name"), new TranslatableComponent("permission.voteme.modify.description")));
+    public static final PermissionNode<Boolean> PERMISSION_QUERY = Util.make(new PermissionNode<>("voteme", "query", PermissionTypes.BOOLEAN, VoteMeCommand::function), p -> p.setInformation(new TranslatableComponent("permission.voteme.query.name"), new TranslatableComponent("permission.voteme.query.description")));
+    public static final PermissionNode<Boolean> PERMISSION_OPEN = Util.make(new PermissionNode<>("voteme", "open", PermissionTypes.BOOLEAN, VoteMeCommand::function), p -> p.setInformation(new TranslatableComponent("permission.voteme.open.name"), new TranslatableComponent("permission.voteme.open.description")));
+    public static final PermissionNode<Boolean> PERMISSION_GIVE = Util.make(new PermissionNode<>("voteme", "give", PermissionTypes.BOOLEAN, VoteMeCommand::function), p -> p.setInformation(new TranslatableComponent("permission.voteme.give.name"), new TranslatableComponent("permission.voteme.give.description")));
+    public static final PermissionNode<Boolean> PERMISSION_SELECT = Util.make(new PermissionNode<>("voteme", "select", PermissionTypes.BOOLEAN, VoteMeCommand::function), p -> p.setInformation(new TranslatableComponent("permission.voteme.select.name"), new TranslatableComponent("permission.voteme.select.description")));
+    public static final PermissionNode<Boolean> PERMISSION_LIST = Util.make(new PermissionNode<>("voteme", "list", PermissionTypes.BOOLEAN, VoteMeCommand::function), p -> p.setInformation(new TranslatableComponent("permission.voteme.list.name"), new TranslatableComponent("permission.voteme.list.description")));
+    public static final PermissionNode<Boolean> PERMISSION_OPEN_VOTER = Util.make(new PermissionNode<>("voteme", "open.voter", PermissionTypes.BOOLEAN, VoteMeCommand::always), p -> p.setInformation(new TranslatableComponent("permission.voteme.open.voter.name"), new TranslatableComponent("permission.voteme.open.voter.description")));
+    public static final PermissionNode<Boolean> PERMISSION_CREATE_COUNTER = Util.make(new PermissionNode<>("voteme", "create.counter", PermissionTypes.BOOLEAN, VoteMeCommand::always), p -> p.setInformation(new TranslatableComponent("permission.voteme.create.counter.name"), new TranslatableComponent("permission.voteme.create.counter.description")));
+    public static final PermissionNode<Boolean> PERMISSION_MODIFY_COUNTER = Util.make(new PermissionNode<>("voteme", "modify.counter", PermissionTypes.BOOLEAN, VoteMeCommand::always), p -> p.setInformation(new TranslatableComponent("permission.voteme.modify.counter.name"), new TranslatableComponent("permission.voteme.modify.counter.description")));
+    public static final PermissionNode<Boolean> PERMISSION_SWITCH_COUNTER = Util.make(new PermissionNode<>("voteme", "switch.counter", PermissionTypes.BOOLEAN, VoteMeCommand::always), p -> p.setInformation(new TranslatableComponent("permission.voteme.switch.counter.name"), new TranslatableComponent("permission.voteme.switch.counter.description")));
+
     @SubscribeEvent
     public static void setup(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
@@ -91,28 +118,42 @@ public final class VoteMeCommand {
             ArgumentTypes.register("voteme_artifact", ArtifactArgumentType.class, new EmptyArgumentSerializer<>(ArtifactArgumentType::artifact));
         });
         MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, RegisterCommandsEvent.class, VoteMeCommand::register);
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, PermissionGatherEvent.Nodes.class, VoteMeCommand::register);
+    }
+
+    private static void register(PermissionGatherEvent.Nodes event) {
+        ImmutableList.Builder<PermissionNode<?>> builder = ImmutableList.builder();
+
+        builder.add(PERMISSION_ADMIN);
+        builder.add(PERMISSION_ADMIN_CREATE);
+        builder.add(PERMISSION_ADMIN_REMOVE);
+        builder.add(PERMISSION_ADMIN_MERGE);
+        builder.add(PERMISSION_ADMIN_CLEAR);
+        builder.add(PERMISSION_ADMIN_SWITCH);
+        builder.add(PERMISSION_CREATE);
+        builder.add(PERMISSION_SWITCH);
+        builder.add(PERMISSION_MODIFY);
+        builder.add(PERMISSION_QUERY);
+        builder.add(PERMISSION_OPEN);
+        builder.add(PERMISSION_GIVE);
+        builder.add(PERMISSION_SELECT);
+        builder.add(PERMISSION_LIST);
+        builder.add(PERMISSION_OPEN_VOTER);
+        builder.add(PERMISSION_CREATE_COUNTER);
+        builder.add(PERMISSION_MODIFY_COUNTER);
+        builder.add(PERMISSION_SWITCH_COUNTER);
+
+        event.addNodes(builder.build());
     }
 
     private static void register(RegisterCommandsEvent event) {
-        // TODO: register permission nodes
-        // PermissionAPI.registerNode("voteme.admin", DefaultPermissionLevel.NONE, "Admin operations");
-        // PermissionAPI.registerNode("voteme.switch", DefaultPermissionLevel.OP, "Switch on or switch off votes");
-        // PermissionAPI.registerNode("voteme.modify", DefaultPermissionLevel.OP, "Modify vote titles or aliases");
-        // PermissionAPI.registerNode("voteme.query", DefaultPermissionLevel.OP, "Get votes for different players");
-        // PermissionAPI.registerNode("voteme.open", DefaultPermissionLevel.OP, "Open vote related GUIs to players");
-        // PermissionAPI.registerNode("voteme.give", DefaultPermissionLevel.OP, "Give related items to players");
-        // PermissionAPI.registerNode("voteme.select", DefaultPermissionLevel.OP, "Select a particular artifact");
-        // PermissionAPI.registerNode("voteme.list", DefaultPermissionLevel.OP, "Listing thing related to votes");
-        // PermissionAPI.registerNode("voteme.open.voter", DefaultPermissionLevel.ALL, "Open vote related GUIs by voters");
-        // PermissionAPI.registerNode("voteme.create.counter", DefaultPermissionLevel.ALL, "Create vote titles by counters");
-        // PermissionAPI.registerNode("voteme.modify.counter", DefaultPermissionLevel.ALL, "Modify vote titles by counters");
-        // PermissionAPI.registerNode("voteme.switch.counter", DefaultPermissionLevel.ALL, "Switch on or switch off votes by counters");
-        // register child commands
         event.getDispatcher().register(literal("voteme")
                 .then(literal("admin")
-                        .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.create", "voteme.admin.remove", "voteme.admin.merge", "voteme.admin.clear", "voteme.admin.switch"))
+                        .requires(permission(3, PERMISSION_ADMIN,
+                                PERMISSION_ADMIN_CREATE, PERMISSION_ADMIN_REMOVE,
+                                PERMISSION_ADMIN_MERGE, PERMISSION_ADMIN_CLEAR, PERMISSION_ADMIN_SWITCH))
                         .then(literal("create")
-                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.create"))
+                                .requires(permission(3, PERMISSION_ADMIN, PERMISSION_ADMIN_CREATE))
                                 .then(literal("alias")
                                         .then(argument("alias", alias())
                                                 .then(literal("title")
@@ -122,23 +163,23 @@ public final class VoteMeCommand {
                                         .then(argument("title", greedyString())
                                                 .executes(VoteMeCommand::adminCreateArtifact))))
                         .then(literal("remove")
-                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.remove"))
+                                .requires(permission(3, PERMISSION_ADMIN, PERMISSION_ADMIN_REMOVE))
                                 .then(argument("artifact", artifact())
                                         .executes(VoteMeCommand::adminRemoveArtifact)))
                         .then(literal("merge")
-                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.merge"))
+                                .requires(permission(3, PERMISSION_ADMIN, PERMISSION_ADMIN_MERGE))
                                 .then(argument("artifact", artifact())
                                         .then(literal("from")
                                                 .then(argument("artifact-from", artifact())
                                                         .executes(VoteMeCommand::adminMergeVotes)))))
                         .then(literal("clear")
-                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.clear"))
+                                .requires(permission(3, PERMISSION_ADMIN, PERMISSION_ADMIN_CLEAR))
                                 .then(argument("artifact", artifact())
                                         .then(argument("category", id())
                                                 .suggests(CATEGORY_SUGGESTION_ENABLED)
                                                 .executes(VoteMeCommand::adminClearVotes))))
                         .then(literal("switch")
-                                .requires(permission(3, "voteme", "voteme.admin", "voteme.admin.switch"))
+                                .requires(permission(3, PERMISSION_ADMIN, PERMISSION_ADMIN_SWITCH))
                                 .then(argument("artifact", artifact())
                                         .then(argument("category", id())
                                                 .suggests(CATEGORY_SUGGESTION)
@@ -149,7 +190,7 @@ public final class VoteMeCommand {
                                                 .then(literal("on")
                                                         .executes(VoteMeCommand::adminSwitchOnVotes))))))
                 .then(literal("switch")
-                        .requires(permission(2, "voteme", "voteme.switch", "voteme.admin", "voteme.admin.switch"))
+                        .requires(permission(2, PERMISSION_SWITCH, PERMISSION_ADMIN, PERMISSION_ADMIN_SWITCH))
                         .then(argument("artifact", artifact())
                                 .then(argument("category", id())
                                         .suggests(CATEGORY_SUGGESTION_MODIFIABLE)
@@ -160,7 +201,7 @@ public final class VoteMeCommand {
                                         .then(literal("on")
                                                 .executes(VoteMeCommand::switchOnVotes)))))
                 .then(literal("modify")
-                        .requires(permission(2, "voteme", "voteme.modify"))
+                        .requires(permission(2, PERMISSION_MODIFY))
                         .then(argument("artifact", artifact())
                                 .then(literal("unalias")
                                         .executes(VoteMeCommand::modifyArtifactUnAlias))
@@ -171,7 +212,7 @@ public final class VoteMeCommand {
                                         .then(argument("title", greedyString())
                                                 .executes(VoteMeCommand::modifyArtifactTitle)))))
                 .then(literal("query")
-                        .requires(permission(2, "voteme", "voteme.query"))
+                        .requires(permission(2, PERMISSION_QUERY))
                         .then(argument("target", gameProfile())
                                 .then(argument("artifact", artifact())
                                         .then(argument("category", id())
@@ -181,13 +222,13 @@ public final class VoteMeCommand {
                                         .suggests(CATEGORY_SUGGESTION)
                                         .executes(VoteMeCommand::queryVoterList))))
                 .then(literal("open")
-                        .requires(permission(2, "voteme", "voteme.open"))
+                        .requires(permission(2, PERMISSION_OPEN))
                         .then(argument("targets", players())
                                 .then(literal("voter")
                                         .then(argument("artifact", artifact())
                                                 .executes(VoteMeCommand::openVoter)))))
                 .then(literal("give")
-                        .requires(permission(2, "voteme", "voteme.give"))
+                        .requires(permission(2, PERMISSION_GIVE))
                         .then(argument("targets", players())
                                 .then(literal("voter")
                                         .then(argument("artifact", artifact())
@@ -198,26 +239,22 @@ public final class VoteMeCommand {
                                                         .suggests(CATEGORY_SUGGESTION)
                                                         .executes(VoteMeCommand::giveCounter))))))
                 .then(literal("list")
-                        .requires(permission(2, "voteme", "voteme.list", "voteme.list.artifacts", "voteme.list.categories", "voteme.list.roles"))
+                        .requires(permission(2, PERMISSION_LIST))
                         .then(literal("artifacts")
-                                .requires(permission(2, "voteme", "voteme.list", "voteme.list.artifacts"))
                                 .executes(VoteMeCommand::listArtifacts))
                         .then(literal("categories")
-                                .requires(permission(2, "voteme", "voteme.list", "voteme.list.categories"))
                                 .executes(VoteMeCommand::listCategories))
                         .then(literal("roles")
-                                .requires(permission(2, "voteme", "voteme.list", "voteme.list.roles"))
                                 .executes(VoteMeCommand::listRoles))));
     }
 
-    private static Predicate<CommandSourceStack> permission(int level, String... permissionNodes) {
+    @SafeVarargs
+    private static Predicate<CommandSourceStack> permission(int level, PermissionNode<Boolean>... permissionNodes) {
         Preconditions.checkArgument(permissionNodes.length > 0, "permission nodes should not be empty");
         return source -> {
-            // if (source.source instanceof ServerPlayer) {
-            // TODO
-            // ServerPlayer player = (ServerPlayer) source.source;
-            // return Arrays.stream(permissionNodes).anyMatch(n -> PermissionAPI.hasPermission(player, n));
-            // }
+            if (source.source instanceof ServerPlayer player) {
+                return Arrays.stream(permissionNodes).anyMatch(n -> PermissionAPI.getPermission(player, n));
+            }
             return source.hasPermission(level);
         };
     }
@@ -418,7 +455,7 @@ public final class VoteMeCommand {
         UUID artifactID = getArtifact(context, "artifact");
         MutableComponent artifactText = toArtifactText(artifactID);
         Optional<UUID> conflict = VoteListHandler.getArtifactByAlias(newAlias);
-        if (!conflict.isPresent()) {
+        if (conflict.isEmpty()) {
             VoteListHandler.putArtifactAlias(context.getSource(), artifactID, newAlias);
             MutableComponent artifactTextNew = toArtifactText(artifactID);
             context.getSource().sendSuccess(new TranslatableComponent("commands.voteme.modify.success",
@@ -493,7 +530,7 @@ public final class VoteMeCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int adminMergeVotes(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+    private static int adminMergeVotes(CommandContext<CommandSourceStack> context) {
         UUID artifactIDFrom = getArtifact(context, "artifact-from"), artifactID = getArtifact(context, "artifact");
         VoteListHandler handler = VoteListHandler.get(context.getSource().getServer());
         for (ResourceLocation location : VoteCategoryHandler.getIds()) {
@@ -537,7 +574,7 @@ public final class VoteMeCommand {
         String newName = getString(context, "title");
         String newAlias = getAlias(context, "alias");
         Optional<UUID> conflict = VoteListHandler.getArtifactByAlias(newAlias);
-        if (!conflict.isPresent()) {
+        if (conflict.isEmpty()) {
             VoteListHandler.putArtifactName(context.getSource(), newArtifactID, newName);
             VoteListHandler.putArtifactAlias(context.getSource(), newArtifactID, newAlias);
             context.getSource().sendSuccess(new TranslatableComponent(
@@ -619,5 +656,25 @@ public final class VoteMeCommand {
 
     private static MutableComponent toArtifactText(UUID input) {
         return VoteListHandler.getArtifactText(input).withStyle(ChatFormatting.GREEN);
+    }
+
+    private static boolean always(@Nullable ServerPlayer player, UUID uuid, PermissionDynamicContext<?>... contexts) {
+        return true;
+    }
+
+    private static boolean moderator(@Nullable ServerPlayer player, UUID uuid, PermissionDynamicContext<?>... contexts) {
+        if (player == null) {
+            MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+            return server.getProfileCache().get(uuid).map(server::getProfilePermissions).orElse(0) >= 3;
+        }
+        return player.hasPermissions(3);
+    }
+
+    private static boolean function(@Nullable ServerPlayer player, UUID uuid, PermissionDynamicContext<?>... contexts) {
+        if (player == null) {
+            MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+            return server.getProfileCache().get(uuid).map(server::getProfilePermissions).orElse(0) >= 2;
+        }
+        return player.hasPermissions(2);
     }
 }

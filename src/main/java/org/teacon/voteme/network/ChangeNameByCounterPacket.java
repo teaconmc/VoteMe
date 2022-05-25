@@ -5,6 +5,9 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.server.permission.PermissionAPI;
+import net.minecraftforge.server.permission.nodes.PermissionNode;
+import org.teacon.voteme.command.VoteMeCommand;
 import org.teacon.voteme.item.CounterItem;
 import org.teacon.voteme.vote.VoteListHandler;
 
@@ -12,6 +15,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -30,12 +34,11 @@ public final class ChangeNameByCounterPacket {
         supplier.get().enqueueWork(() -> {
             ServerPlayer sender = Objects.requireNonNull(supplier.get().getSender());
             boolean isCreating = VoteListHandler.getArtifactName(this.artifactUUID).isEmpty();
-            /* TODO
-            Stream<String> permissions = !isCreating
-                    ? Stream.of("voteme.modify.counter", "voteme.modify", "voteme")
-                    : Stream.of("voteme.create.counter", "voteme.create", "voteme.admin.create", "voteme.admin", "voteme");
-            if (permissions.anyMatch(p -> PermissionAPI.hasPermission(sender, p)))*/
-            {
+            Stream<PermissionNode<Boolean>> permissions = isCreating ? Stream.concat(
+                    Stream.of(VoteMeCommand.PERMISSION_CREATE_COUNTER, VoteMeCommand.PERMISSION_CREATE),
+                    Stream.of(VoteMeCommand.PERMISSION_ADMIN_CREATE, VoteMeCommand.PERMISSION_ADMIN)) :
+                    Stream.of(VoteMeCommand.PERMISSION_MODIFY_COUNTER, VoteMeCommand.PERMISSION_MODIFY);
+            if (permissions.anyMatch(p -> PermissionAPI.getPermission(sender, p))) {
                 ItemStack stack = sender.getInventory().getItem(this.inventoryIndex);
                 if (CounterItem.INSTANCE.equals(stack.getItem())) {
                     CounterItem.INSTANCE.rename(sender, stack, this.artifactUUID, this.newArtifactName);

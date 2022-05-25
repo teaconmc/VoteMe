@@ -7,13 +7,17 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.server.permission.PermissionAPI;
+import net.minecraftforge.server.permission.nodes.PermissionNode;
 import org.teacon.voteme.VoteMe;
+import org.teacon.voteme.command.VoteMeCommand;
 import org.teacon.voteme.item.CounterItem;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -36,13 +40,15 @@ public final class ChangePropsByCounterPacket {
     public void handle(Supplier<NetworkEvent.Context> supplier) {
         supplier.get().enqueueWork(() -> {
             ServerPlayer sender = Objects.requireNonNull(supplier.get().getSender());
-            /* TODO
-            Stream<String> permissions = Stream.of("voteme.switch.counter", "voteme.switch", "voteme.admin.switch", "voteme.admin", "voteme");
-            if (permissions.anyMatch(p -> PermissionAPI.hasPermission(sender, p)))*/
+            Stream<PermissionNode<Boolean>> permissions = Stream.of(
+                    VoteMeCommand.PERMISSION_SWITCH_COUNTER, VoteMeCommand.PERMISSION_SWITCH,
+                    VoteMeCommand.PERMISSION_ADMIN_SWITCH, VoteMeCommand.PERMISSION_ADMIN);
+            if (permissions.anyMatch(p -> PermissionAPI.getPermission(sender, p)))
             {
                 ItemStack stack = sender.getInventory().getItem(this.inventoryIndex);
                 if (CounterItem.INSTANCE.equals(stack.getItem())) {
-                    CounterItem.INSTANCE.applyChanges(sender, stack, this.artifactUUID, this.categoryID, this.enabled, this.disabled);
+                    CounterItem.INSTANCE.applyChanges(sender, stack,
+                            this.artifactUUID, this.categoryID, this.enabled, this.disabled);
                 }
             }
         });
