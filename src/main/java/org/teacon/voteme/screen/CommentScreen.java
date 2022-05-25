@@ -43,7 +43,7 @@ import java.util.Objects;
 @OnlyIn(Dist.CLIENT)
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public class CommentScreen extends Screen {
+public final class CommentScreen extends Screen {
 
     private boolean isModified;
     private int frameTick;
