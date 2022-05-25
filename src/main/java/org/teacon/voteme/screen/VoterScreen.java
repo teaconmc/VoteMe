@@ -66,11 +66,11 @@ public final class VoterScreen extends Screen {
     @Override
     protected void init() {
         Objects.requireNonNull(this.minecraft);
-        this.addWidget(new SideSlider(this.width / 2 - 103, this.height / 2 - 55, 24 * this.infoCollection.size(), this::onSlideClick, this::onSliderChange, new TextComponent("Slider")));
-        this.clearButton = this.addWidget(new BottomButton(this.width / 2 - 104, this.height / 2 + 82, true, this::onClearButtonClick, new TranslatableComponent("gui.voteme.voter.clear")));
-        this.unsetButton = this.addWidget(new BottomButton(this.width / 2 - 104, this.height / 2 + 82, true, this::onUnsetButtonClick, new TranslatableComponent("gui.voteme.voter.unset")));
-        this.addWidget(new BottomButton(this.width / 2 + 52, this.height / 2 + 82, false, this::onOKButtonClick, new TranslatableComponent("gui.voteme.voter.ok")));
-        this.addWidget(new BottomButton(this.width / 2 - 26, this.height / 2 + 82, false, this::onCommentButtonClick, new TranslatableComponent("gui.voteme.voter.comment")));
+        this.addRenderableWidget(new SideSlider(this.width / 2 - 103, this.height / 2 - 55, 24 * this.infoCollection.size(), this::onSlideClick, this::onSliderChange, new TextComponent("Slider")));
+        this.clearButton = this.addRenderableWidget(new BottomButton(this.width / 2 - 104, this.height / 2 + 82, true, this::onClearButtonClick, new TranslatableComponent("gui.voteme.voter.clear")));
+        this.unsetButton = this.addRenderableWidget(new BottomButton(this.width / 2 - 104, this.height / 2 + 82, true, this::onUnsetButtonClick, new TranslatableComponent("gui.voteme.voter.unset")));
+        this.addRenderableWidget(new BottomButton(this.width / 2 + 52, this.height / 2 + 82, false, this::onOKButtonClick, new TranslatableComponent("gui.voteme.voter.ok")));
+        this.addRenderableWidget(new BottomButton(this.width / 2 - 26, this.height / 2 + 82, false, this::onCommentButtonClick, new TranslatableComponent("gui.voteme.voter.comment")));
     }
 
     @Override
@@ -159,7 +159,7 @@ public final class VoterScreen extends Screen {
     private void drawGuiContainerBackgroundLayer(PoseStack matrixStack, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        mc.getTextureManager().bindForSetup(TEXTURE);
+        RenderSystem.setShaderTexture(0, TEXTURE);
         this.blit(matrixStack, this.width / 2 - 111, this.height / 2 - 55, 0, 42, 234, 132);
         this.drawCategoriesInSlide(matrixStack, mc);
         this.blit(matrixStack, this.width / 2 - 111, this.height / 2 - 97, 0, 0, 234, 42);
@@ -185,7 +185,7 @@ public final class VoterScreen extends Screen {
             mc.font.draw(matrixStack, info.category.name, x1, y1, TEXT_COLOR);
             // draw votes
             int voteLevel = this.votes.getOrDefault(info.id, info.level);
-            mc.getTextureManager().bindForSetup(TEXTURE);
+            RenderSystem.setShaderTexture(0, TEXTURE);
             for (int j = 0; j < 5; ++j) {
                 int x2 = x0 + 106 + 15 * j, y2 = y0 + 4, u2 = 221, v2 = voteLevel > j ? 239 : 206;
                 this.blit(matrixStack, x2, y2, u2, v2, 15, 15);
@@ -213,7 +213,7 @@ public final class VoterScreen extends Screen {
         @Override
         public void renderButton(PoseStack matrixStack, int mouseX, int mouseY, float partialTicks) {
             Minecraft mc = Minecraft.getInstance();
-            mc.getTextureManager().bindForSetup(VoterScreen.TEXTURE);
+            RenderSystem.setShaderTexture(0, VoterScreen.TEXTURE);
             // render button texture
             RenderSystem.enableDepthTest();
             int u0 = (this.isRed ? 7 : 60) + (this.isHovered ? 106 : 0), v0 = 234;
@@ -263,7 +263,7 @@ public final class VoterScreen extends Screen {
         @SuppressWarnings("deprecation")
         public void renderButton(PoseStack matrixStack, int mouseX, int mouseY, float partialTicks) {
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-            Minecraft.getInstance().getTextureManager().bindForSetup(TEXTURE);
+            RenderSystem.setShaderTexture(0, TEXTURE);
             double dx = mouseX - this.x, dy = mouseY - this.y - this.slideCenter;
             int x0 = this.x + 192, y0 = Math.toIntExact(Math.round(mouseY - dy));
             int v0 = this.isHovered && dx >= 192 && dy < this.halfSliderHeight && dy >= -this.halfSliderHeight ? 133 : 4;

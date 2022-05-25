@@ -99,13 +99,13 @@ public class CommentScreen extends Screen {
         this.clearDisplayCache();
         Objects.requireNonNull(this.minecraft).keyboardHandler.setSendRepeatsToGui(true);
         // Done button
-        this.addWidget(new Button(this.width / 2 + 2, 196, 98, 20, CommonComponents.GUI_DONE, button -> this.handleExit(true)));
+        this.addRenderableWidget(new Button(this.width / 2 + 2, 196, 98, 20, CommonComponents.GUI_DONE, button -> this.handleExit(true)));
         // Cancel button
-        this.addWidget(new Button(this.width / 2 - 100, 196, 98, 20, CommonComponents.GUI_CANCEL, button -> this.handleExit(false)));
+        this.addRenderableWidget(new Button(this.width / 2 - 100, 196, 98, 20, CommonComponents.GUI_CANCEL, button -> this.handleExit(false)));
         int x = (this.width - 192) / 2;
         int y = 159;
-        this.forwardButton = this.addWidget(new PageButton(x + 116, y, true, button -> this.pageForward(), true));
-        this.backButton = this.addWidget(new PageButton(x + 43, y, false, button -> this.pageBack(), true));
+        this.forwardButton = this.addRenderableWidget(new PageButton(x + 116, y, true, button -> this.pageForward(), true));
+        this.backButton = this.addRenderableWidget(new PageButton(x + 43, y, false, button -> this.pageBack(), true));
         this.backButton.visible = this.currentPage > 0;
     }
 
@@ -284,7 +284,7 @@ public class CommentScreen extends Screen {
         this.setFocused(null);
         // 1.17: no longer needed due to programmable pipeline usage
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        Objects.requireNonNull(this.minecraft).getTextureManager().bindForSetup(BookViewScreen.BOOK_LOCATION);
+        RenderSystem.setShaderTexture(0, BookViewScreen.BOOK_LOCATION);
         int x = (this.width - 192) / 2;
         int y = 2;
         this.blit(xform, x, 2, 0, 0, 192, 192);

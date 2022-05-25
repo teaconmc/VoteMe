@@ -77,12 +77,12 @@ public final class CounterScreen extends Screen {
     @Override
     protected void init() {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
-        this.addWidget(new ImageButton(this.width / 2 - 99, this.height / 2 - 20, 18, 19, 12, 207, 0, TEXTURE, this::onPrevButtonClick));
-        this.addWidget(new ImageButton(this.width / 2 - 79, this.height / 2 - 20, 18, 19, 32, 207, 0, TEXTURE, this::onNextButtonClick));
-        this.okButton = this.addWidget(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onOKButtonClick, new TranslatableComponent("gui.voteme.counter.ok")));
-        this.cancelButton = this.addWidget(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onCancelButtonClick, new TranslatableComponent("gui.voteme.counter.cancel")));
-        this.renameButton = this.addWidget(new BottomButton(this.width / 2 + 19, this.height / 2 + 77, this::onRenameButtonClick, new TranslatableComponent("gui.voteme.counter.rename")));
-        this.bottomSwitch = this.addWidget(new BottomSwitch(this.width / 2 - 98, this.height / 2 + 76, () -> this.enabledInfos.contains(this.infoCollection.iterator().next().id), this::onSwitchClick, new TranslatableComponent("gui.voteme.counter.switch")));
+        this.addRenderableWidget(new ImageButton(this.width / 2 - 99, this.height / 2 - 20, 18, 19, 12, 207, 0, TEXTURE, this::onPrevButtonClick));
+        this.addRenderableWidget(new ImageButton(this.width / 2 - 79, this.height / 2 - 20, 18, 19, 32, 207, 0, TEXTURE, this::onNextButtonClick));
+        this.okButton = this.addRenderableWidget(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onOKButtonClick, new TranslatableComponent("gui.voteme.counter.ok")));
+        this.cancelButton = this.addRenderableWidget(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onCancelButtonClick, new TranslatableComponent("gui.voteme.counter.cancel")));
+        this.renameButton = this.addRenderableWidget(new BottomButton(this.width / 2 + 19, this.height / 2 + 77, this::onRenameButtonClick, new TranslatableComponent("gui.voteme.counter.rename")));
+        this.bottomSwitch = this.addRenderableWidget(new BottomSwitch(this.width / 2 - 98, this.height / 2 + 76, () -> this.enabledInfos.contains(this.infoCollection.iterator().next().id), this::onSwitchClick, new TranslatableComponent("gui.voteme.counter.switch")));
         this.artifactInput = new TextFieldHelper(() -> this.artifact, text -> this.artifact = text, TextFieldHelper.createClipboardGetter(mc), TextFieldHelper.createClipboardSetter(mc), text -> mc.font.width(text) * ARTIFACT_SCALE_FACTOR <= 199);
         this.cancelButton.visible = this.renameButton.visible = this.bottomSwitch.visible = false;
     }
@@ -206,9 +206,8 @@ public final class CounterScreen extends Screen {
     }
 
     private void drawGuiContainerBackgroundLayer(PoseStack matrixStack, float partialTicks, int mouseX, int mouseY) {
-        Minecraft mc = Objects.requireNonNull(this.minecraft);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        mc.getTextureManager().bindForSetup(TEXTURE);
+        RenderSystem.setShaderTexture(0, TEXTURE);
         this.blit(matrixStack, this.width / 2 - 111, this.height / 2 - 97, 0, 0, 234, 206);
     }
 
@@ -332,7 +331,7 @@ public final class CounterScreen extends Screen {
             // render background and switch-off button
             RenderSystem.enableDepthTest();
             Minecraft mc = Minecraft.getInstance();
-            mc.getTextureManager().bindForSetup(CounterScreen.TEXTURE);
+            RenderSystem.setShaderTexture(0, CounterScreen.TEXTURE);
             blit(matrixStack, this.x, this.y, 13, 228, this.width, this.height, 256, 256);
             blit(matrixStack, this.x + offset + 2, this.y + 2, 69, 230, 16, 16, 256, 256);
 
