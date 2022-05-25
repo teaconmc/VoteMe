@@ -4,12 +4,23 @@ import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.arguments.ArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.synchronization.ArgumentSerializer;
+import net.minecraft.commands.synchronization.ArgumentTypes;
+import net.minecraft.commands.synchronization.EmptyArgumentSerializer;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import org.teacon.voteme.vote.VoteListHandler;
 
+import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Collection;
 import java.util.Collections;
 
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
+@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class AliasArgumentType implements ArgumentType<String> {
 
     public static AliasArgumentType alias() {
@@ -35,5 +46,11 @@ public final class AliasArgumentType implements ArgumentType<String> {
     @Override
     public Collection<String> getExamples() {
         return Collections.singleton("#alias");
+    }
+
+    @SubscribeEvent
+    public static void setup(FMLCommonSetupEvent event) {
+        ArgumentSerializer<AliasArgumentType> serializer = new EmptyArgumentSerializer<>(AliasArgumentType::alias);
+        event.enqueueWork(() -> ArgumentTypes.register("voteme_alias", AliasArgumentType.class, serializer));
     }
 }

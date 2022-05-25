@@ -16,8 +16,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
-import net.minecraft.commands.synchronization.ArgumentTypes;
-import net.minecraft.commands.synchronization.EmptyArgumentSerializer;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.ComponentUtils;
 import net.minecraft.network.chat.MutableComponent;
@@ -27,12 +25,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.server.permission.PermissionAPI;
 import net.minecraftforge.server.permission.nodes.PermissionNode;
 import org.apache.commons.lang3.tuple.Pair;
@@ -71,7 +66,7 @@ import static org.teacon.voteme.command.VoteMePermissions.*;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
+@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class VoteMeCommand {
     public static final SimpleCommandExceptionType ALIAS_INVALID = new SimpleCommandExceptionType(new TranslatableComponent("argument.voteme.alias.invalid"));
     public static final SimpleCommandExceptionType ARTIFACT_INVALID = new SimpleCommandExceptionType(new TranslatableComponent("argument.voteme.artifact.invalid"));
@@ -88,15 +83,7 @@ public final class VoteMeCommand {
     public static final SuggestionProvider<CommandSourceStack> CATEGORY_SUGGESTION_MODIFIABLE = (c, b) -> SharedSuggestionProvider.suggest(VoteCategoryHandler.getIds().stream().filter(id -> VoteCategoryHandler.getCategory(id).filter(e -> e.enabledModifiable).isPresent()).map(ResourceLocation::toString), b);
 
     @SubscribeEvent
-    public static void setup(FMLCommonSetupEvent event) {
-        event.enqueueWork(() -> {
-            ArgumentTypes.register("voteme_alias", AliasArgumentType.class, new EmptyArgumentSerializer<>(AliasArgumentType::alias));
-            ArgumentTypes.register("voteme_artifact", ArtifactArgumentType.class, new EmptyArgumentSerializer<>(ArtifactArgumentType::artifact));
-        });
-        MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, RegisterCommandsEvent.class, VoteMeCommand::register);
-    }
-
-    private static void register(RegisterCommandsEvent event) {
+    public static void register(RegisterCommandsEvent event) {
         event.getDispatcher().register(literal("voteme")
                 .then(literal("admin")
                         .requires(permission(3, ADMIN, ADMIN_CREATE, ADMIN_REMOVE, ADMIN_MERGE, ADMIN_CLEAR, ADMIN_SWITCH))

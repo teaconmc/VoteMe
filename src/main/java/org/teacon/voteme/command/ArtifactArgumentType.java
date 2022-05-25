@@ -6,10 +6,18 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.commands.synchronization.ArgumentSerializer;
+import net.minecraft.commands.synchronization.ArgumentTypes;
+import net.minecraft.commands.synchronization.EmptyArgumentSerializer;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import org.teacon.voteme.vote.VoteListHandler;
 
+import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Optional;
@@ -19,6 +27,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
+@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class ArtifactArgumentType implements ArgumentType<UUID> {
     private static final Pattern UUID_PATTERN = Pattern.compile("^([-0-9a-fA-F]+)");
 
@@ -72,5 +83,11 @@ public final class ArtifactArgumentType implements ArgumentType<UUID> {
     @Override
     public Collection<String> getExamples() {
         return Collections.singleton("#alias");
+    }
+
+    @SubscribeEvent
+    public static void setup(FMLCommonSetupEvent event) {
+        ArgumentSerializer<ArtifactArgumentType> serializer = new EmptyArgumentSerializer<>(ArtifactArgumentType::artifact);
+        event.enqueueWork(() -> ArgumentTypes.register("voteme_artifact", ArtifactArgumentType.class, serializer));
     }
 }
