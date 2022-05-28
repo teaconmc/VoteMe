@@ -59,11 +59,7 @@ public final class StatsAccumulator {
                 this.accumulatedVotes.remove(vote.key());
                 this.decrease(prevAccumulatedVote);
             }
-            if (prevSubtractedVote != null) {
-                this.increase(prevSubtractedVote);
-            }
             this.subtractedVotes.put(vote.key(), vote);
-            this.decrease(vote);
         }
     }
 

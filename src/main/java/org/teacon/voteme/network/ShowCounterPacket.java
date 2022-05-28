@@ -51,7 +51,7 @@ public final class ShowCounterPacket {
                 @Override
                 public void run() {
                     ShowCounterPacket p = ShowCounterPacket.this;
-                    String artifactName = VoteArtifactNames.getArtifactName(p.artifactUUID);
+                    String artifactName = VoteArtifactNames.getArtifactName(p.artifactUUID, true);
                     CounterScreen gui = new CounterScreen(p.artifactUUID, artifactName, p.invIndex, p.category, p.infos);
                     supplier.get().enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
                 }
@@ -107,7 +107,7 @@ public final class ShowCounterPacket {
     }
 
     public static Optional<ShowCounterPacket> create(int inventoryId, UUID artifactID, ResourceLocation categoryID, MinecraftServer server) {
-        if (!VoteArtifactNames.getArtifactName(artifactID).isEmpty()) {
+        if (!VoteArtifactNames.getArtifactName(artifactID, false).isEmpty()) {
             boolean isValidCategoryID = false;
             VoteDataStorage handler = VoteDataStorage.get(server);
             ImmutableList.Builder<Info> builder = ImmutableList.builder();

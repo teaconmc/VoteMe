@@ -34,7 +34,7 @@ public final class ChangeNameByCounterPacket {
     public void handle(Supplier<NetworkEvent.Context> supplier) {
         supplier.get().enqueueWork(() -> {
             ServerPlayer sender = Objects.requireNonNull(supplier.get().getSender());
-            boolean isCreating = VoteArtifactNames.getArtifactName(this.artifactUUID).isEmpty();
+            boolean isCreating = VoteArtifactNames.getArtifactName(this.artifactUUID, false).isEmpty();
             Stream<PermissionNode<Boolean>> permissions = isCreating
                     ? Stream.of(CREATE_COUNTER, CREATE, ADMIN_CREATE, ADMIN) : Stream.of(MODIFY_COUNTER, MODIFY);
             if (permissions.anyMatch(p -> PermissionAPI.getPermission(sender, p))) {

@@ -69,7 +69,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
 
     private HttpResponseStatus handleArtifacts(ByteBuf buf) {
         VoteDataStorage handler = VoteDataStorage.get(VoteMeHttpServer.getMinecraftServer());
-        Collection<? extends UUID> artifacts = VoteArtifactNames.getArtifacts();
+        Collection<? extends UUID> artifacts = VoteArtifactNames.getArtifacts(false);
         return this.handleOK(buf, Util.make(new JsonArray(), result -> {
             for (UUID artifactID : artifacts) {
                 result.add(handler.toArtifactHTTPJson(artifactID));
@@ -79,7 +79,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
 
     private HttpResponseStatus handleArtifact(ByteBuf buf, String ref) {
         VoteDataStorage handler = VoteDataStorage.get(VoteMeHttpServer.getMinecraftServer());
-        Optional<UUID> artifactIDOptional = VoteArtifactNames.getArtifactByAliasOrUUID(ref);
+        Optional<UUID> artifactIDOptional = VoteArtifactNames.getArtifactByAliasOrUUID(ref, false);
         if (artifactIDOptional.isPresent()) {
             UUID artifactID = artifactIDOptional.get();
             return this.handleOK(buf, handler.toArtifactHTTPJson(artifactID));
@@ -115,7 +115,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
         @Nullable List<ResourceLocation> filteredCategories = !parameters.containsKey("category") ? null : parameters
                 .get("category").stream().map(ResourceLocation::tryParse).filter(Objects::nonNull).toList();
         @Nullable List<UUID> filteredArtifacts = !parameters.containsKey("artifact") ? null : parameters
-                .get("artifact").stream().map(VoteArtifactNames::getArtifactByAliasOrUUID).flatMap(Optional::stream).toList();
+                .get("artifact").stream().map(ref -> VoteArtifactNames.getArtifactByAliasOrUUID(ref, false)).flatMap(Optional::stream).toList();
         Comparator<Integer> comparator = Comparator.naturalOrder();
         for (String sort : Lists.reverse(sorts)) {
             comparator = switch (sort) {
@@ -132,7 +132,7 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
         }
         Collection<? extends ResourceLocation> categories = VoteCategoryHandler.getIds();
         Int2ObjectMap<VoteList> ids = new Int2ObjectRBTreeMap<>(IntComparators.asIntComparator(comparator));
-        for (UUID artifactID : VoteArtifactNames.getArtifacts()) {
+        for (UUID artifactID : VoteArtifactNames.getArtifacts(false)) {
             if (filteredArtifacts == null || filteredArtifacts.contains(artifactID)) {
                 for (ResourceLocation categoryID : categories) {
                     if (filteredCategories == null || filteredCategories.contains(categoryID)) {

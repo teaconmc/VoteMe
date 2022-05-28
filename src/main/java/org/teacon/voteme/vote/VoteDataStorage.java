@@ -137,7 +137,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
 
     public boolean hasEnabled(ResourceLocation category) {
         boolean enabledDefault = VoteCategoryHandler.getCategory(category).filter(c -> c.enabledDefault).isPresent();
-        return VoteArtifactNames.getArtifacts().stream()
+        return VoteArtifactNames.getArtifacts(false).stream()
                 .map(id -> this.voteLists.get(this.getIdOrCreate(id, category)))
                 .anyMatch(votes -> votes.getEnabled().orElse(enabledDefault));
     }
@@ -187,8 +187,8 @@ public final class VoteDataStorage extends SavedData implements Closeable {
     public JsonObject toArtifactHTTPJson(UUID artifactID) {
         return Util.make(new JsonObject(), result -> {
             result.addProperty("id", artifactID.toString());
-            result.addProperty("name", VoteArtifactNames.getArtifactName(artifactID));
-            Optional.of(VoteArtifactNames.getArtifactAlias(artifactID))
+            result.addProperty("name", VoteArtifactNames.getArtifactName(artifactID, false));
+            Optional.of(VoteArtifactNames.getArtifactAlias(artifactID, false))
                     .filter(s -> !s.isEmpty()).ifPresent(s -> result.addProperty("alias", s));
             Map<Integer, VoteList> voteLists = new LinkedHashMap<>();
             for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {

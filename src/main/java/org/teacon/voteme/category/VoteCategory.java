@@ -52,7 +52,7 @@ public final class VoteCategory {
         jsonObject.addProperty("description", this.description.getString());
         VoteDataStorage voteDataStorage = VoteDataStorage.get(VoteMeHttpServer.getMinecraftServer());
         jsonObject.add("vote_lists", Util.make(new JsonArray(), array -> {
-            for (UUID artifactID : VoteArtifactNames.getArtifacts()) {
+            for (UUID artifactID : VoteArtifactNames.getArtifacts(false)) {
                 int id = voteDataStorage.getIdOrCreate(artifactID, categoryID);
                 Optional<VoteList> entryOptional = voteDataStorage.getVoteList(id);
                 entryOptional.filter(e -> e.getEnabled().orElse(this.enabledDefault)).ifPresent(e -> array.add(id));

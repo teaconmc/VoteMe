@@ -220,7 +220,7 @@ public final class VoteMeCommand {
 
     private static int listArtifacts(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        Collection<? extends UUID> artifactIDs = VoteArtifactNames.getArtifacts();
+        Collection<? extends UUID> artifactIDs = VoteArtifactNames.getArtifacts(false);
         int size = artifactIDs.size();
         if (size > 0) {
             source.sendSuccess(new TranslatableComponent("commands.voteme.list.artifacts.success", size,
@@ -323,7 +323,7 @@ public final class VoteMeCommand {
                 // noinspection RedundantTypeArguments
                 totalVoted.put(profile, LinkedListMultimap.<Integer, UUID>create());
             }
-            for (UUID artifactID : VoteArtifactNames.getArtifacts()) {
+            for (UUID artifactID : VoteArtifactNames.getArtifacts(false)) {
                 int id = handler.getIdOrCreate(artifactID, location);
                 Optional<VoteList> entryOptional = handler.getVoteList(id).filter(e -> e.getEnabled().orElse(enabledDefault));
                 if (entryOptional.isPresent()) {
@@ -373,7 +373,7 @@ public final class VoteMeCommand {
     private static int modifyArtifactTitle(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         String newName = getString(context, "title");
         UUID artifactID = getArtifact(context, "artifact");
-        String name = VoteArtifactNames.getArtifactName(artifactID);
+        String name = VoteArtifactNames.getArtifactName(artifactID, false);
         MutableComponent artifactText = toArtifactText(artifactID);
         if (!name.equals(newName)) {
             VoteArtifactNames.putArtifactName(context.getSource(), artifactID, newName);
@@ -389,7 +389,7 @@ public final class VoteMeCommand {
         String newAlias = getAlias(context, "alias");
         UUID artifactID = getArtifact(context, "artifact");
         MutableComponent artifactText = toArtifactText(artifactID);
-        Optional<UUID> conflict = VoteArtifactNames.getArtifactByAlias(newAlias);
+        Optional<UUID> conflict = VoteArtifactNames.getArtifactByAlias(newAlias, false);
         if (conflict.isEmpty()) {
             VoteArtifactNames.putArtifactAlias(context.getSource(), artifactID, newAlias);
             MutableComponent artifactTextNew = toArtifactText(artifactID);
@@ -508,7 +508,7 @@ public final class VoteMeCommand {
         UUID newArtifactID = UUID.randomUUID();
         String newName = getString(context, "title");
         String newAlias = getAlias(context, "alias");
-        Optional<UUID> conflict = VoteArtifactNames.getArtifactByAlias(newAlias);
+        Optional<UUID> conflict = VoteArtifactNames.getArtifactByAlias(newAlias, false);
         if (conflict.isEmpty()) {
             VoteArtifactNames.putArtifactName(context.getSource(), newArtifactID, newName);
             VoteArtifactNames.putArtifactAlias(context.getSource(), newArtifactID, newAlias);
@@ -590,6 +590,6 @@ public final class VoteMeCommand {
     }
 
     private static MutableComponent toArtifactText(UUID input) {
-        return VoteArtifactNames.getArtifactText(input).withStyle(ChatFormatting.GREEN);
+        return VoteArtifactNames.getArtifactText(input, false).withStyle(ChatFormatting.GREEN);
     }
 }

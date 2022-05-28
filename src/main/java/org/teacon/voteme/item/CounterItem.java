@@ -21,6 +21,7 @@ import net.minecraft.world.level.Level;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.util.thread.EffectiveSide;
 import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.registries.ObjectHolder;
 import org.teacon.voteme.VoteMe;
@@ -62,10 +63,11 @@ public final class CounterItem extends Item {
     public void appendHoverText(ItemStack stack, @Nullable Level world, List<Component> tooltip, TooltipFlag flag) {
         CompoundTag tag = stack.getTag();
         tooltip.add(new TextComponent(""));
+        boolean isClient = world == null ? EffectiveSide.get().isClient() : world.isClientSide;
         if (tag != null && tag.hasUUID("CurrentArtifact")) {
             UUID artifactID = tag.getUUID("CurrentArtifact");
-            if (!VoteArtifactNames.getArtifactName(artifactID).isEmpty()) {
-                MutableComponent artifactText = VoteArtifactNames.getArtifactText(artifactID).withStyle(ChatFormatting.GREEN);
+            if (!VoteArtifactNames.getArtifactName(artifactID, isClient).isEmpty()) {
+                MutableComponent artifactText = VoteArtifactNames.getArtifactText(artifactID, isClient).withStyle(ChatFormatting.GREEN);
                 tooltip.add(new TranslatableComponent("gui.voteme.counter.current_artifact_hint", artifactText).withStyle(ChatFormatting.GRAY));
                 ResourceLocation currentCategoryID = new ResourceLocation(tag.getString("CurrentCategory"));
                 if (!VoteCategoryHandler.getIds().isEmpty()) {
@@ -119,7 +121,7 @@ public final class CounterItem extends Item {
         CompoundTag tag = stack.getTag();
         if (tag != null && tag.hasUUID("CurrentArtifact")) {
             UUID artifactID = tag.getUUID("CurrentArtifact");
-            String artifactName = VoteArtifactNames.getArtifactName(artifactID);
+            String artifactName = VoteArtifactNames.getArtifactName(artifactID, EffectiveSide.get().isClient());
             if (!artifactName.isEmpty()) {
                 return new TranslatableComponent("item.voteme.counter.with_artifact", artifactName);
             }

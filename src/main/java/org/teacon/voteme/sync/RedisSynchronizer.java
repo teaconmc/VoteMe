@@ -10,7 +10,6 @@ import io.lettuce.core.ScanArgs;
 import io.lettuce.core.ScanCursor;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.async.RedisAsyncCommands;
-import io.lettuce.core.output.KeyStreamingChannel;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import net.minecraft.MethodsReturnNonnullByDefault;
@@ -60,7 +59,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
 
         this.connectionPubSub = client.connectPubSub();
         this.connectionPubSub.addListener(new PubSubListener());
-        this.connectionPubSub.sync().subscribe(ARTIFACT, COMMENTS, VOTE, VOTE_DISABLED);
+        this.connectionPubSub.sync().subscribe(ARTIFACT, COMMENTS, VOTE, VOTE_DISABLED, VOTE_STATS);
 
         this.connection = client.connect();
     }
