@@ -12,7 +12,7 @@ import net.minecraft.commands.synchronization.EmptyArgumentSerializer;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import org.teacon.voteme.vote.VoteListHandler;
+import org.teacon.voteme.vote.VoteArtifactNames;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Collection;
@@ -35,7 +35,7 @@ public final class AliasArgumentType implements ArgumentType<String> {
     public String parse(StringReader reader) throws CommandSyntaxException {
         int start = reader.getCursor();
         String remaining = reader.getRemaining();
-        int size = VoteListHandler.trimValidAlias(remaining);
+        int size = VoteArtifactNames.trimValidAlias(remaining);
         if (size > 0) {
             reader.setCursor(start + size);
             return remaining.substring(0, size);

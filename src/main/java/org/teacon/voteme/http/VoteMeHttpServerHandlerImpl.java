@@ -8,9 +8,9 @@ import io.netty.buffer.ByteBufOutputStream;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.QueryStringDecoder;
-import it.unimi.dsi.fastutil.ints.IntCollection;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 import it.unimi.dsi.fastutil.ints.IntComparators;
-import it.unimi.dsi.fastutil.ints.IntRBTreeSet;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.Util;
 import net.minecraft.resources.ResourceLocation;
@@ -18,8 +18,9 @@ import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.roles.VoteRole;
 import org.teacon.voteme.roles.VoteRoleHandler;
-import org.teacon.voteme.vote.VoteListEntry;
-import org.teacon.voteme.vote.VoteListHandler;
+import org.teacon.voteme.vote.VoteArtifactNames;
+import org.teacon.voteme.vote.VoteDataStorage;
+import org.teacon.voteme.vote.VoteList;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -67,8 +68,8 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
     }
 
     private HttpResponseStatus handleArtifacts(ByteBuf buf) {
-        VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
-        Collection<? extends UUID> artifacts = VoteListHandler.getArtifacts();
+        VoteDataStorage handler = VoteDataStorage.get(VoteMeHttpServer.getMinecraftServer());
+        Collection<? extends UUID> artifacts = VoteArtifactNames.getArtifacts();
         return this.handleOK(buf, Util.make(new JsonArray(), result -> {
             for (UUID artifactID : artifacts) {
                 result.add(handler.toArtifactHTTPJson(artifactID));
@@ -77,8 +78,8 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
     }
 
     private HttpResponseStatus handleArtifact(ByteBuf buf, String ref) {
-        VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
-        Optional<UUID> artifactIDOptional = VoteListHandler.getArtifactByAliasOrUUID(ref);
+        VoteDataStorage handler = VoteDataStorage.get(VoteMeHttpServer.getMinecraftServer());
+        Optional<UUID> artifactIDOptional = VoteArtifactNames.getArtifactByAliasOrUUID(ref);
         if (artifactIDOptional.isPresent()) {
             UUID artifactID = artifactIDOptional.get();
             return this.handleOK(buf, handler.toArtifactHTTPJson(artifactID));
@@ -108,43 +109,45 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
     }
 
     private HttpResponseStatus handleVoteLists(ByteBuf buf, Map<String, List<String>> parameters) {
-        VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
+        VoteDataStorage handler = VoteDataStorage.get(VoteMeHttpServer.getMinecraftServer());
         List<String> sorts = parameters.getOrDefault("sort", Collections.emptyList())
                 .stream().flatMap(s -> Arrays.stream(s.split(","))).collect(Collectors.toList());
         @Nullable List<ResourceLocation> filteredCategories = !parameters.containsKey("category") ? null : parameters
                 .get("category").stream().map(ResourceLocation::tryParse).filter(Objects::nonNull).toList();
         @Nullable List<UUID> filteredArtifacts = !parameters.containsKey("artifact") ? null : parameters
-                .get("artifact").stream().map(VoteListHandler::getArtifactByAliasOrUUID).flatMap(Optional::stream).toList();
+                .get("artifact").stream().map(VoteArtifactNames::getArtifactByAliasOrUUID).flatMap(Optional::stream).toList();
         Comparator<Integer> comparator = Comparator.naturalOrder();
         for (String sort : Lists.reverse(sorts)) {
             comparator = switch (sort) {
-                case "score-ascending" -> Comparator.comparingDouble((Integer id) -> handler.getEntry(id)
-                        .map(entry -> entry.getFinalScore(6.0F)).orElse(Float.NaN)).thenComparing(comparator);
-                case "score-descending" -> Comparator.comparingDouble((Integer id) -> handler.getEntry(id)
-                        .map(entry -> entry.getFinalScore(6.0F)).orElse(Float.NaN)).reversed().thenComparing(comparator);
-                case "artifact-ascending" -> Comparator.comparing((Integer id) -> handler.getEntry(id)
-                        .map(entry -> entry.artifactID).orElse(new UUID(0, 0))).thenComparing(comparator);
-                case "artifact-descending" -> Comparator.comparing((Integer id) -> handler.getEntry(id)
-                        .map(entry -> entry.artifactID).orElse(new UUID(0, 0))).reversed().thenComparing(comparator);
+                case "score-ascending" -> Comparator.comparingDouble((Integer id) -> handler.getVoteList(id)
+                        .map(VoteList::getFinalScore).orElse(Float.NaN)).thenComparing(comparator);
+                case "score-descending" -> Comparator.comparingDouble((Integer id) -> handler.getVoteList(id)
+                        .map(VoteList::getFinalScore).orElse(Float.NaN)).reversed().thenComparing(comparator);
+                case "artifact-ascending" -> Comparator.comparing((Integer id) -> handler.getVoteList(id)
+                        .map(VoteList::getArtifactID).orElse(new UUID(0, 0))).thenComparing(comparator);
+                case "artifact-descending" -> Comparator.comparing((Integer id) -> handler.getVoteList(id)
+                        .map(VoteList::getArtifactID).orElse(new UUID(0, 0))).reversed().thenComparing(comparator);
                 default -> comparator;
             };
         }
         Collection<? extends ResourceLocation> categories = VoteCategoryHandler.getIds();
-        IntCollection ids = new IntRBTreeSet(IntComparators.asIntComparator(comparator));
-        for (UUID artifactID : VoteListHandler.getArtifacts()) {
+        Int2ObjectMap<VoteList> ids = new Int2ObjectRBTreeMap<>(IntComparators.asIntComparator(comparator));
+        for (UUID artifactID : VoteArtifactNames.getArtifacts()) {
             if (filteredArtifacts == null || filteredArtifacts.contains(artifactID)) {
                 for (ResourceLocation categoryID : categories) {
                     if (filteredCategories == null || filteredCategories.contains(categoryID)) {
                         int id = handler.getIdOrCreate(artifactID, categoryID);
-                        boolean enabledDefault = VoteCategoryHandler.getCategory(categoryID).filter(c -> c.enabledDefault).isPresent();
-                        handler.getEntry(id).filter(entry -> entry.votes.getEnabled().orElse(enabledDefault)).ifPresent(entry -> ids.add(id));
+                        boolean enabledDefault = VoteCategoryHandler
+                                .getCategory(categoryID).filter(c -> c.enabledDefault).isPresent();
+                        handler.getVoteList(id).filter(entry -> entry
+                                .getEnabled().orElse(enabledDefault)).ifPresent(entry -> ids.put(id, entry));
                     }
                 }
             }
         }
-        return this.handleOK(buf, Util.make(new JsonArray(), result -> ids.forEach((int id) -> {
-            Optional<VoteListEntry> entryOptional = handler.getEntry(id);
-            entryOptional.ifPresent(entry -> result.add(entry.toHTTPJson(id)));
+        return this.handleOK(buf, Util.make(new JsonArray(), result -> ids.values().forEach(voteList -> {
+            JsonElement json = handler.toVoteListHTTPJson(voteList.getArtifactID(), voteList.getCategoryID());
+            result.add(json);
         })));
     }
 
@@ -152,13 +155,14 @@ final class VoteMeHttpServerHandlerImpl extends VoteMeHttpServerHandler {
         // noinspection UnstableApiUsage
         Integer id = Ints.tryParse(idString);
         if (id != null) {
-            VoteListHandler handler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
-            Optional<VoteListEntry> entryOptional = handler.getEntry(id);
+            VoteDataStorage handler = VoteDataStorage.get(VoteMeHttpServer.getMinecraftServer());
+            Optional<VoteList> entryOptional = handler.getVoteList(id);
             if (entryOptional.isPresent()) {
-                VoteListEntry entry = entryOptional.get();
-                Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(entry.category);
-                if (entry.votes.getEnabled().orElse(categoryOptional.filter(c -> c.enabledDefault).isPresent())) {
-                    return this.handleOK(buf, entry.toHTTPJson(id));
+                VoteList entry = entryOptional.get();
+                ResourceLocation categoryID = entry.getCategoryID();
+                Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
+                if (entry.getEnabled().orElse(categoryOptional.filter(c -> c.enabledDefault).isPresent())) {
+                    return this.handleOK(buf, handler.toVoteListHTTPJson(entry.getArtifactID(), categoryID));
                 }
             }
         }

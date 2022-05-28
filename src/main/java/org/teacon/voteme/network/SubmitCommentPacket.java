@@ -3,7 +3,7 @@ package org.teacon.voteme.network;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
-import org.teacon.voteme.vote.VoteListHandler;
+import org.teacon.voteme.vote.VoteDataStorage;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,9 +38,9 @@ public final class SubmitCommentPacket {
         NetworkEvent.Context ctx = supplier.get();
         ctx.enqueueWork(() -> {
             ServerPlayer sender = Objects.requireNonNull(ctx.getSender());
-            VoteListHandler handler = VoteListHandler.get(sender.server);
+            VoteDataStorage handler = VoteDataStorage.get(sender.server);
             if (!this.problematic) {
-                VoteListHandler.putCommentFor(handler, this.artifactID, sender.getUUID(), this.comments);
+                VoteDataStorage.putCommentFor(handler, this.artifactID, sender.getUUID(), this.comments);
             }
         });
         ctx.setPacketHandled(true);

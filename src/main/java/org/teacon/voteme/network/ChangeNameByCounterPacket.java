@@ -8,7 +8,7 @@ import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.server.permission.PermissionAPI;
 import net.minecraftforge.server.permission.nodes.PermissionNode;
 import org.teacon.voteme.item.CounterItem;
-import org.teacon.voteme.vote.VoteListHandler;
+import org.teacon.voteme.vote.VoteArtifactNames;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;
@@ -34,7 +34,7 @@ public final class ChangeNameByCounterPacket {
     public void handle(Supplier<NetworkEvent.Context> supplier) {
         supplier.get().enqueueWork(() -> {
             ServerPlayer sender = Objects.requireNonNull(supplier.get().getSender());
-            boolean isCreating = VoteListHandler.getArtifactName(this.artifactUUID).isEmpty();
+            boolean isCreating = VoteArtifactNames.getArtifactName(this.artifactUUID).isEmpty();
             Stream<PermissionNode<Boolean>> permissions = isCreating
                     ? Stream.of(CREATE_COUNTER, CREATE, ADMIN_CREATE, ADMIN) : Stream.of(MODIFY_COUNTER, MODIFY);
             if (permissions.anyMatch(p -> PermissionAPI.getPermission(sender, p))) {

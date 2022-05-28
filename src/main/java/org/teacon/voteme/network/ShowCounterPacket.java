@@ -1,6 +1,7 @@
 package org.teacon.voteme.network;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.ImmutableIntArray;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
@@ -16,9 +17,9 @@ import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.roles.VoteRoleHandler;
 import org.teacon.voteme.screen.CounterScreen;
+import org.teacon.voteme.vote.VoteArtifactNames;
+import org.teacon.voteme.vote.VoteDataStorage;
 import org.teacon.voteme.vote.VoteList;
-import org.teacon.voteme.vote.VoteListEntry;
-import org.teacon.voteme.vote.VoteListHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
@@ -50,7 +51,7 @@ public final class ShowCounterPacket {
                 @Override
                 public void run() {
                     ShowCounterPacket p = ShowCounterPacket.this;
-                    String artifactName = VoteListHandler.getArtifactName(p.artifactUUID);
+                    String artifactName = VoteArtifactNames.getArtifactName(p.artifactUUID);
                     CounterScreen gui = new CounterScreen(p.artifactUUID, artifactName, p.invIndex, p.category, p.infos);
                     supplier.get().enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
                 }
@@ -89,7 +90,8 @@ public final class ShowCounterPacket {
             for (float weight = buffer.readFloat(); !Float.isNaN(weight); weight = buffer.readFloat()) {
                 float finalScore = buffer.readFloat();
                 int effectiveVoteCount = buffer.readVarInt();
-                int[] countsByLevel = buffer.readVarIntArray(6);
+                // noinspection UnstableApiUsage
+                ImmutableIntArray countsByLevel = ImmutableIntArray.copyOf(buffer.readVarIntArray(6));
                 Component subgroup = buffer.readComponent();
                 scoresBuilder.add(Pair.of(subgroup, new VoteList.Stats(weight, finalScore, effectiveVoteCount, countsByLevel)));
             }
@@ -105,18 +107,18 @@ public final class ShowCounterPacket {
     }
 
     public static Optional<ShowCounterPacket> create(int inventoryId, UUID artifactID, ResourceLocation categoryID, MinecraftServer server) {
-        if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
+        if (!VoteArtifactNames.getArtifactName(artifactID).isEmpty()) {
             boolean isValidCategoryID = false;
-            VoteListHandler handler = VoteListHandler.get(server);
+            VoteDataStorage handler = VoteDataStorage.get(server);
             ImmutableList.Builder<Info> builder = ImmutableList.builder();
             for (ResourceLocation location : VoteCategoryHandler.getIds()) {
                 isValidCategoryID = isValidCategoryID || location.equals(categoryID);
                 VoteCategory category = VoteCategoryHandler.getCategory(location).orElseThrow(IllegalStateException::new);
-                VoteListEntry entry = handler.getEntry(handler.getIdOrCreate(artifactID, location)).orElseThrow(IllegalStateException::new);
-                boolean enabledCurrently = entry.votes.getEnabled().orElse(category.enabledDefault);
+                VoteList entry = handler.getVoteList(handler.getIdOrCreate(artifactID, location)).orElseThrow(IllegalStateException::new);
+                boolean enabledCurrently = entry.getEnabled().orElse(category.enabledDefault);
                 if (category.enabledDefault || category.enabledModifiable || enabledCurrently) {
                     ImmutableList.Builder<Pair<Component, VoteList.Stats>> scoresBuilder = ImmutableList.builder();
-                    entry.votes.buildFinalScore(location).forEach((subgroup, scores) -> scoresBuilder.add(Pair.of(Optional
+                    entry.buildStatsMap().forEach((subgroup, scores) -> scoresBuilder.add(Pair.of(Optional
                             .ofNullable(ResourceLocation.tryParse(subgroup)).flatMap(VoteRoleHandler::getRole)
                             .map(role -> role.name).orElse(new TextComponent(subgroup)), scores)));
                     builder.add(new Info(location, category, scoresBuilder.build(), enabledCurrently));

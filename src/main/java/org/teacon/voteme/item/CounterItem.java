@@ -28,7 +28,8 @@ import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.network.ShowCounterPacket;
 import org.teacon.voteme.network.VoteMePacketManager;
-import org.teacon.voteme.vote.VoteListHandler;
+import org.teacon.voteme.vote.VoteArtifactNames;
+import org.teacon.voteme.vote.VoteDataStorage;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -63,8 +64,8 @@ public final class CounterItem extends Item {
         tooltip.add(new TextComponent(""));
         if (tag != null && tag.hasUUID("CurrentArtifact")) {
             UUID artifactID = tag.getUUID("CurrentArtifact");
-            if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
-                MutableComponent artifactText = VoteListHandler.getArtifactText(artifactID).withStyle(ChatFormatting.GREEN);
+            if (!VoteArtifactNames.getArtifactName(artifactID).isEmpty()) {
+                MutableComponent artifactText = VoteArtifactNames.getArtifactText(artifactID).withStyle(ChatFormatting.GREEN);
                 tooltip.add(new TranslatableComponent("gui.voteme.counter.current_artifact_hint", artifactText).withStyle(ChatFormatting.GRAY));
                 ResourceLocation currentCategoryID = new ResourceLocation(tag.getString("CurrentCategory"));
                 if (!VoteCategoryHandler.getIds().isEmpty()) {
@@ -118,7 +119,7 @@ public final class CounterItem extends Item {
         CompoundTag tag = stack.getTag();
         if (tag != null && tag.hasUUID("CurrentArtifact")) {
             UUID artifactID = tag.getUUID("CurrentArtifact");
-            String artifactName = VoteListHandler.getArtifactName(artifactID);
+            String artifactName = VoteArtifactNames.getArtifactName(artifactID);
             if (!artifactName.isEmpty()) {
                 return new TranslatableComponent("item.voteme.counter.with_artifact", artifactName);
             }
@@ -128,7 +129,7 @@ public final class CounterItem extends Item {
 
     public void rename(ServerPlayer sender, ItemStack stack, UUID artifactID, String newArtifactName) {
         if (this.checkMatchedArtifact(stack, artifactID)) {
-            VoteListHandler.putArtifactName(sender.createCommandSourceStack(), artifactID, newArtifactName);
+            VoteArtifactNames.putArtifactName(sender.createCommandSourceStack(), artifactID, newArtifactName);
         } else {
             VoteMe.LOGGER.warn("Unmatched vote artifact {} submitted by {}.", artifactID, sender.getGameProfile());
         }
@@ -136,14 +137,14 @@ public final class CounterItem extends Item {
 
     public void applyChanges(ServerPlayer sender, ItemStack stack, UUID artifactID, ResourceLocation currentCategory,
                              ImmutableList<ResourceLocation> enabledCategories, ImmutableList<ResourceLocation> disabledCategories) {
-        VoteListHandler handler = VoteListHandler.get(Objects.requireNonNull(sender.getServer()));
+        VoteDataStorage handler = VoteDataStorage.get(Objects.requireNonNull(sender.getServer()));
         if (this.checkMatchedArtifact(stack, artifactID)) {
             stack.getOrCreateTag().putString("CurrentCategory", currentCategory.toString());
             stack.getOrCreateTag().putUUID("CurrentArtifact", artifactID);
             for (ResourceLocation category : enabledCategories) {
                 if (VoteCategoryHandler.getCategory(category).filter(c -> c.enabledModifiable).isPresent()) {
                     int entryID = handler.getIdOrCreate(artifactID, category);
-                    handler.getEntry(entryID).ifPresent(entry -> entry.votes.setEnabled(true));
+                    handler.getVoteList(entryID).ifPresent(entry -> entry.setEnabled(true));
                 } else {
                     VoteMe.LOGGER.warn("Unmodifiable vote category {} submitted by {}.", category, sender.getGameProfile());
                 }
@@ -151,7 +152,7 @@ public final class CounterItem extends Item {
             for (ResourceLocation category : disabledCategories) {
                 if (VoteCategoryHandler.getCategory(category).filter(c -> c.enabledModifiable).isPresent()) {
                     int entryID = handler.getIdOrCreate(artifactID, category);
-                    handler.getEntry(entryID).ifPresent(entry -> entry.votes.setEnabled(false));
+                    handler.getVoteList(entryID).ifPresent(entry -> entry.setEnabled(false));
                 } else {
                     VoteMe.LOGGER.warn("Unmodifiable vote category {} submitted by {}.", category, sender.getGameProfile());
                 }

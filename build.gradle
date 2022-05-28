@@ -10,6 +10,10 @@ buildscript {
     }
 }
 
+plugins {
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
+}
+
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 apply plugin: 'net.minecraftforge.gradle'
@@ -36,8 +40,34 @@ teacon {
     // modGitHubBranch = 1.18-forge // for referring the license
     modifyMemberAccess = true // for access transformer
     // useDataGeneration = true // for data generation
-    // publishTask = jar // for shadow jar or other usages
-    // lazyTokens = ['minecraft_classpath': { project.configurations.shadow.asPath }] // for runtime tokens
+    publishTask = shadowJar // for shadow jar or other usages
+    lazyTokens = ['minecraft_classpath': { project.configurations.shadow.asPath }] // for runtime tokens
 
     // use './gradlew -q printModMeta > src/main/resources/META-INF/mods.toml' to generate mod meta
+}
+
+configurations {
+    compileClasspath.extendsFrom(shadow)
+    runtimeClasspath.extendsFrom(shadow)
+}
+
+dependencies {
+    shadow 'io.lettuce:lettuce-core:6.1.8.RELEASE'
+}
+
+shadowJar {
+    archiveClassifier.set(null)
+    configurations = [project.configurations.shadow]
+    dependencies {
+        it.exclude it.dependency('io.netty:.*')
+    }
+    relocate 'reactor', 'org.teacon.voteme.reactor'
+    relocate 'io.lettuce', 'org.teacon.voteme.lettuce'
+    relocate 'org.reactivestreams', 'org.teacon.voteme.reactivestreams'
+}
+
+jar { it.enabled false }
+
+reobf {
+    jar { it.enabled false }
 }

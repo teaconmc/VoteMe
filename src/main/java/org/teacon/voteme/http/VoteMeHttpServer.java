@@ -30,7 +30,6 @@ import java.util.Objects;
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class VoteMeHttpServer {
-    private static final int PORT = 19970;
     private static final int MAX_CONTENT_LENGTH = 2097152;
     private static final CorsConfig CORS_CONFIG = CorsConfigBuilder.forAnyOrigin().allowNullOrigin().allowCredentials().build();
 
@@ -44,10 +43,16 @@ public final class VoteMeHttpServer {
     @SubscribeEvent
     public static void start(ServerStartingEvent event) {
         try {
-            VoteMe.LOGGER.info("Starting the vote server on port {} ...", PORT);
-            ServerBootstrap bootstrap = new ServerBootstrap().group(Connection.NETWORK_WORKER_GROUP.get());
-            future = bootstrap.channel(NioServerSocketChannel.class).childHandler(new Handler()).bind(PORT).sync();
-            VoteMe.LOGGER.info("Successfully started the vote server on port {}.", PORT);
+            int port = VoteMe.CONFIG.HTTP_SERVER_PORT.get();
+            if (port > 0) {
+                VoteMe.LOGGER.info("Starting the vote server on port {} ...", port);
+                ServerBootstrap bootstrap = new ServerBootstrap().group(Connection.NETWORK_WORKER_GROUP.get());
+                future = bootstrap.channel(NioServerSocketChannel.class).childHandler(new Handler()).bind(port).sync();
+                VoteMe.LOGGER.info("Successfully started the vote server on port {}.", port);
+            } else {
+                VoteMe.LOGGER.info("Skipping the initialization of vote server ...");
+                future = null;
+            }
         } catch (Exception e) {
             VoteMe.LOGGER.error("Failed to start the vote server.", e);
         }
@@ -56,9 +61,11 @@ public final class VoteMeHttpServer {
     @SubscribeEvent
     public static void stop(ServerStoppingEvent event) {
         try {
-            VoteMe.LOGGER.info("Stopping the vote server ...");
-            Objects.requireNonNull(future).channel().close().sync();
-            VoteMe.LOGGER.info("Successfully stopped the vote server.");
+            if (future != null) {
+                VoteMe.LOGGER.info("Stopping the vote server ...");
+                future.channel().close().sync();
+                VoteMe.LOGGER.info("Successfully stopped the vote server.");
+            }
         } catch (Exception e) {
             VoteMe.LOGGER.error("Failed to stop the vote server.", e);
         }

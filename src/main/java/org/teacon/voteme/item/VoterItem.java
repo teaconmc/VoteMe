@@ -27,7 +27,7 @@ import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.network.ShowVoterPacket;
 import org.teacon.voteme.network.VoteMePacketManager;
-import org.teacon.voteme.vote.VoteListHandler;
+import org.teacon.voteme.vote.VoteArtifactNames;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -65,8 +65,8 @@ public final class VoterItem extends Item {
         tooltip.add(new TextComponent(""));
         if (tag != null && tag.hasUUID("CurrentArtifact")) {
             UUID artifactID = tag.getUUID("CurrentArtifact");
-            if (!VoteListHandler.getArtifactName(artifactID).isEmpty()) {
-                MutableComponent artifactText = VoteListHandler.getArtifactText(artifactID).withStyle(ChatFormatting.GREEN);
+            if (!VoteArtifactNames.getArtifactName(artifactID).isEmpty()) {
+                MutableComponent artifactText = VoteArtifactNames.getArtifactText(artifactID).withStyle(ChatFormatting.GREEN);
                 tooltip.add(new TranslatableComponent("gui.voteme.voter.current_artifact_hint", artifactText).withStyle(ChatFormatting.GRAY));
                 if (!VoteCategoryHandler.getIds().isEmpty()) {
                     tooltip.add(new TextComponent(""));
@@ -122,7 +122,7 @@ public final class VoterItem extends Item {
         CompoundTag tag = stack.getTag();
         if (tag != null && tag.hasUUID("CurrentArtifact")) {
             UUID artifactID = tag.getUUID("CurrentArtifact");
-            String artifactName = VoteListHandler.getArtifactName(artifactID);
+            String artifactName = VoteArtifactNames.getArtifactName(artifactID);
             if (!artifactName.isEmpty()) {
                 return new TranslatableComponent("item.voteme.voter.with_artifact", artifactName);
             }

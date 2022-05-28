@@ -10,8 +10,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.GsonHelper;
 import org.teacon.voteme.http.VoteMeHttpServer;
-import org.teacon.voteme.vote.VoteListEntry;
-import org.teacon.voteme.vote.VoteListHandler;
+import org.teacon.voteme.vote.VoteArtifactNames;
+import org.teacon.voteme.vote.VoteDataStorage;
+import org.teacon.voteme.vote.VoteList;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Optional;
@@ -49,12 +50,12 @@ public final class VoteCategory {
         jsonObject.addProperty("id", categoryID.toString());
         jsonObject.addProperty("name", this.name.getString());
         jsonObject.addProperty("description", this.description.getString());
-        VoteListHandler voteListHandler = VoteListHandler.get(VoteMeHttpServer.getMinecraftServer());
+        VoteDataStorage voteDataStorage = VoteDataStorage.get(VoteMeHttpServer.getMinecraftServer());
         jsonObject.add("vote_lists", Util.make(new JsonArray(), array -> {
-            for (UUID artifactID : VoteListHandler.getArtifacts()) {
-                int id = voteListHandler.getIdOrCreate(artifactID, categoryID);
-                Optional<VoteListEntry> entryOptional = voteListHandler.getEntry(id);
-                entryOptional.filter(e -> e.votes.getEnabled().orElse(this.enabledDefault)).ifPresent(e -> array.add(id));
+            for (UUID artifactID : VoteArtifactNames.getArtifacts()) {
+                int id = voteDataStorage.getIdOrCreate(artifactID, categoryID);
+                Optional<VoteList> entryOptional = voteDataStorage.getVoteList(id);
+                entryOptional.filter(e -> e.getEnabled().orElse(this.enabledDefault)).ifPresent(e -> array.add(id));
             }
         }));
         return jsonObject;

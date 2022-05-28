@@ -6,7 +6,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
-import org.teacon.voteme.vote.VoteListHandler;
+import org.teacon.voteme.vote.VoteArtifactNames;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Map;
@@ -31,7 +31,7 @@ public final class SyncArtifactNamePacket {
             @Override
             public void run() {
                 SyncArtifactNamePacket p = SyncArtifactNamePacket.this;
-                supplier.get().enqueueWork(() -> VoteListHandler.handleServerPacket(p));
+                supplier.get().enqueueWork(() -> VoteArtifactNames.handleServerPacket(p));
             }
         });
         supplier.get().setPacketHandled(true);
