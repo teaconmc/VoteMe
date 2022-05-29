@@ -10,7 +10,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.GsonHelper;
 import org.teacon.voteme.http.VoteMeHttpServer;
-import org.teacon.voteme.vote.VoteArtifactNames;
 import org.teacon.voteme.vote.VoteDataStorage;
 import org.teacon.voteme.vote.VoteList;
 
@@ -52,7 +51,7 @@ public final class VoteCategory {
         jsonObject.addProperty("description", this.description.getString());
         VoteDataStorage voteDataStorage = VoteDataStorage.get(VoteMeHttpServer.getMinecraftServer());
         jsonObject.add("vote_lists", Util.make(new JsonArray(), array -> {
-            for (UUID artifactID : VoteArtifactNames.getArtifacts(false)) {
+            for (UUID artifactID : voteDataStorage.getArtifactNames().getUUIDs()) {
                 int id = voteDataStorage.getIdOrCreate(artifactID, categoryID);
                 Optional<VoteList> entryOptional = voteDataStorage.getVoteList(id);
                 entryOptional.filter(e -> e.getEnabled().orElse(this.enabledDefault)).ifPresent(e -> array.add(id));

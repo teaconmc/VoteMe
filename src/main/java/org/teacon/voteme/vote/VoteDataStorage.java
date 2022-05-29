@@ -43,6 +43,7 @@ import java.util.stream.IntStream;
 public final class VoteDataStorage extends SavedData implements Closeable {
     private int nextIndex;
 
+    private final VoteArtifactNames artifactNames;
     private final Int2ObjectMap<VoteList> voteLists;
     private final Table<UUID, ResourceLocation, Integer> voteListIDs;
     private final Table<UUID, UUID, ImmutableList<String>> voteComments;
@@ -56,6 +57,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
 
     public VoteDataStorage() {
         this.nextIndex = 1;
+        this.artifactNames = new VoteArtifactNames();
         this.voteLists = new Int2ObjectRBTreeMap<>();
         this.voteListIDs = TreeBasedTable.create();
         this.voteComments = HashBasedTable.create();
@@ -64,6 +66,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
 
     public VoteDataStorage(CompoundTag nbt) {
         this.nextIndex = 1;
+        this.artifactNames = new VoteArtifactNames();
         this.voteLists = new Int2ObjectRBTreeMap<>();
         this.voteListIDs = TreeBasedTable.create();
         this.voteComments = HashBasedTable.create();
@@ -83,7 +86,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         // upload announcements
         Collection<VoteSynchronizer.Announcement> toUpload = new ArrayList<>();
         this.voteLists.values().forEach(v -> v.dequeue(toUpload));
-        VoteArtifactNames.dequeue(toUpload);
+        this.artifactNames.dequeue(toUpload);
         if (!toUpload.isEmpty()) {
             toUpload.forEach(this.sync::publish);
             this.setDirty();
@@ -94,7 +97,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         this.sync.dequeue(toDownload);
         toDownload.forEach(elem -> {
             if (elem instanceof VoteSynchronizer.Artifact artifact) {
-                VoteArtifactNames.publish(artifact);
+                this.artifactNames.publish(artifact);
                 this.setDirty();
                 return;
             }
@@ -135,9 +138,13 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         this.setDirty();
     }
 
+    public VoteArtifactNames getArtifactNames() {
+        return this.artifactNames;
+    }
+
     public boolean hasEnabled(ResourceLocation category) {
         boolean enabledDefault = VoteCategoryHandler.getCategory(category).filter(c -> c.enabledDefault).isPresent();
-        return VoteArtifactNames.getArtifacts(false).stream()
+        return this.artifactNames.getUUIDs().stream()
                 .map(id -> this.voteLists.get(this.getIdOrCreate(id, category)))
                 .anyMatch(votes -> votes.getEnabled().orElse(enabledDefault));
     }
@@ -187,8 +194,8 @@ public final class VoteDataStorage extends SavedData implements Closeable {
     public JsonObject toArtifactHTTPJson(UUID artifactID) {
         return Util.make(new JsonObject(), result -> {
             result.addProperty("id", artifactID.toString());
-            result.addProperty("name", VoteArtifactNames.getArtifactName(artifactID, false));
-            Optional.of(VoteArtifactNames.getArtifactAlias(artifactID, false))
+            result.addProperty("name", this.artifactNames.getName(artifactID));
+            Optional.of(this.artifactNames.getAlias(artifactID))
                     .filter(s -> !s.isEmpty()).ifPresent(s -> result.addProperty("alias", s));
             Map<Integer, VoteList> voteLists = new LinkedHashMap<>();
             for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
@@ -322,7 +329,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         }
 
         // artifacts
-        int loadedArtifactSize = VoteArtifactNames.load(nbt);
+        int loadedArtifactSize = this.artifactNames.load(nbt);
 
         // comments
         CompoundTag commentsCollection = nbt.getCompound("VoteComments");
@@ -361,7 +368,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         nbt.put("VoteLists", lists);
 
         // artifacts
-        int savedArtifactSize = VoteArtifactNames.save(nbt);
+        int savedArtifactSize = this.artifactNames.save(nbt);
 
         // comments
         CompoundTag commentsCollection = new CompoundTag();

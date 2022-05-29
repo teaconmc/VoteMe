@@ -49,7 +49,7 @@ public final class ArtifactArgumentType implements ArgumentType<UUID> {
         if (size > 0) {
             reader.setCursor(start + size);
             String alias = remaining.substring(0, size);
-            Optional<UUID> result = VoteArtifactNames.getArtifactByAlias(alias, false);
+            Optional<UUID> result = VoteArtifactNames.effective().flatMap(a -> a.getByAlias(alias));
             return result.orElseThrow(() -> VoteMeCommand.ARTIFACT_NOT_FOUND.create(alias));
         }
         Matcher matcher = UUID_PATTERN.matcher(remaining);
@@ -57,7 +57,7 @@ public final class ArtifactArgumentType implements ArgumentType<UUID> {
             String uuidString = matcher.group(1);
             reader.setCursor(start + uuidString.length());
             UUID uuid = parse(uuidString);
-            if (VoteArtifactNames.getArtifactName(uuid, false).isEmpty()) {
+            if (VoteArtifactNames.effective().filter(a -> !a.getName(uuid).isEmpty()).isEmpty()) {
                 throw VoteMeCommand.ARTIFACT_NOT_FOUND.create(uuid);
             }
             return uuid;
@@ -75,9 +75,8 @@ public final class ArtifactArgumentType implements ArgumentType<UUID> {
 
     @Override
     public <S> CompletableFuture<Suggestions> listSuggestions(CommandContext<S> context, SuggestionsBuilder builder) {
-        return SharedSuggestionProvider.suggest(Stream.concat(
-                VoteArtifactNames.getArtifactAliases(false).stream(),
-                VoteArtifactNames.getArtifacts(false).stream().map(UUID::toString)), builder);
+        return SharedSuggestionProvider.suggest(VoteArtifactNames.effective().stream().flatMap(a -> Stream
+                .concat(a.getAliases().stream(), a.getUUIDs().stream().map(UUID::toString))), builder);
     }
 
     @Override

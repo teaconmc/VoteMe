@@ -25,15 +25,9 @@ public final class SyncArtifactNamePacket {
     }
 
     public void handle(Supplier<NetworkEvent.Context> supplier) {
-        // forge needs a separate class
-        // noinspection Convert2Lambda
-        DistExecutor.safeRunWhenOn(Dist.CLIENT, () -> new DistExecutor.SafeRunnable() {
-            @Override
-            public void run() {
-                SyncArtifactNamePacket p = SyncArtifactNamePacket.this;
-                supplier.get().enqueueWork(() -> VoteArtifactNames.handleServerPacket(p));
-            }
-        });
+        SyncArtifactNamePacket packet = SyncArtifactNamePacket.this;
+        supplier.get().enqueueWork(() -> DistExecutor
+                .safeCallWhenOn(Dist.CLIENT, () -> VoteArtifactNames::handleServerPacket).accept(packet));
         supplier.get().setPacketHandled(true);
     }
 

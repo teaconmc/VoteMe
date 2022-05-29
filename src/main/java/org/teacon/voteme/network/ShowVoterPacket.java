@@ -56,7 +56,7 @@ public final class ShowVoterPacket {
                 @Override
                 public void run() {
                     ShowVoterPacket p = ShowVoterPacket.this;
-                    String artifactName = VoteArtifactNames.getArtifactName(p.artifactID, true);
+                    String artifactName = VoteArtifactNames.client().getName(p.artifactID);
                     if (!artifactName.isEmpty()) {
                         VoterScreen gui = new VoterScreen(p.artifactID, artifactName, p.infos, p.comments);
                         supplier.get().enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
@@ -75,8 +75,8 @@ public final class ShowVoterPacket {
         }
         buffer.writeInt(Integer.MIN_VALUE);
         buffer.writeVarInt(this.comments.size());
-        for (int i = 0; i < this.comments.size(); i++) {
-            buffer.writeUtf(this.comments.get(i), MAX_LENGTH_PER_PAGE);
+        for (String comment : this.comments) {
+            buffer.writeUtf(comment, MAX_LENGTH_PER_PAGE);
         }
     }
 
@@ -99,7 +99,8 @@ public final class ShowVoterPacket {
     }
 
     public static Optional<ShowVoterPacket> create(UUID artifactID, ServerPlayer player) {
-        if (!VoteArtifactNames.getArtifactName(artifactID, false).isEmpty()) {
+        VoteArtifactNames artifactNames = VoteDataStorage.get(player.server).getArtifactNames();
+        if (!artifactNames.getName(artifactID).isEmpty()) {
             VoteDataStorage handler = VoteDataStorage.get(player.server);
             ImmutableList.Builder<Info> builder = ImmutableList.builder();
             Set<ResourceLocation> categoryIDs = new LinkedHashSet<>();
