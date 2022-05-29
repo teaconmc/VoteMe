@@ -236,14 +236,14 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                     optional = Optional.of(alias);
                 }
                 return announceKey.cast(new Artifact(key, name, optional));
-            }, this.server);
+            });
         }
         if (announceKey instanceof CommentsKey key) {
             RedisAsyncCommands<String, String> async = RedisSynchronizer.this.connection.async();
             stage = async.lrange(toRedisKey(key), 0, Integer.MAX_VALUE).thenApplyAsync(list -> {
                 ImmutableList<String> comments = ImmutableList.copyOf(list);
                 return announceKey.cast(new Comments(key, comments));
-            }, this.server);
+            });
         }
         if (announceKey instanceof VoteKey key) {
             RedisAsyncCommands<String, String> async = RedisSynchronizer.this.connection.async();
@@ -259,7 +259,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                 }
                 Instant time = Instant.parse(checkNotNull(map.getOrDefault("time", Instant.EPOCH.toString())));
                 return announceKey.cast(new Vote(key, level, roles.build(), time));
-            }, this.server);
+            });
         }
         if (announceKey instanceof VoteDisabledKey key) {
             RedisAsyncCommands<String, String> async = RedisSynchronizer.this.connection.async();
@@ -271,7 +271,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                     default -> throw new IllegalArgumentException("unexpected value: " + string);
                 };
                 return announceKey.cast(new VoteDisabled(key, disabled));
-            }, this.server);
+            });
         }
         if (announceKey instanceof VoteStatsKey key) {
             RedisAsyncCommands<String, String> async = RedisSynchronizer.this.connection.async();
@@ -285,7 +285,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                 // noinspection UnstableApiUsage
                 ImmutableIntArray counts = ImmutableIntArray.of(count0, count1, count2, count3, count4, count5);
                 return announceKey.cast(new VoteStats(key, counts));
-            }, this.server);
+            });
         }
         return stage.toCompletableFuture();
     }
@@ -357,7 +357,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
             if (!newCursor.isFinished()) {
                 this.scan(consumer, newCursor, args);
             }
-        }, this.server);
+        });
     }
 
     @Override
