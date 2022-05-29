@@ -1,5 +1,6 @@
 package org.teacon.voteme.sync;
 
+import com.google.common.base.Preconditions;
 import com.google.common.primitives.ImmutableIntArray;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
@@ -8,9 +9,11 @@ import org.teacon.voteme.sync.VoteSynchronizer.Vote;
 import org.teacon.voteme.sync.VoteSynchronizer.VoteKey;
 import org.teacon.voteme.sync.VoteSynchronizer.VoteStatsKey;
 
+import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.IntStream;
 
 public final class StatsAccumulator {
@@ -21,45 +24,74 @@ public final class StatsAccumulator {
     private final List<Object2IntMap<VoteStatsKey>> countMaps = IntStream.range(0, MAX_LEVEL + 1)
             .<Object2IntMap<VoteStatsKey>>mapToObj(level -> new Object2IntOpenHashMap<>()).toList();
 
-    private void increase(Vote vote) {
-        for (ResourceLocation roleID : vote.roles()) {
-            VoteStatsKey key = new VoteStatsKey(vote.key().artifactID(), vote.key().categoryID(), roleID);
-            this.countMaps.get(vote.level()).mergeInt(key, 1, Integer::sum);
-            this.countMaps.get(0).mergeInt(key, -1, Integer::sum);
+    private void increase(@Nullable Vote vote) {
+        if (vote != null) {
+            for (ResourceLocation roleID : vote.roles()) {
+                VoteStatsKey key = new VoteStatsKey(vote.key().artifactID(), vote.key().categoryID(), roleID);
+                this.countMaps.get(vote.level()).mergeInt(key, 1, Integer::sum);
+                this.countMaps.get(0).mergeInt(key, -1, Integer::sum);
+            }
         }
     }
 
-    private void decrease(Vote vote) {
-        for (ResourceLocation roleID : vote.roles()) {
-            VoteStatsKey key = new VoteStatsKey(vote.key().artifactID(), vote.key().categoryID(), roleID);
-            this.countMaps.get(vote.level()).mergeInt(key, -1, Integer::sum);
-            this.countMaps.get(0).mergeInt(key, 1, Integer::sum);
+    private void decrease(@Nullable Vote vote) {
+        if (vote != null) {
+            for (ResourceLocation roleID : vote.roles()) {
+                VoteStatsKey key = new VoteStatsKey(vote.key().artifactID(), vote.key().categoryID(), roleID);
+                this.countMaps.get(vote.level()).mergeInt(key, -1, Integer::sum);
+                this.countMaps.get(0).mergeInt(key, 1, Integer::sum);
+            }
+        }
+    }
+
+    private void forceAccumulate(VoteKey voteKey, @Nullable Vote prev, @Nullable Vote vote) {
+        @Nullable Vote subtracted = this.subtractedVotes.get(voteKey);
+        if (prev != null) {
+            Preconditions.checkArgument(Objects.equals(this.accumulatedVotes.remove(voteKey), prev));
+            this.increase(subtracted);
+            this.decrease(prev);
+        }
+        if (vote != null) {
+            Preconditions.checkArgument(Objects.isNull(this.accumulatedVotes.put(voteKey, vote)));
+            this.decrease(subtracted);
+            this.increase(vote);
+        }
+    }
+
+    private void forceSubtract(VoteKey voteKey, @Nullable Vote prev, @Nullable Vote vote) {
+        @Nullable Vote accumulated = this.accumulatedVotes.get(voteKey);
+        if (prev != null) {
+            Preconditions.checkArgument(Objects.equals(this.subtractedVotes.remove(voteKey), prev));
+        }
+        if (vote != null) {
+            Preconditions.checkArgument(Objects.isNull(this.subtractedVotes.put(voteKey, vote)));
+        }
+        if (accumulated != null) {
+            this.increase(prev);
+            this.decrease(vote);
         }
     }
 
     public void accumulate(Vote vote) {
-        Vote prevSubtractedVote = this.subtractedVotes.get(vote.key());
-        if (prevSubtractedVote == null || prevSubtractedVote.time().isBefore(vote.time())) {
-            Vote prevAccumulatedVote = this.accumulatedVotes.get(vote.key());
-            if (prevAccumulatedVote == null || prevAccumulatedVote.time().isBefore(vote.time())) {
-                if (prevAccumulatedVote != null) {
-                    this.decrease(prevAccumulatedVote);
-                }
-                this.accumulatedVotes.put(vote.key(), vote);
-                this.increase(vote);
+        VoteKey voteKey = vote.key();
+        @Nullable Vote prevSubtracted = this.subtractedVotes.get(voteKey);
+        if (prevSubtracted == null || prevSubtracted.time().isBefore(vote.time())) {
+            @Nullable Vote prevAccumulated = this.accumulatedVotes.get(voteKey);
+            if (prevAccumulated == null || prevAccumulated.time().isBefore(vote.time())) {
+                this.forceAccumulate(voteKey, prevAccumulated, vote);
             }
         }
     }
 
     public void subtract(Vote vote) {
-        Vote prevSubtractedVote = this.subtractedVotes.get(vote.key());
-        if (prevSubtractedVote == null || prevSubtractedVote.time().isBefore(vote.time())) {
-            Vote prevAccumulatedVote = this.accumulatedVotes.get(vote.key());
-            if (prevAccumulatedVote != null && !vote.time().isBefore(prevAccumulatedVote.time())) {
-                this.accumulatedVotes.remove(vote.key());
-                this.decrease(prevAccumulatedVote);
+        VoteKey voteKey = vote.key();
+        @Nullable Vote prevSubtracted = this.subtractedVotes.get(voteKey);
+        if (prevSubtracted == null || prevSubtracted.time().isBefore(vote.time())) {
+            @Nullable Vote prevAccumulated = this.accumulatedVotes.get(voteKey);
+            if (prevAccumulated != null && !vote.time().isBefore(prevAccumulated.time())) {
+                this.forceAccumulate(voteKey, prevAccumulated, null);
             }
-            this.subtractedVotes.put(vote.key(), vote);
+            this.forceSubtract(voteKey, prevSubtracted, vote);
         }
     }
 
