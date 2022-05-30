@@ -85,6 +85,7 @@ public final class AnnouncementSerializer {
                 nbt.putString(KEY_VOTE_ROLE, voteStats.key().roleID().toString());
                 // noinspection UnstableApiUsage
                 nbt.putIntArray(KEY_LEVEL_COUNTS, voteStats.counts().toArray());
+                return Optional.of(nbt);
             }
             throw new IllegalArgumentException("unsupported announcement type: " + announcement.getClass());
         } catch (IllegalArgumentException e) {

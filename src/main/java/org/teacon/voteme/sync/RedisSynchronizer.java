@@ -358,11 +358,13 @@ public final class RedisSynchronizer implements VoteSynchronizer {
     public void dequeue(Collection<? super Announcement> drainTo) {
         checkArgument(this.server.isSameThread(), "server thread");
         if (!this.notFirstTime) {
+            int maximum = 1000;
             this.notFirstTime = true;
-            this.scan(this.queued::offer, ScanCursor.of("0"), new ScanArgs().match(ARTIFACT + ":*"));
-            this.scan(this.queued::offer, ScanCursor.of("0"), new ScanArgs().match(COMMENTS + ":*"));
-            this.scan(this.queued::offer, ScanCursor.of("0"), new ScanArgs().match(VOTE + ":*"));
-            this.scan(this.queued::offer, ScanCursor.of("0"), new ScanArgs().match(VOTE_DISABLED + ":*"));
+            this.scan(this.queued::offer, ScanCursor.of("0"), new ScanArgs().match(ARTIFACT + ":*").limit(maximum));
+            this.scan(this.queued::offer, ScanCursor.of("0"), new ScanArgs().match(COMMENTS + ":*").limit(maximum));
+            this.scan(this.queued::offer, ScanCursor.of("0"), new ScanArgs().match(VOTE + ":*").limit(maximum));
+            this.scan(this.queued::offer, ScanCursor.of("0"), new ScanArgs().match(VOTE_DISABLED + ":*").limit(maximum));
+            this.scan(this.queued::offer, ScanCursor.of("0"), new ScanArgs().match(VOTE_STATS + ":*").limit(maximum));
         }
         for (Announcement elem = this.queued.poll(); elem != null; elem = this.queued.poll()) {
             VoteMe.LOGGER.info("Retrieving announcement from redis: {}", elem.key());
@@ -390,7 +392,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
 
         @Override
         public void message(String channel, String message) {
-            if (SYNC.equals(message)) {
+            if (SYNC.equals(channel)) {
                 tryParse(message, nbt -> deserialize(nbt).ifPresent(RedisSynchronizer.this.queued::offer));
             } else {
                 VoteMe.LOGGER.warn("Unrecognized message from redis channel {}", channel);
