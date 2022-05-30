@@ -90,7 +90,7 @@ public final class VoteList implements INBTSerializable<CompoundTag> {
         Preconditions.checkArgument(this.key.artifactID().equals(vote.key().artifactID()), "wrong artifact id");
         Preconditions.checkArgument(this.key.categoryID().equals(vote.key().categoryID()), "wrong category id");
         UUID voterID = vote.key().voterID();
-        if (!this.votes.containsKey(voterID) || this.votes.get(voterID).getRight().isBefore(vote.time())) {
+        if (!this.votes.containsKey(voterID) || !vote.time().isBefore(this.votes.get(voterID).getRight())) {
             if (vote.level() != 0) {
                 this.votes.put(voterID, Triple.of(vote.level(), vote.roles(), vote.time()));
             } else {
