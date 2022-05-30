@@ -150,7 +150,18 @@ public final class VoteArtifactNames {
         }
     }
 
-    public int load(CompoundTag nbt) {
+    public void buildAnnouncements(Collection<? super VoteSynchronizer.Announcement> announcements) {
+        for (Map.Entry<UUID, String> entry : this.names.entrySet()) {
+            String name = entry.getValue();
+            if (!name.isEmpty()) {
+                VoteSynchronizer.ArtifactKey key = new VoteSynchronizer.ArtifactKey(entry.getKey());
+                Optional<String> alias = Optional.ofNullable(this.aliases.get(entry.getKey()));
+                announcements.add(new VoteSynchronizer.Artifact(key, name, alias));
+            }
+        }
+    }
+
+    public int loadLegacyNBT(CompoundTag nbt) {
         ListTag names = nbt.getList("VoteArtifacts", Tag.TAG_COMPOUND);
         for (int i = 0, size = names.size(); i < size; ++i) {
             CompoundTag child = names.getCompound(i);
@@ -186,19 +197,6 @@ public final class VoteArtifactNames {
                 }
             }
         }
-        return names.size();
-    }
-
-    public int save(CompoundTag nbt) {
-        ListTag names = new ListTag();
-        for (Map.Entry<UUID, String> entry : this.names.entrySet()) {
-            CompoundTag child = new CompoundTag();
-            child.putUUID("UUID", entry.getKey());
-            child.putString("Name", entry.getValue());
-            Optional.ofNullable(this.aliases.get(entry.getKey())).ifPresent(a -> child.putString("Alias", a));
-            names.add(child);
-        }
-        nbt.put("VoteArtifacts", names);
         return names.size();
     }
 

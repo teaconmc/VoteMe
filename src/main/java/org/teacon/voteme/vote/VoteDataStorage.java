@@ -13,7 +13,6 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.Util;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -36,6 +35,9 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.IntStream;
+
+import static org.teacon.voteme.sync.AnnouncementSerializer.deserialize;
+import static org.teacon.voteme.sync.AnnouncementSerializer.serialize;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -95,37 +97,37 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         // download announcements
         Collection<VoteSynchronizer.Announcement> toDownload = new ArrayList<>();
         this.sync.dequeue(toDownload);
-        toDownload.forEach(elem -> {
-            if (elem instanceof VoteSynchronizer.Artifact artifact) {
-                this.artifactNames.publish(artifact);
-                this.setDirty();
-                return;
-            }
-            if (elem instanceof VoteSynchronizer.Comments comments) {
-                this.handleCommentsAnnouncement(comments);
-                this.setDirty();
-                return;
-            }
-            if (elem instanceof VoteSynchronizer.VoteDisabled voteDisabled) {
-                int id = this.getIdOrCreate(voteDisabled.key().artifactID(), voteDisabled.key().categoryID());
-                this.getVoteList(id).ifPresent(v -> v.publish(voteDisabled));
-                this.setDirty();
-                return;
-            }
-            if (elem instanceof VoteSynchronizer.Vote vote) {
-                int id = this.getIdOrCreate(vote.key().artifactID(), vote.key().categoryID());
-                this.getVoteList(id).ifPresent(v -> v.publish(vote));
-                this.setDirty();
-                return;
-            }
-            if (elem instanceof VoteSynchronizer.VoteStats voteStats) {
-                int id = this.getIdOrCreate(voteStats.key().artifactID(), voteStats.key().categoryID());
-                this.getVoteList(id).ifPresent(v -> v.publish(voteStats));
-                this.setDirty();
-                return;
-            }
-            throw new IllegalArgumentException("unsupported announcement type: " + elem.getClass());
-        });
+        if (!toDownload.isEmpty()) {
+            toDownload.forEach(this::handle);
+            this.setDirty();
+        }
+    }
+
+    private void handle(VoteSynchronizer.Announcement announcement) {
+        if (announcement instanceof VoteSynchronizer.Artifact artifact) {
+            this.artifactNames.publish(artifact);
+            return;
+        }
+        if (announcement instanceof VoteSynchronizer.Comments comments) {
+            this.handleCommentsAnnouncement(comments);
+            return;
+        }
+        if (announcement instanceof VoteSynchronizer.VoteDisabled voteDisabled) {
+            int id = this.getIdOrCreate(voteDisabled.key().artifactID(), voteDisabled.key().categoryID());
+            this.getVoteList(id).ifPresent(v -> v.publish(voteDisabled));
+            return;
+        }
+        if (announcement instanceof VoteSynchronizer.Vote vote) {
+            int id = this.getIdOrCreate(vote.key().artifactID(), vote.key().categoryID());
+            this.getVoteList(id).ifPresent(v -> v.publish(vote));
+            return;
+        }
+        if (announcement instanceof VoteSynchronizer.VoteStats voteStats) {
+            int id = this.getIdOrCreate(voteStats.key().artifactID(), voteStats.key().categoryID());
+            this.getVoteList(id).ifPresent(v -> v.publish(voteStats));
+            return;
+        }
+        throw new IllegalArgumentException("unsupported announcement type: " + announcement.getClass());
     }
 
     private void handleCommentsAnnouncement(VoteSynchronizer.Comments comments) {
@@ -150,9 +152,14 @@ public final class VoteDataStorage extends SavedData implements Closeable {
     }
 
     public int getIdOrCreate(UUID artifactID, ResourceLocation category) {
+        return getIdOrCreate(artifactID, category, this.nextIndex);
+    }
+
+    private int getIdOrCreate(UUID artifactID, ResourceLocation category, int hint) {
         Integer oldId = this.voteListIDs.get(artifactID, category);
         if (oldId == null) {
-            int id = this.nextIndex++;
+            int id = this.voteLists.containsKey(hint) ? this.nextIndex : hint;
+            this.nextIndex = Math.max(this.nextIndex, id + 1);
             this.voteListIDs.put(artifactID, category, id);
             this.voteLists.put(id, new VoteList(artifactID, category));
             this.setDirty();
@@ -307,31 +314,43 @@ public final class VoteDataStorage extends SavedData implements Closeable {
     public void load(CompoundTag nbt) {
         VoteMe.LOGGER.info("Loading vote list data on server ...");
 
+        // vote list next index and index hints
+        this.nextIndex = Math.max(this.nextIndex, nbt.getInt("VoteListNextIndex"));
+
+        ListTag hintTags = nbt.getList("VoteListIndexHints", Tag.TAG_COMPOUND);
+        for (Tag tag : hintTags) {
+            CompoundTag child = (CompoundTag) tag;
+            int hint = child.contains("VoteListIndex", Tag.TAG_INT) ? child.getInt("VoteListIndex") : this.nextIndex;
+            this.getIdOrCreate(child.getUUID("ArtifactUUID"), new ResourceLocation(child.getString("Category")), hint);
+        }
+
+        // announcements
+        ListTag announcementTags = nbt.getList("VoteAnnouncements", Tag.TAG_COMPOUND);
+        for (Tag tag : announcementTags) {
+            Optional<VoteSynchronizer.Announcement> optional = deserialize((CompoundTag) tag);
+            if (optional.isPresent()) {
+                this.handle(optional.get());
+                this.sync.publish(optional.get());
+            }
+        }
+
+        /* * * * * * * * LEGACY PART START * * * * * * * */
+
         // vote lists
-        this.nextIndex = nbt.getInt("VoteListNextIndex");
         ListTag lists = nbt.getList("VoteLists", Tag.TAG_COMPOUND);
         for (int i = 0, size = lists.size(); i < size; ++i) {
             CompoundTag child = lists.getCompound(i);
             VoteSynchronizer.VoteDisabledKey key = VoteList.deserializeKey(child);
-            Integer id = this.voteListIDs.get(key.artifactID(), key.categoryID());
-            if (id == null) {
-                id = child.getInt("VoteListIndex");
-                if (id >= this.nextIndex) {
-                    this.nextIndex = id + 1; // increase next index
-                } else if (!this.voteLists.containsKey((int) id)) {
-                    id = this.nextIndex++; // regenerate id
-                }
-                VoteList voteList = new VoteList(key.artifactID(), key.categoryID());
-                this.voteListIDs.put(key.artifactID(), key.categoryID(), id);
-                this.voteLists.put((int) id, voteList);
-            }
-            this.voteLists.get((int) id).deserializeNBT(child);
+            int hint = child.contains("VoteListIndex", Tag.TAG_INT) ? child.getInt("VoteListIndex") : this.nextIndex;
+            int id = this.getIdOrCreate(key.artifactID(), key.categoryID(), hint);
+            this.voteLists.get(id).loadLegacyNBT(child);
         }
 
         // artifacts
-        int loadedArtifactSize = this.artifactNames.load(nbt);
+        int loadedArtifactSize = this.artifactNames.loadLegacyNBT(nbt);
 
         // comments
+        int commentsSize = 0;
         CompoundTag commentsCollection = nbt.getCompound("VoteComments");
         for (String artifactID : commentsCollection.getAllKeys()) {
             CompoundTag allComments = commentsCollection.getCompound(artifactID);
@@ -343,49 +362,52 @@ public final class VoteDataStorage extends SavedData implements Closeable {
                 } else {
                     this.voteComments.remove(UUID.fromString(artifactID), UUID.fromString(voterID));
                 }
+                commentsSize += 1;
                 this.emitCommentsAnnouncement(UUID.fromString(artifactID), UUID.fromString(voterID), comments);
             }
         }
 
-        VoteMe.LOGGER.info("Loaded {} vote list data of {} artifact(s) on server.", lists.size(), loadedArtifactSize);
+        /* * * * * * * * LEGACY PART FINISH * * * * * * * */
+
+        int size = 1 + hintTags.size() + announcementTags.size();
+        int legacySize = lists.size() + loadedArtifactSize + commentsSize;
+        if (legacySize > 0) {
+            VoteMe.LOGGER.info("Loaded {} data and {} legacy data on server.", size, legacySize);
+        } else {
+            VoteMe.LOGGER.info("Loaded {} data on server.", size);
+        }
     }
 
     @Override
     public CompoundTag save(CompoundTag nbt) {
         VoteMe.LOGGER.info("Saving vote list data on server ...");
 
-        // vote lists
-        ListTag lists = new ListTag();
-        for (int id = 0; id < this.nextIndex; ++id) {
-            VoteList voteList = this.voteLists.get(id);
-            if (voteList != null) {
-                CompoundTag child = voteList.serializeNBT();
-                child.putInt("VoteListIndex", id);
-                lists.add(child);
-            }
-        }
+        // vote list next index and index hints
         nbt.putInt("VoteListNextIndex", this.nextIndex);
-        nbt.put("VoteLists", lists);
 
-        // artifacts
-        int savedArtifactSize = this.artifactNames.save(nbt);
-
-        // comments
-        CompoundTag commentsCollection = new CompoundTag();
-        for (UUID artifactID : this.voteComments.rowKeySet()) {
-            CompoundTag artifactComments = new CompoundTag();
-            for (Map.Entry<UUID, ImmutableList<String>> entry : this.voteComments.row(artifactID).entrySet()) {
-                ListTag comments = new ListTag();
-                for (String comment : entry.getValue()) {
-                    comments.add(StringTag.valueOf(comment));
-                }
-                artifactComments.put(entry.getKey().toString(), comments);
-            }
-            commentsCollection.put(artifactID.toString(), artifactComments);
+        ListTag hintTags = new ListTag();
+        for (Int2ObjectMap.Entry<VoteList> entry : this.voteLists.int2ObjectEntrySet()) {
+            CompoundTag child = new CompoundTag();
+            child.putInt("VoteListIndex", entry.getIntKey());
+            child.putUUID("ArtifactUUID", entry.getValue().getArtifactID());
+            child.putString("Category", entry.getValue().getCategoryID().toString());
+            hintTags.add(child);
         }
-        nbt.put("VoteComments", commentsCollection);
+        nbt.put("VoteListIndexHints", hintTags);
 
-        VoteMe.LOGGER.info("Saved {} vote list data of {} artifact(s) on server.", lists.size(), savedArtifactSize);
+        // announcements
+        ListTag announcementTags = new ListTag();
+        List<VoteSynchronizer.Announcement> announcements = new ArrayList<>();
+        this.artifactNames.buildAnnouncements(announcements);
+        for (Table.Cell<UUID, UUID, ImmutableList<String>> e : this.voteComments.cellSet()) {
+            VoteSynchronizer.CommentsKey key = new VoteSynchronizer.CommentsKey(e.getRowKey(), e.getColumnKey());
+            announcements.add(new VoteSynchronizer.Comments(key, e.getValue()));
+        }
+        this.voteLists.values().forEach(v -> v.buildAnnouncements(announcements));
+        announcements.forEach(announcement -> serialize(announcement).ifPresent(announcementTags::add));
+        nbt.put("VoteAnnouncements", announcementTags);
+
+        VoteMe.LOGGER.info("Saved {} data on server.", 1 + hintTags.size() + announcementTags.size());
         return nbt;
     }
 

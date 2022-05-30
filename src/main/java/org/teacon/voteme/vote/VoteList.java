@@ -6,15 +6,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.primitives.ImmutableIntArray;
 import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.Util;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
-import net.minecraftforge.common.util.INBTSerializable;
 import org.apache.commons.lang3.tuple.Triple;
 import org.teacon.voteme.roles.VoteRole;
 import org.teacon.voteme.roles.VoteRoleHandler;
@@ -34,7 +31,7 @@ import static org.teacon.voteme.sync.VoteSynchronizer.VoteStats;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class VoteList implements INBTSerializable<CompoundTag> {
+public final class VoteList {
     public static final Instant DEFAULT_VOTE_TIME = DateTimeFormatter.RFC_1123_DATE_TIME.parse("Sat, 9 Jan 2021 02:00:00 +0800", Instant::from);
 
     private @Nullable Boolean enabled;
@@ -197,33 +194,18 @@ public final class VoteList implements INBTSerializable<CompoundTag> {
         votes.forEach(this::emitVoteAnnouncement);
     }
 
-    @Override
-    public CompoundTag serializeNBT() {
-        ListTag nbt = new ListTag();
+    public void buildAnnouncements(Collection<? super Announcement> announcements) {
         for (Map.Entry<UUID, Triple<Integer, ImmutableSet<ResourceLocation>, Instant>> entry : this.votes.entrySet()) {
-            CompoundTag child = new CompoundTag();
-            child.putUUID("UUID", entry.getKey());
-            child.putInt("Level", entry.getValue().getLeft());
-            child.put("VoteRoles", Util.make(new ListTag(), roles -> {
-                for (ResourceLocation r : entry.getValue().getMiddle()) {
-                    roles.add(StringTag.valueOf(r.toString()));
-                }
-            }));
-            child.putLong("VoteTime", entry.getValue().getRight().toEpochMilli());
-            nbt.add(child);
+            Triple<Integer, ImmutableSet<ResourceLocation>, Instant> triple = entry.getValue();
+            VoteKey key = new VoteKey(this.key.artifactID(), this.key.categoryID(), entry.getKey());
+            announcements.add(new Vote(key, triple.getLeft(), triple.getMiddle(), triple.getRight()));
         }
-        CompoundTag result = new CompoundTag();
-        result.put("Votes", nbt);
         if (this.enabled != null) {
-            result.putBoolean("Disabled", !this.enabled);
+            announcements.add(new VoteDisabled(this.key, Optional.of(!this.enabled)));
         }
-        result.putUUID("ArtifactUUID", this.key.artifactID());
-        result.putString("Category", this.key.categoryID().toString());
-        return result;
     }
 
-    @Override
-    public void deserializeNBT(CompoundTag source) {
+    public void loadLegacyNBT(CompoundTag source) {
         Preconditions.checkArgument(deserializeKey(source).equals(this.key), "invalid artifact or category");
         Boolean enabled = source.contains("Disabled", Tag.TAG_ANY_NUMERIC) ? !source.getBoolean("Disabled") : null;
         if (this.enabled != enabled) {
