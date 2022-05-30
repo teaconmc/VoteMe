@@ -285,7 +285,7 @@ public final class CounterScreen extends Screen {
     private static <T> List<T> rotateAsFirst(List<T> initial, Predicate<T> filter) {
         int dist = IntStream.range(0, initial.size()).filter(i -> filter.test(initial.get(i))).findFirst().orElse(0);
         ArrayList<T> result = new ArrayList<>(initial);
-        Collections.rotate(result, dist);
+        Collections.rotate(result, -dist);
         return result;
     }
 
