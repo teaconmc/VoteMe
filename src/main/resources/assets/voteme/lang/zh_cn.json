@@ -57,6 +57,8 @@
   "gui.voteme.counter.score.subgroup": "投票分数（组别：%s，权重：%s） - 总计 %s 票 / 有效 %s 票",
   "gui.voteme.counter.switch": "启用/禁用作品在该分类下的投票",
   "gui.voteme.voter.category_hint": "- %s",
+  "gui.voteme.voter.no_category.prev": "你无需参与任何投票",
+  "gui.voteme.voter.no_category.next": "如需撰写评语，请点下方按钮",
   "gui.voteme.voter.clear": "清空",
   "gui.voteme.voter.close": "关闭",
   "gui.voteme.voter.comment": "撰写评语",

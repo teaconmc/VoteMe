@@ -57,6 +57,8 @@
   "gui.voteme.counter.score.subgroup": "Voting Score (subgroup: %s, weight: %s) - %s total / %s effective",
   "gui.voteme.counter.switch": "Enable/disable voting of this category for the artifact",
   "gui.voteme.voter.category_hint": "- %s",
+  "gui.voteme.voter.no_category.prev": "Nothing needed to vote",
+  "gui.voteme.voter.no_category.next": "Click the bottom button to comment",
   "gui.voteme.voter.clear": "Clear",
   "gui.voteme.voter.close": "Close",
   "gui.voteme.voter.comment": "Comment",

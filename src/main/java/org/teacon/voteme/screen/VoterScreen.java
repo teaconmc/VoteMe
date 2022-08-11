@@ -39,7 +39,7 @@ public final class VoterScreen extends Screen {
 
     private static final int BUTTON_TEXT_COLOR = 0xFFFFFFFF;
     private static final int TEXT_COLOR = 0xFF000000 | DyeColor.BLACK.getTextColor();
-    private static final int SUGGESTION_COLOR = 0xFF000000 | DyeColor.GRAY.getTextColor();
+    private static final int HINT_COLOR = 0xFF000000 | DyeColor.WHITE.getTextColor();
 
     private static final float ARTIFACT_SCALE_FACTOR = 1.5F;
 
@@ -155,7 +155,6 @@ public final class VoterScreen extends Screen {
         }
     }
 
-    @SuppressWarnings("deprecation")
     private void drawGuiContainerBackgroundLayer(PoseStack matrixStack, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
@@ -172,24 +171,43 @@ public final class VoterScreen extends Screen {
     }
 
     private void drawCategoriesInSlide(PoseStack matrixStack, Minecraft mc) {
-        int top = Math.max(0, this.slideTop / 24);
-        int bottom = Math.min(this.infoCollection.size(), (this.slideBottom + 24) / 24);
-        for (int i = top; i < bottom; ++i) {
-            int offset = i * 24 - this.slideTop;
-            int x0 = this.width / 2 - 103, y0 = this.height / 2 - 55 + offset;
-            // draw button texture
-            this.blit(matrixStack, x0, y0, 8, 207, 192, 24);
-            ShowVoterPacket.Info info = this.infoCollection.get(i);
-            // draw category string
-            int x1 = x0 + 48 - font.width(info.category.name) / 2, y1 = y0 + 8;
-            mc.font.draw(matrixStack, info.category.name, x1, y1, TEXT_COLOR);
-            // draw votes
-            int voteLevel = this.votes.getOrDefault(info.id, info.level);
-            RenderSystem.setShaderTexture(0, TEXTURE);
-            for (int j = 0; j < 5; ++j) {
-                int x2 = x0 + 106 + 15 * j, y2 = y0 + 4, u2 = 221, v2 = voteLevel > j ? 239 : 206;
-                this.blit(matrixStack, x2, y2, u2, v2, 15, 15);
+        int infoSize = this.infoCollection.size();
+        if (infoSize > 0) {
+            int top = Math.max(0, this.slideTop / 24);
+            int bottom = Math.min(infoSize, (this.slideBottom + 24) / 24);
+            for (int i = top; i < bottom; ++i) {
+                int offset = i * 24 - this.slideTop;
+                int x0 = this.width / 2 - 103, y0 = this.height / 2 - 55 + offset;
+                // draw button texture
+                this.blit(matrixStack, x0, y0, 8, 207, 192, 24);
+                ShowVoterPacket.Info info = this.infoCollection.get(i);
+                // draw category string
+                int x1 = x0 + 48 - font.width(info.category.name) / 2, y1 = y0 + 8;
+                mc.font.draw(matrixStack, info.category.name, x1, y1, TEXT_COLOR);
+                // draw votes
+                int voteLevel = this.votes.getOrDefault(info.id, info.level);
+                RenderSystem.setShaderTexture(0, TEXTURE);
+                for (int j = 0; j < 5; ++j) {
+                    int x2 = x0 + 106 + 15 * j, y2 = y0 + 4, u2 = 221, v2 = voteLevel > j ? 239 : 206;
+                    this.blit(matrixStack, x2, y2, u2, v2, 15, 15);
+                }
             }
+        } else {
+            TranslatableComponent next = new TranslatableComponent("gui.voteme.voter.no_category.next");
+            int x1 = this.width / 2 - 7, dx1 = mc.font.width(next) / 2, y1 = this.height / 2 + 15;
+            mc.font.draw(matrixStack, next, x1 - dx1, y1, HINT_COLOR);
+
+            matrixStack.pushPose();
+            float scale = ARTIFACT_SCALE_FACTOR;
+            matrixStack.scale(scale, scale, scale);
+
+            TranslatableComponent prev = new TranslatableComponent("gui.voteme.voter.no_category.prev");
+            int x2 = this.width / 2 - 7, dx2 = mc.font.width(prev) / 2, y2 = this.height / 2 - 9;
+            mc.font.draw(matrixStack, prev, x2 / scale - dx2, y2 / scale, HINT_COLOR);
+
+            matrixStack.popPose();
+
+            RenderSystem.setShaderTexture(0, TEXTURE);
         }
     }
 
@@ -260,7 +278,6 @@ public final class VoterScreen extends Screen {
         }
 
         @Override
-        @SuppressWarnings("deprecation")
         public void renderButton(PoseStack matrixStack, int mouseX, int mouseY, float partialTicks) {
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             RenderSystem.setShaderTexture(0, TEXTURE);

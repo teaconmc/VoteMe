@@ -49,21 +49,19 @@ public final class ShowVoterPacket {
     }
 
     public void handle(Supplier<NetworkEvent.Context> supplier) {
-        if (!this.infos.isEmpty()) {
-            // forge needs a separate class
-            // noinspection Convert2Lambda
-            DistExecutor.safeRunWhenOn(Dist.CLIENT, () -> new DistExecutor.SafeRunnable() {
-                @Override
-                public void run() {
-                    ShowVoterPacket p = ShowVoterPacket.this;
-                    String artifactName = VoteArtifactNames.client().getName(p.artifactID);
-                    if (!artifactName.isEmpty()) {
-                        VoterScreen gui = new VoterScreen(p.artifactID, artifactName, p.infos, p.comments);
-                        supplier.get().enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
-                    }
+        // forge needs a separate class
+        // noinspection Convert2Lambda
+        DistExecutor.safeRunWhenOn(Dist.CLIENT, () -> new DistExecutor.SafeRunnable() {
+            @Override
+            public void run() {
+                ShowVoterPacket p = ShowVoterPacket.this;
+                String artifactName = VoteArtifactNames.client().getName(p.artifactID);
+                if (!artifactName.isEmpty()) {
+                    VoterScreen gui = new VoterScreen(p.artifactID, artifactName, p.infos, p.comments);
+                    supplier.get().enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
                 }
-            });
-        }
+            }
+        });
         supplier.get().setPacketHandled(true);
     }
 
@@ -116,11 +114,8 @@ public final class ShowVoterPacket {
                     builder.add(new Info(categoryID, category, entry.get(player)));
                 }
             }
-            ImmutableList<Info> infos = builder.build();
             List<String> comments = VoteDataStorage.getCommentFor(handler, artifactID, player.getUUID());
-            if (!infos.isEmpty() || !comments.isEmpty()) {
-                return Optional.of(new ShowVoterPacket(artifactID, infos, comments));
-            }
+            return Optional.of(new ShowVoterPacket(artifactID, builder.build(), comments));
         }
         return Optional.empty();
     }
