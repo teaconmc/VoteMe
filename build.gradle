@@ -26,7 +26,7 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 // definitions at gradle/teacon-forge.gradle
 teacon {
     modId = 'voteme'
-    modVersion = '0.6.0'
+    modVersion = '0.6.1'
     modLicense = 'BSD-3-Clause'
     modGitHubRepo = 'teaconmc/VoteMe'
     modAuthors = ['yuriscat (Yuri\'s Cat)', '3TUSK', 'ustc-zzzz']
