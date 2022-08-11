@@ -52,15 +52,16 @@ configurations {
 }
 
 dependencies {
-    shadow 'io.lettuce:lettuce-core:6.1.8.RELEASE'
+    shadow 'io.lettuce:lettuce-core:6.2.0.RELEASE'
 }
 
 shadowJar {
     archiveClassifier.set(null)
     configurations = [project.configurations.shadow]
     dependencies {
-        it.exclude it.dependency('io.netty:.*')
+        it.exclude it.dependency('io.netty:netty-(buffer|codec|common|handler|transport).*') // except resolver
     }
+    relocate 'io.netty', 'org.teacon.voteme.netty'
     relocate 'reactor', 'org.teacon.voteme.reactor'
     relocate 'io.lettuce', 'org.teacon.voteme.lettuce'
     relocate 'org.reactivestreams', 'org.teacon.voteme.reactivestreams'
