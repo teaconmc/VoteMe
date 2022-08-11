@@ -18,7 +18,7 @@ import java.util.UUID;
 public interface VoteSynchronizer extends Closeable {
     void publish(Announcement announcement);
 
-    void dequeue(Collection<? super Announcement> drainTo);
+    Collection<? extends Announcement> dequeue();
 
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault

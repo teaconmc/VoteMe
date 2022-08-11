@@ -27,7 +27,6 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -42,10 +41,11 @@ public final class RedisSynchronizer implements VoteSynchronizer {
     private static final String SYNC = "voteme:sync";
 
     private boolean notFirstTime = false;
-    private final Queue<Announcement> queued = new ConcurrentLinkedQueue<>();
+    private List<Announcement> queued = new ArrayList<>();
     private final StatefulRedisPubSubConnection<String, String> connectionPubSub;
     private final StatefulRedisConnection<String, String> connection;
     private final MinecraftServer server;
+    private final RedisClient client;
 
     private final Deque<Vote> queuedVotes = new ConcurrentLinkedDeque<>();
 
@@ -53,13 +53,13 @@ public final class RedisSynchronizer implements VoteSynchronizer {
         this.server = server;
         this.server.addTickable(this::tickVoteUpdates);
 
-        RedisClient client = RedisClient.create(uri);
+        this.client = RedisClient.create(uri);
 
-        this.connectionPubSub = client.connectPubSub();
+        this.connectionPubSub = this.client.connectPubSub();
         this.connectionPubSub.addListener(new PubSubListener());
         this.connectionPubSub.sync().subscribe(SYNC);
 
-        this.connection = client.connect();
+        this.connection = this.client.connect();
     }
 
     private void tickVoteUpdates() {
@@ -76,9 +76,6 @@ public final class RedisSynchronizer implements VoteSynchronizer {
         if (watchedVotes.size() > 0) {
             String[] watchedKeys = watchedVotes.stream().map(v -> toRedisKey(v.key())).toArray(String[]::new);
             VoteMe.LOGGER.info("Watch {} key(s) for updating vote related data in redis.", watchedKeys.length);
-            for (String watchedKey : watchedKeys) {
-                VoteMe.LOGGER.info("- WATCH {}", watchedKey);
-            }
             List<Vote> affectedVotes = new ArrayList<>();
             // noinspection UnstableApiUsage
             Map<VoteStatsKey, ImmutableIntArray> affectedStatsMap = new HashMap<>();
@@ -344,32 +341,37 @@ public final class RedisSynchronizer implements VoteSynchronizer {
         throw new IllegalArgumentException("unsupported outbound announcement");
     }
 
-    private void scan(Consumer<? super Announcement> consumer, ScanCursor cursor, ScanArgs args) {
+    private void scan(ScanCursor cursor, ScanArgs args) {
         RedisAsyncCommands<String, String> async = this.connection.async();
         async.scan(cursor, args).thenAcceptAsync(newCursor -> {
-            newCursor.getKeys().forEach(key -> this.dispatch(fromRedisKey(key)).thenAccept(consumer));
+            for (String key : newCursor.getKeys()) {
+                this.dispatch(fromRedisKey(key)).thenAcceptAsync(this.queued::add, this.server);
+            }
             if (!newCursor.isFinished()) {
-                this.scan(consumer, newCursor, args);
+                this.scan(newCursor, args);
             }
         });
     }
 
     @Override
-    public void dequeue(Collection<? super Announcement> drainTo) {
+    public Collection<? extends Announcement> dequeue() {
         checkArgument(this.server.isSameThread(), "server thread");
         if (!this.notFirstTime) {
             int maximum = 1000;
             this.notFirstTime = true;
-            this.scan(this.queued::offer, ScanCursor.of("0"), new ScanArgs().match(ARTIFACT + ":*").limit(maximum));
-            this.scan(this.queued::offer, ScanCursor.of("0"), new ScanArgs().match(COMMENTS + ":*").limit(maximum));
-            this.scan(this.queued::offer, ScanCursor.of("0"), new ScanArgs().match(VOTE + ":*").limit(maximum));
-            this.scan(this.queued::offer, ScanCursor.of("0"), new ScanArgs().match(VOTE_DISABLED + ":*").limit(maximum));
-            this.scan(this.queued::offer, ScanCursor.of("0"), new ScanArgs().match(VOTE_STATS + ":*").limit(maximum));
+            this.scan(ScanCursor.of("0"), new ScanArgs().match(ARTIFACT + ":*").limit(maximum));
+            this.scan(ScanCursor.of("0"), new ScanArgs().match(COMMENTS + ":*").limit(maximum));
+            this.scan(ScanCursor.of("0"), new ScanArgs().match(VOTE + ":*").limit(maximum));
+            this.scan(ScanCursor.of("0"), new ScanArgs().match(VOTE_DISABLED + ":*").limit(maximum));
+            this.scan(ScanCursor.of("0"), new ScanArgs().match(VOTE_STATS + ":*").limit(maximum));
         }
-        for (Announcement elem = this.queued.poll(); elem != null; elem = this.queued.poll()) {
-            VoteMe.LOGGER.info("Retrieving announcement from redis: {}", elem.key());
-            drainTo.add(elem);
+        if (this.queued.size() > 0) {
+            VoteMe.LOGGER.info("Retrieving {} announcement(s) from redis.", this.queued.size());
+            Collection<? extends Announcement> result = this.queued;
+            this.queued = new ArrayList<>();
+            return result;
         }
+        return new ArrayList<>();
     }
 
     @Override
@@ -377,6 +379,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
         checkArgument(this.server.isSameThread(), "server thread");
         this.connectionPubSub.close();
         this.connection.close();
+        this.client.close();
     }
 
     @MethodsReturnNonnullByDefault
@@ -393,7 +396,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
         @Override
         public void message(String channel, String message) {
             if (SYNC.equals(channel)) {
-                tryParse(message, nbt -> deserialize(nbt).ifPresent(RedisSynchronizer.this.queued::offer));
+                tryParse(message, nbt -> deserialize(nbt).ifPresent(RedisSynchronizer.this.queued::add));
             } else {
                 VoteMe.LOGGER.warn("Unrecognized message from redis channel {}", channel);
             }

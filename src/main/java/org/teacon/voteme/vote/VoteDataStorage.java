@@ -95,8 +95,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         }
 
         // download announcements
-        Collection<VoteSynchronizer.Announcement> toDownload = new ArrayList<>();
-        this.sync.dequeue(toDownload);
+        Collection<? extends VoteSynchronizer.Announcement> toDownload = this.sync.dequeue();
         if (!toDownload.isEmpty()) {
             toDownload.forEach(this::handle);
             this.setDirty();

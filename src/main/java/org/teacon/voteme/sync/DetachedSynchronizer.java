@@ -14,7 +14,7 @@ import java.util.*;
 public final class DetachedSynchronizer implements VoteSynchronizer {
     private final MinecraftServer server;
     private final Map<VoteKey, Vote> votes = new HashMap<>();
-    private final Queue<Announcement> queued = new ArrayDeque<>();
+    private List<Announcement> queued = new ArrayList<>();
 
     public DetachedSynchronizer(MinecraftServer server) {
         this.server = server;
@@ -57,12 +57,15 @@ public final class DetachedSynchronizer implements VoteSynchronizer {
     }
 
     @Override
-    public void dequeue(Collection<? super Announcement> drainTo) {
+    public Collection<? extends Announcement> dequeue() {
         Preconditions.checkArgument(this.server.isSameThread(), "server thread");
-        for (Announcement elem = this.queued.poll(); elem != null; elem = this.queued.poll()) {
-            VoteMe.LOGGER.info("Retrieving announcement locally: {}", elem.key());
-            drainTo.add(elem);
+        if (this.queued.size() > 0) {
+            VoteMe.LOGGER.info("Retrieving {} announcement locally.", this.queued.size());
+            Collection<? extends Announcement> result = this.queued;
+            this.queued = new ArrayList<>();
+            return result;
         }
+        return new ArrayList<>();
     }
 
     @Override
