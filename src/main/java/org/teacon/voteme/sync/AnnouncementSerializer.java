@@ -23,7 +23,7 @@ import static com.google.common.primitives.ImmutableIntArray.copyOf;
 @ParametersAreNonnullByDefault
 public final class AnnouncementSerializer {
     public static final String ARTIFACT = "voteme:artifact"; // voteme:artifact:<artifact-id>
-    public static final String COMMENTS = "voteme:comments"; // voteme:artifact:<artifact-id>:<voter-id>
+    public static final String COMMENTS = "voteme:comments"; // voteme:comments:<artifact-id>:<voter-id>
     public static final String VOTE = "voteme:vote"; // voteme:vote:<artifact-id>:<category-id>:<voter-id>
     public static final String VOTE_DISABLED = "voteme:vote_disabled"; // voteme:vote_disabled:<artifact-id>:<category-id>
     public static final String VOTE_STATS = "voteme:vote_stats"; // voteme:vote_stats:<artifact-id>:<category-id>:<role-id>
