@@ -26,28 +26,31 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.failedStage;
 import static org.teacon.voteme.sync.AnnouncementSerializer.*;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class RedisSynchronizer implements VoteSynchronizer {
+    private static final int BATCH_MAXIMUM = 1000;
     private static final String SYNC = "voteme:sync";
 
-    private boolean notFirstTime = false;
-    private List<Announcement> queued = new ArrayList<>();
+    private List<Announcement> receivedAnnouncements = new ArrayList<>();
+    private boolean hasBeenScanned = false;
+
     private final StatefulRedisPubSubConnection<String, String> connectionPubSub;
     private final StatefulRedisConnection<String, String> connection;
     private final MinecraftServer server;
     private final RedisClient client;
 
-    private final Deque<Vote> queuedVotes = new ConcurrentLinkedDeque<>();
+    private final Deque<Vote> queuedVotes = new ArrayDeque<>();
 
     public RedisSynchronizer(MinecraftServer server, String uri) {
         this.server = server;
@@ -63,8 +66,9 @@ public final class RedisSynchronizer implements VoteSynchronizer {
     }
 
     private void tickVoteUpdates() {
+        checkArgument(this.server.isSameThread(), "server thread");
         StatsAccumulator accumulator = new StatsAccumulator();
-        for (int i = 0, maximum = 1000; i < maximum; ++i) {
+        for (int i = 0; i < BATCH_MAXIMUM; ++i) {
             Vote vote = this.queuedVotes.poll();
             if (vote == null) {
                 break; // the queue is empty
@@ -86,10 +90,10 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                         List<CompletableFuture<?>> futures = new ArrayList<>(watchedVotes.size());
                         // get original votes in redis server
                         for (Vote vote : watchedVotes) {
-                            CompletableFuture<Vote> future = this.dispatch(vote.key());
+                            CompletableFuture<Vote> future = dispatch(vote.key(), async);
                             futures.add(future.thenAcceptAsync(accumulator::subtract, this.server));
                         }
-                        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+                        return allOf(futures.toArray(new CompletableFuture[0]));
                     }, this.server)
                     .thenRunAsync(() -> {
                         // calculate affected votes and stats map
@@ -127,18 +131,18 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                             }
                         }
                         futures.add(async.exec().thenAccept(r -> succeed.set(!r.wasDiscarded())).toCompletableFuture());
-                        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+                        return allOf(futures.toArray(new CompletableFuture[0]));
                     }, this.server)
                     .thenRunAsync(() -> {
                         if (succeed.getAcquire()) {
                             // the transaction succeeded, broadcast vote changes and stat changes
                             for (Vote affectedVote : affectedVotes) {
-                                this.connection.async().publish(SYNC, serialize(affectedVote).orElseThrow().toString());
+                                async.publish(SYNC, serialize(affectedVote).orElseThrow().toString());
                             }
                             // noinspection UnstableApiUsage
                             for (Map.Entry<VoteStatsKey, ImmutableIntArray> entry : affectedStatsMap.entrySet()) {
                                 VoteStats voteStats = new VoteStats(entry.getKey(), entry.getValue());
-                                this.connection.async().publish(SYNC, serialize(voteStats).orElseThrow().toString());
+                                async.publish(SYNC, serialize(voteStats).orElseThrow().toString());
                             }
                         } else {
                             // the transaction failed because the watched keys changed, try again in the next tick
@@ -212,10 +216,10 @@ public final class RedisSynchronizer implements VoteSynchronizer {
         }
     }
 
-    private <T extends Announcement> CompletableFuture<T> dispatch(AnnounceKey<T> announceKey) {
-        CompletionStage<T> stage = CompletableFuture.failedStage(new IllegalArgumentException("unsupported announce key"));
+    private static <T extends Announcement> CompletableFuture<T> dispatch(AnnounceKey<T> announceKey,
+                                                                          RedisAsyncCommands<String, String> async) {
+        CompletionStage<T> stage = failedStage(new IllegalArgumentException("unsupported announce key"));
         if (announceKey instanceof ArtifactKey key) {
-            RedisAsyncCommands<String, String> async = this.connection.async();
             stage = async.hgetall(toRedisKey(key)).thenApplyAsync(map -> {
                 String name = map.getOrDefault("name", "");
                 Optional<String> optional = Optional.empty();
@@ -229,14 +233,12 @@ public final class RedisSynchronizer implements VoteSynchronizer {
             });
         }
         if (announceKey instanceof CommentsKey key) {
-            RedisAsyncCommands<String, String> async = RedisSynchronizer.this.connection.async();
             stage = async.lrange(toRedisKey(key), 0, Integer.MAX_VALUE).thenApplyAsync(list -> {
                 ImmutableList<String> comments = ImmutableList.copyOf(list);
                 return announceKey.cast(new Comments(key, comments));
             });
         }
         if (announceKey instanceof VoteKey key) {
-            RedisAsyncCommands<String, String> async = RedisSynchronizer.this.connection.async();
             stage = async.hgetall(toRedisKey(key)).thenApplyAsync(map -> {
                 int level = Integer.parseInt(map.getOrDefault("level", "0"));
                 checkArgument(level >= 0 && level <= 5, "level out of range from 1 to 5");
@@ -252,7 +254,6 @@ public final class RedisSynchronizer implements VoteSynchronizer {
             });
         }
         if (announceKey instanceof VoteDisabledKey key) {
-            RedisAsyncCommands<String, String> async = RedisSynchronizer.this.connection.async();
             stage = async.get(toRedisKey(key)).thenApplyAsync(string -> {
                 Optional<Boolean> disabled = switch (String.valueOf(string)) {
                     case "null" -> Optional.empty();
@@ -264,7 +265,6 @@ public final class RedisSynchronizer implements VoteSynchronizer {
             });
         }
         if (announceKey instanceof VoteStatsKey key) {
-            RedisAsyncCommands<String, String> async = RedisSynchronizer.this.connection.async();
             stage = async.hgetall(toRedisKey(key)).thenApplyAsync(map -> {
                 int count0 = Integer.parseInt(map.getOrDefault("level:0", "0"));
                 int count1 = Integer.parseInt(map.getOrDefault("level:1", "0"));
@@ -283,59 +283,51 @@ public final class RedisSynchronizer implements VoteSynchronizer {
     @Override
     public void publish(Collection<? extends Announcement> announcements) {
         checkArgument(this.server.isSameThread(), "server thread");
+        RedisAsyncCommands<String, String> async = this.connection.async();
         VoteMe.LOGGER.info("Publishing {} announcement(s) to redis.", announcements.size());
         for (Announcement announcement : announcements) {
             if (announcement instanceof Artifact artifact) {
-                RedisAsyncCommands<String, String> async = this.connection.async();
                 if (artifact.name().isEmpty()) {
                     async.del(toRedisKey(artifact.key()))
-                            .thenComposeAsync(res -> this.connection.async()
-                                    .publish(SYNC, serialize(artifact).orElseThrow().toString()));
+                            .thenComposeAsync(res -> async.publish(SYNC, serialize(artifact).orElseThrow().toString()));
                 } else {
                     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
                     builder.put("name", artifact.name());
                     artifact.alias().ifPresent(alias -> builder.put("alias", alias));
                     String key = toRedisKey(artifact.key());
-                    CompletableFuture.allOf(Stream
-                                    .of(async.multi(), async.del(key), async.hset(key, builder.build()), async.exec())
-                                    .map(CompletionStage::toCompletableFuture).toArray(CompletableFuture[]::new))
-                            .thenComposeAsync(res -> this.connection.async()
-                                    .publish(SYNC, serialize(artifact).orElseThrow().toString()));
+                    allOf(Stream
+                            .of(async.multi(), async.del(key), async.hset(key, builder.build()), async.exec())
+                            .map(CompletionStage::toCompletableFuture).toArray(CompletableFuture[]::new))
+                            .thenComposeAsync(res -> async.publish(SYNC, serialize(artifact).orElseThrow().toString()));
                 }
                 continue;
             }
             if (announcement instanceof Comments comments) {
-                RedisAsyncCommands<String, String> async = this.connection.async();
                 if (comments.comments().isEmpty()) {
                     async.del(toRedisKey(comments.key()))
-                            .thenComposeAsync(res -> this.connection.async()
-                                    .publish(SYNC, serialize(comments).orElseThrow().toString()));
+                            .thenComposeAsync(res -> async.publish(SYNC, serialize(comments).orElseThrow().toString()));
                 } else {
                     String key = toRedisKey(comments.key());
                     String[] list = comments.comments().toArray(new String[0]);
-                    CompletableFuture.allOf(Stream
-                                    .of(async.multi(), async.del(key), async.lpush(key, list), async.exec())
-                                    .map(CompletionStage::toCompletableFuture).toArray(CompletableFuture[]::new))
-                            .thenComposeAsync(res -> this.connection.async()
-                                    .publish(SYNC, serialize(comments).orElseThrow().toString()));
+                    allOf(Stream
+                            .of(async.multi(), async.del(key), async.lpush(key, list), async.exec())
+                            .map(CompletionStage::toCompletableFuture).toArray(CompletableFuture[]::new))
+                            .thenComposeAsync(res -> async.publish(SYNC, serialize(comments).orElseThrow().toString()));
                 }
                 continue;
             }
             if (announcement instanceof Vote vote) {
-                this.queuedVotes.add(vote);
+                this.queuedVotes.offerLast(vote);
                 continue;
             }
-            if (announcement instanceof VoteDisabled voteDisabled) {
-                RedisAsyncCommands<String, String> async = this.connection.async();
-                if (voteDisabled.disabled().isEmpty()) {
-                    async.del(toRedisKey(voteDisabled.key()))
-                            .thenComposeAsync(res -> this.connection.async()
-                                    .publish(SYNC, serialize(voteDisabled).orElseThrow().toString()));
+            if (announcement instanceof VoteDisabled disabled) {
+                if (disabled.disabled().isEmpty()) {
+                    async.del(toRedisKey(disabled.key()))
+                            .thenComposeAsync(res -> async.publish(SYNC, serialize(disabled).orElseThrow().toString()));
                 } else {
-                    String key = toRedisKey(voteDisabled.key());
-                    async.set(key, Boolean.toString(voteDisabled.disabled().get()))
-                            .thenComposeAsync(res -> this.connection.async()
-                                    .publish(SYNC, serialize(voteDisabled).orElseThrow().toString()));
+                    String key = toRedisKey(disabled.key());
+                    async.set(key, Boolean.toString(disabled.disabled().get()))
+                            .thenComposeAsync(res -> async.publish(SYNC, serialize(disabled).orElseThrow().toString()));
                 }
                 continue;
             }
@@ -344,10 +336,11 @@ public final class RedisSynchronizer implements VoteSynchronizer {
     }
 
     private void scan(ScanCursor cursor, ScanArgs args) {
+        checkArgument(this.server.isSameThread(), "server thread");
         RedisAsyncCommands<String, String> async = this.connection.async();
         async.scan(cursor, args).thenAcceptAsync(newCursor -> {
             for (String key : newCursor.getKeys()) {
-                this.dispatch(fromRedisKey(key)).thenAcceptAsync(this.queued::add, this.server);
+                dispatch(fromRedisKey(key), async).thenAcceptAsync(this.receivedAnnouncements::add, this.server);
             }
             if (!newCursor.isFinished()) {
                 this.scan(newCursor, args);
@@ -358,19 +351,18 @@ public final class RedisSynchronizer implements VoteSynchronizer {
     @Override
     public Collection<? extends Announcement> dequeue() {
         checkArgument(this.server.isSameThread(), "server thread");
-        if (!this.notFirstTime) {
-            int maximum = 1000;
-            this.notFirstTime = true;
-            this.scan(ScanCursor.of("0"), new ScanArgs().match(ARTIFACT + ":*").limit(maximum));
-            this.scan(ScanCursor.of("0"), new ScanArgs().match(COMMENTS + ":*").limit(maximum));
-            this.scan(ScanCursor.of("0"), new ScanArgs().match(VOTE + ":*").limit(maximum));
-            this.scan(ScanCursor.of("0"), new ScanArgs().match(VOTE_DISABLED + ":*").limit(maximum));
-            this.scan(ScanCursor.of("0"), new ScanArgs().match(VOTE_STATS + ":*").limit(maximum));
+        if (!this.hasBeenScanned) {
+            this.hasBeenScanned = true;
+            this.scan(ScanCursor.of("0"), new ScanArgs().match(ARTIFACT + ":*").limit(BATCH_MAXIMUM));
+            this.scan(ScanCursor.of("0"), new ScanArgs().match(COMMENTS + ":*").limit(BATCH_MAXIMUM));
+            this.scan(ScanCursor.of("0"), new ScanArgs().match(VOTE + ":*").limit(BATCH_MAXIMUM));
+            this.scan(ScanCursor.of("0"), new ScanArgs().match(VOTE_DISABLED + ":*").limit(BATCH_MAXIMUM));
+            this.scan(ScanCursor.of("0"), new ScanArgs().match(VOTE_STATS + ":*").limit(BATCH_MAXIMUM));
         }
-        if (this.queued.size() > 0) {
-            VoteMe.LOGGER.info("Retrieving {} announcement(s) from redis.", this.queued.size());
-            Collection<? extends Announcement> result = this.queued;
-            this.queued = new ArrayList<>();
+        if (this.receivedAnnouncements.size() > 0) {
+            VoteMe.LOGGER.info("Retrieving {} announcement(s) from redis.", this.receivedAnnouncements.size());
+            Collection<? extends Announcement> result = this.receivedAnnouncements;
+            this.receivedAnnouncements = new ArrayList<>();
             return result;
         }
         return new ArrayList<>();
@@ -398,7 +390,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
         @Override
         public void message(String channel, String message) {
             if (SYNC.equals(channel)) {
-                tryParse(message, nbt -> deserialize(nbt).ifPresent(RedisSynchronizer.this.queued::add));
+                tryParse(message, nbt -> deserialize(nbt).ifPresent(RedisSynchronizer.this.receivedAnnouncements::add));
             } else {
                 VoteMe.LOGGER.warn("Unrecognized message from redis channel {}", channel);
             }
