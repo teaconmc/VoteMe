@@ -350,7 +350,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
             if (!newCursor.isFinished()) {
                 this.scan(newCursor, args);
             }
-        });
+        }, this.server);
     }
 
     @Override
