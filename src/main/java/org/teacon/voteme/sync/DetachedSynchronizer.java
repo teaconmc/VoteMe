@@ -21,39 +21,41 @@ public final class DetachedSynchronizer implements VoteSynchronizer {
     }
 
     @Override
-    public void publish(Announcement announcement) {
+    public void publish(Collection<? extends Announcement> announcements) {
         Preconditions.checkArgument(this.server.isSameThread(), "server thread");
-        VoteMe.LOGGER.info("Publishing announcement locally: {}", announcement.key());
-        if (announcement instanceof Artifact artifact) {
-            this.queued.add(artifact);
-            return;
-        }
-        if (announcement instanceof Comments comments) {
-            this.queued.add(comments);
-            return;
-        }
-        if (announcement instanceof Vote vote) {
-            StatsAccumulator accumulator = new StatsAccumulator();
-            if (this.votes.containsKey(vote.key())) {
-                accumulator.subtract(this.votes.get(vote.key()));
+        VoteMe.LOGGER.info("Publishing {} announcement(s) locally.", announcements.size());
+        for (Announcement announcement : announcements) {
+            if (announcement instanceof Artifact artifact) {
+                this.queued.add(artifact);
+                continue;
             }
-            accumulator.accumulate(vote);
-            // it should loop at most once
-            Util.make(new ArrayList<>(), accumulator::buildAffectedVotes).forEach(affectedVote -> {
-                this.votes.put(affectedVote.key(), affectedVote);
-                this.queued.add(affectedVote);
-            });
-            Util.make(new HashMap<>(), accumulator::buildStatsMap).forEach((key, counts) -> {
-                VoteStats affectedStats = new VoteStats(key, counts);
-                this.queued.add(affectedStats);
-            });
-            return;
+            if (announcement instanceof Comments comments) {
+                this.queued.add(comments);
+                continue;
+            }
+            if (announcement instanceof Vote vote) {
+                StatsAccumulator accumulator = new StatsAccumulator();
+                if (this.votes.containsKey(vote.key())) {
+                    accumulator.subtract(this.votes.get(vote.key()));
+                }
+                accumulator.accumulate(vote);
+                // it should loop at most once
+                Util.make(new ArrayList<>(), accumulator::buildAffectedVotes).forEach(affectedVote -> {
+                    this.votes.put(affectedVote.key(), affectedVote);
+                    this.queued.add(affectedVote);
+                });
+                Util.make(new HashMap<>(), accumulator::buildStatsMap).forEach((key, counts) -> {
+                    VoteStats affectedStats = new VoteStats(key, counts);
+                    this.queued.add(affectedStats);
+                });
+                continue;
+            }
+            if (announcement instanceof VoteDisabled voteDisabled) {
+                this.queued.add(voteDisabled);
+                continue;
+            }
+            throw new IllegalArgumentException("unsupported outbound announcement: " + announcement.key());
         }
-        if (announcement instanceof VoteDisabled voteDisabled) {
-            this.queued.add(voteDisabled);
-            return;
-        }
-        throw new IllegalArgumentException("unsupported outbound announcement");
     }
 
     @Override

@@ -281,64 +281,66 @@ public final class RedisSynchronizer implements VoteSynchronizer {
     }
 
     @Override
-    public void publish(Announcement announcement) {
+    public void publish(Collection<? extends Announcement> announcements) {
         checkArgument(this.server.isSameThread(), "server thread");
-        VoteMe.LOGGER.info("Publishing announcement to redis: {}", announcement.key());
-        if (announcement instanceof Artifact artifact) {
-            RedisAsyncCommands<String, String> async = this.connection.async();
-            if (artifact.name().isEmpty()) {
-                async.del(toRedisKey(artifact.key()))
-                        .thenComposeAsync(res -> this.connection.async()
-                                .publish(SYNC, serialize(artifact).orElseThrow().toString()));
-            } else {
-                ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-                builder.put("name", artifact.name());
-                artifact.alias().ifPresent(alias -> builder.put("alias", alias));
-                String key = toRedisKey(artifact.key());
-                CompletableFuture.allOf(Stream
-                                .of(async.multi(), async.del(key), async.hset(key, builder.build()), async.exec())
-                                .map(CompletionStage::toCompletableFuture).toArray(CompletableFuture[]::new))
-                        .thenComposeAsync(res -> this.connection.async()
-                                .publish(SYNC, serialize(artifact).orElseThrow().toString()));
+        VoteMe.LOGGER.info("Publishing {} announcement(s) to redis.", announcements.size());
+        for (Announcement announcement : announcements) {
+            if (announcement instanceof Artifact artifact) {
+                RedisAsyncCommands<String, String> async = this.connection.async();
+                if (artifact.name().isEmpty()) {
+                    async.del(toRedisKey(artifact.key()))
+                            .thenComposeAsync(res -> this.connection.async()
+                                    .publish(SYNC, serialize(artifact).orElseThrow().toString()));
+                } else {
+                    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+                    builder.put("name", artifact.name());
+                    artifact.alias().ifPresent(alias -> builder.put("alias", alias));
+                    String key = toRedisKey(artifact.key());
+                    CompletableFuture.allOf(Stream
+                                    .of(async.multi(), async.del(key), async.hset(key, builder.build()), async.exec())
+                                    .map(CompletionStage::toCompletableFuture).toArray(CompletableFuture[]::new))
+                            .thenComposeAsync(res -> this.connection.async()
+                                    .publish(SYNC, serialize(artifact).orElseThrow().toString()));
+                }
+                continue;
             }
-            return;
-        }
-        if (announcement instanceof Comments comments) {
-            RedisAsyncCommands<String, String> async = this.connection.async();
-            if (comments.comments().isEmpty()) {
-                async.del(toRedisKey(comments.key()))
-                        .thenComposeAsync(res -> this.connection.async()
-                                .publish(SYNC, serialize(comments).orElseThrow().toString()));
-            } else {
-                String key = toRedisKey(comments.key());
-                String[] list = comments.comments().toArray(new String[0]);
-                CompletableFuture.allOf(Stream
-                                .of(async.multi(), async.del(key), async.lpush(key, list), async.exec())
-                                .map(CompletionStage::toCompletableFuture).toArray(CompletableFuture[]::new))
-                        .thenComposeAsync(res -> this.connection.async()
-                                .publish(SYNC, serialize(comments).orElseThrow().toString()));
+            if (announcement instanceof Comments comments) {
+                RedisAsyncCommands<String, String> async = this.connection.async();
+                if (comments.comments().isEmpty()) {
+                    async.del(toRedisKey(comments.key()))
+                            .thenComposeAsync(res -> this.connection.async()
+                                    .publish(SYNC, serialize(comments).orElseThrow().toString()));
+                } else {
+                    String key = toRedisKey(comments.key());
+                    String[] list = comments.comments().toArray(new String[0]);
+                    CompletableFuture.allOf(Stream
+                                    .of(async.multi(), async.del(key), async.lpush(key, list), async.exec())
+                                    .map(CompletionStage::toCompletableFuture).toArray(CompletableFuture[]::new))
+                            .thenComposeAsync(res -> this.connection.async()
+                                    .publish(SYNC, serialize(comments).orElseThrow().toString()));
+                }
+                continue;
             }
-            return;
-        }
-        if (announcement instanceof Vote vote) {
-            this.queuedVotes.add(vote);
-            return;
-        }
-        if (announcement instanceof VoteDisabled voteDisabled) {
-            RedisAsyncCommands<String, String> async = this.connection.async();
-            if (voteDisabled.disabled().isEmpty()) {
-                async.del(toRedisKey(voteDisabled.key()))
-                        .thenComposeAsync(res -> this.connection.async()
-                                .publish(SYNC, serialize(voteDisabled).orElseThrow().toString()));
-            } else {
-                String key = toRedisKey(voteDisabled.key());
-                async.set(key, Boolean.toString(voteDisabled.disabled().get()))
-                        .thenComposeAsync(res -> this.connection.async()
-                                .publish(SYNC, serialize(voteDisabled).orElseThrow().toString()));
+            if (announcement instanceof Vote vote) {
+                this.queuedVotes.add(vote);
+                continue;
             }
-            return;
+            if (announcement instanceof VoteDisabled voteDisabled) {
+                RedisAsyncCommands<String, String> async = this.connection.async();
+                if (voteDisabled.disabled().isEmpty()) {
+                    async.del(toRedisKey(voteDisabled.key()))
+                            .thenComposeAsync(res -> this.connection.async()
+                                    .publish(SYNC, serialize(voteDisabled).orElseThrow().toString()));
+                } else {
+                    String key = toRedisKey(voteDisabled.key());
+                    async.set(key, Boolean.toString(voteDisabled.disabled().get()))
+                            .thenComposeAsync(res -> this.connection.async()
+                                    .publish(SYNC, serialize(voteDisabled).orElseThrow().toString()));
+                }
+                continue;
+            }
+            throw new IllegalArgumentException("unsupported outbound announcement: " + announcement.key());
         }
-        throw new IllegalArgumentException("unsupported outbound announcement");
     }
 
     private void scan(ScanCursor cursor, ScanArgs args) {

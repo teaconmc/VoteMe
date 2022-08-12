@@ -90,7 +90,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         this.voteLists.values().forEach(v -> v.dequeue(toUpload));
         this.artifactNames.dequeue(toUpload);
         if (!toUpload.isEmpty()) {
-            toUpload.forEach(this.sync::publish);
+            this.sync.publish(toUpload);
             this.setDirty();
         }
 
@@ -135,7 +135,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
 
     private void emitCommentsAnnouncement(UUID artifactID, UUID voterID, ImmutableList<String> comments) {
         VoteSynchronizer.CommentsKey key = new VoteSynchronizer.CommentsKey(artifactID, voterID);
-        this.sync.publish(new VoteSynchronizer.Comments(key, comments));
+        this.sync.publish(List.of(new VoteSynchronizer.Comments(key, comments)));
         this.setDirty();
     }
 
@@ -329,7 +329,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
             Optional<VoteSynchronizer.Announcement> optional = deserialize((CompoundTag) tag);
             if (optional.isPresent()) {
                 this.handle(optional.get());
-                this.sync.publish(optional.get());
+                this.sync.publish(List.of(optional.get()));
             }
         }
 
