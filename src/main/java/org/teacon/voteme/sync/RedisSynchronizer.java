@@ -27,7 +27,6 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -379,18 +378,17 @@ public final class RedisSynchronizer implements VoteSynchronizer {
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     private class PubSubListener extends RedisPubSubAdapter<String, String> {
-        private static void tryParse(String message, Consumer<? super CompoundTag> consumer) {
-            try {
-                consumer.accept(TagParser.parseTag(message));
-            } catch (CommandSyntaxException e) {
-                VoteMe.LOGGER.warn("Failed to parse " + message + " as a tag from redis channel", e);
-            }
-        }
-
         @Override
         public void message(String channel, String message) {
             if (SYNC.equals(channel)) {
-                tryParse(message, nbt -> deserialize(nbt).ifPresent(RedisSynchronizer.this.receivedAnnouncements::add));
+                RedisSynchronizer.this.server.submitAsync(() -> {
+                    try {
+                        CompoundTag nbt = TagParser.parseTag(message);
+                        deserialize(nbt).ifPresent(RedisSynchronizer.this.receivedAnnouncements::add);
+                    } catch (CommandSyntaxException e) {
+                        VoteMe.LOGGER.warn("Failed to parse " + message + " as a tag from redis channel", e);
+                    }
+                });
             } else {
                 VoteMe.LOGGER.warn("Unrecognized message from redis channel {}", channel);
             }
