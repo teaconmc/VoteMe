@@ -233,7 +233,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
         }
         if (announceKey instanceof CommentsKey key) {
             stage = async.lrange(toRedisKey(key), 0, Integer.MAX_VALUE).thenApplyAsync(list -> {
-                ImmutableList<String> comments = ImmutableList.copyOf(list);
+                ImmutableList<String> comments = ImmutableList.copyOf(list).reverse();
                 return announceKey.cast(new Comments(key, comments));
             });
         }
