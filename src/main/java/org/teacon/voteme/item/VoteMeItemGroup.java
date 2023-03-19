@@ -1,22 +1,26 @@
 package org.teacon.voteme.item;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.event.CreativeModeTabEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class VoteMeItemGroup extends CreativeModeTab {
-    public static final VoteMeItemGroup INSTANCE = new VoteMeItemGroup();
+@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
+public final class VoteMeItemGroup {
+    public static final ResourceLocation ID = new ResourceLocation("voteme:voteme");
 
-    public VoteMeItemGroup() {
-        super("voteme");
+    @SubscribeEvent
+    public static void register(CreativeModeTabEvent.Register event) {
+        event.registerCreativeModeTab(ID, builder -> builder.icon(VoteMeItemGroup::makeIcon));
     }
 
-    @Override
-    public ItemStack makeIcon() {
-        return new ItemStack(VoterItem.INSTANCE);
+    private static ItemStack makeIcon() {
+        return VoterItem.INSTANCE.get().getDefaultInstance();
     }
 }

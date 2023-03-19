@@ -11,7 +11,6 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.chat.TextComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -76,16 +75,16 @@ public final class VoteArtifactNames {
 
     public MutableComponent toText(UUID artifactID) {
         String alias = this.getAlias(artifactID);
-        Component hover = new TextComponent(artifactID.toString());
+        Component hover = Component.literal(artifactID.toString());
         HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover);
         if (alias.isEmpty()) {
             String shortID = artifactID.toString().substring(0, 8);
             String base = String.format("%s (%s...)", this.getName(artifactID), shortID);
-            return new TextComponent(base).withStyle(style -> style.withHoverEvent(hoverEvent));
+            return Component.literal(base).withStyle(style -> style.withHoverEvent(hoverEvent));
         } else {
             String shortID = artifactID.toString().substring(0, 8);
             String base = String.format("%s (%s, %s...)", this.getName(artifactID), alias, shortID);
-            return new TextComponent(base).withStyle(style -> style.withHoverEvent(hoverEvent));
+            return Component.literal(base).withStyle(style -> style.withHoverEvent(hoverEvent));
         }
     }
 
@@ -244,7 +243,7 @@ public final class VoteArtifactNames {
 
     @SubscribeEvent
     public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
-        Player player = event.getPlayer();
+        Player player = event.getEntity();
         VoteArtifactNames instance = VoteDataStorage.get(Objects.requireNonNull(player.getServer())).getArtifactNames();
         if (player instanceof ServerPlayer serverPlayer) {
             SyncArtifactNamePacket packet = SyncArtifactNamePacket.create(instance.names, instance.aliases);

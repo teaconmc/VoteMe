@@ -5,22 +5,24 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.chat.TextComponent;
-import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.common.CreativeModeTabRegistry;
+import net.minecraftforge.event.CreativeModeTabEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.registries.ObjectHolder;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegisterEvent;
+import net.minecraftforge.registries.RegistryObject;
 import net.minecraftforge.server.permission.PermissionAPI;
 import net.minecraftforge.server.permission.nodes.PermissionNode;
 import org.teacon.voteme.category.VoteCategory;
@@ -44,47 +46,52 @@ import static org.teacon.voteme.command.VoteMePermissions.OPEN_VOTER;
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class VoterItem extends Item {
 
-    public static final String ID = "voteme:voter";
+    public static final ResourceLocation ID = new ResourceLocation("voteme:voter");
 
-    @ObjectHolder(ID)
-    public static VoterItem INSTANCE;
+    public static final RegistryObject<VoterItem> INSTANCE = RegistryObject.create(ID, ForgeRegistries.ITEMS);
 
     @SubscribeEvent
-    public static void register(RegistryEvent.Register<Item> event) {
-        event.getRegistry().register(new VoterItem(new Properties().tab(VoteMeItemGroup.INSTANCE)));
+    public static void register(RegisterEvent event) {
+        event.register(ForgeRegistries.ITEMS.getRegistryKey(), ID, () -> new VoterItem(new Properties()));
+    }
+
+    @SubscribeEvent
+    public static void register(CreativeModeTabEvent.BuildContents event) {
+        if (VoteMeItemGroup.ID.equals(CreativeModeTabRegistry.getName(event.getTab()))) {
+            event.accept(INSTANCE, CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);
+        }
     }
 
     private VoterItem(Properties properties) {
         super(properties);
-        this.setRegistryName(ID);
     }
 
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level world, List<Component> tooltip, TooltipFlag flag) {
         CompoundTag tag = stack.getTag();
-        tooltip.add(new TextComponent(""));
+        tooltip.add(Component.empty());
         if (tag != null && tag.hasUUID("CurrentArtifact")) {
             UUID artifactID = tag.getUUID("CurrentArtifact");
             Optional<VoteArtifactNames> artifactNames = VoteArtifactNames.effective();
             if (artifactNames.isPresent() && !artifactNames.get().getName(artifactID).isEmpty()) {
                 MutableComponent artifactText = artifactNames.get().toText(artifactID).withStyle(ChatFormatting.GREEN);
-                tooltip.add(new TranslatableComponent("gui.voteme.voter.current_artifact_hint", artifactText).withStyle(ChatFormatting.GRAY));
+                tooltip.add(Component.translatable("gui.voteme.voter.current_artifact_hint", artifactText).withStyle(ChatFormatting.GRAY));
                 if (!VoteCategoryHandler.getIds().isEmpty()) {
-                    tooltip.add(new TextComponent(""));
+                    tooltip.add(Component.empty());
                 }
                 for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
                     Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
                     if (categoryOptional.isPresent()) {
                         Component categoryName = categoryOptional.get().name;
-                        MutableComponent categoryText = new TextComponent("").append(categoryName).withStyle(ChatFormatting.YELLOW);
-                        tooltip.add(new TranslatableComponent("gui.voteme.counter.category_hint", categoryText).withStyle(ChatFormatting.GRAY));
+                        MutableComponent categoryText = Component.empty().append(categoryName).withStyle(ChatFormatting.YELLOW);
+                        tooltip.add(Component.translatable("gui.voteme.counter.category_hint", categoryText).withStyle(ChatFormatting.GRAY));
                     }
                 }
             } else {
-                tooltip.add(new TranslatableComponent("gui.voteme.voter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
+                tooltip.add(Component.translatable("gui.voteme.voter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
             }
         } else {
-            tooltip.add(new TranslatableComponent("gui.voteme.voter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
+            tooltip.add(Component.translatable("gui.voteme.voter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
         }
     }
 
@@ -127,11 +134,11 @@ public final class VoterItem extends Item {
             if (artifactNames.isPresent()) {
                 String artifactName = artifactNames.get().getName(artifactID);
                 if (!artifactName.isEmpty()) {
-                    return new TranslatableComponent("item.voteme.voter.with_artifact", artifactName);
+                    return Component.translatable("item.voteme.voter.with_artifact", artifactName);
                 }
             }
         }
-        return new TranslatableComponent("item.voteme.voter");
+        return Component.translatable("item.voteme.voter");
     }
 
     public ItemStack copyFrom(int voterSize, ItemStack stack) {

@@ -2,17 +2,20 @@ package org.teacon.voteme.crafting;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.CraftingBookCategory;
 import net.minecraft.world.item.crafting.CustomRecipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
-import net.minecraft.world.item.crafting.SimpleRecipeSerializer;
+import net.minecraft.world.item.crafting.SimpleCraftingRecipeSerializer;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.registries.ObjectHolder;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegisterEvent;
+import net.minecraftforge.registries.RegistryObject;
 import org.teacon.voteme.item.CounterItem;
 import org.teacon.voteme.item.VoterItem;
 
@@ -22,18 +25,18 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class VoterFromCounterRecipe extends CustomRecipe {
-    public static final String ID = "voteme:crafting_special_counter_from_voter";
+    public static final ResourceLocation ID = new ResourceLocation("voteme:crafting_special_counter_from_voter");
 
-    @ObjectHolder(ID)
-    public static SimpleRecipeSerializer<VoterFromCounterRecipe> SERIALIZER;
+    public static final RegistryObject<SimpleCraftingRecipeSerializer<VoterFromCounterRecipe>> SERIALIZER = RegistryObject.create(ID, ForgeRegistries.RECIPE_SERIALIZERS);
 
     @SubscribeEvent
-    public static void register(RegistryEvent.Register<RecipeSerializer<?>> event) {
-        event.getRegistry().register(new SimpleRecipeSerializer<>(VoterFromCounterRecipe::new).setRegistryName(ID));
+    public static void register(RegisterEvent event) {
+        event.register(ForgeRegistries.RECIPE_SERIALIZERS.getRegistryKey(), ID,
+                () -> new SimpleCraftingRecipeSerializer<>(VoterFromCounterRecipe::new));
     }
 
-    private VoterFromCounterRecipe(ResourceLocation location) {
-        super(location);
+    private VoterFromCounterRecipe(ResourceLocation location, CraftingBookCategory category) {
+        super(location, category);
     }
 
     @Override
@@ -45,11 +48,11 @@ public final class VoterFromCounterRecipe extends CustomRecipe {
             if (stack.isEmpty()) {
                 continue;
             }
-            if (stack.is(VoterItem.INSTANCE)) {
+            if (stack.is(VoterItem.INSTANCE.get())) {
                 ++voterSize;
                 continue;
             }
-            if (counter.isEmpty() && stack.is(CounterItem.INSTANCE)) {
+            if (counter.isEmpty() && stack.is(CounterItem.INSTANCE.get())) {
                 counter = stack;
                 continue;
             }
@@ -59,16 +62,16 @@ public final class VoterFromCounterRecipe extends CustomRecipe {
     }
 
     @Override
-    public ItemStack assemble(CraftingContainer inv) {
+    public ItemStack assemble(CraftingContainer inv, RegistryAccess registryAccess) {
         int voterSize = 0;
         ItemStack counter = ItemStack.EMPTY;
         for (int i = 0, size = inv.getContainerSize(); i < size; ++i) {
             ItemStack stack = inv.getItem(i);
-            if (counter.isEmpty() && stack.is(CounterItem.INSTANCE)) {
+            if (counter.isEmpty() && stack.is(CounterItem.INSTANCE.get())) {
                 counter = stack;
                 continue;
             }
-            if (stack.is(VoterItem.INSTANCE)) {
+            if (stack.is(VoterItem.INSTANCE.get())) {
                 ++voterSize;
                 continue;
             }
@@ -78,7 +81,7 @@ public final class VoterFromCounterRecipe extends CustomRecipe {
             return ItemStack.EMPTY;
         }
         if (voterSize > 0 && !counter.isEmpty()) {
-            return VoterItem.INSTANCE.copyFrom(voterSize, counter);
+            return VoterItem.INSTANCE.get().copyFrom(voterSize, counter);
         }
         return ItemStack.EMPTY;
     }
@@ -88,9 +91,9 @@ public final class VoterFromCounterRecipe extends CustomRecipe {
         NonNullList<ItemStack> list = NonNullList.withSize(inv.getContainerSize(), ItemStack.EMPTY);
         for (int i = 0, size = list.size(); i < size; ++i) {
             ItemStack stack = inv.getItem(i);
-            if (stack.hasContainerItem()) {
-                list.set(i, stack.getContainerItem());
-            } else if (stack.is(CounterItem.INSTANCE)) {
+            if (stack.hasCraftingRemainingItem()) {
+                list.set(i, stack.getCraftingRemainingItem());
+            } else if (stack.is(CounterItem.INSTANCE.get())) {
                 list.set(i, stack.copy());
             }
         }
@@ -104,6 +107,6 @@ public final class VoterFromCounterRecipe extends CustomRecipe {
 
     @Override
     public RecipeSerializer<?> getSerializer() {
-        return SERIALIZER;
+        return SERIALIZER.get();
     }
 }

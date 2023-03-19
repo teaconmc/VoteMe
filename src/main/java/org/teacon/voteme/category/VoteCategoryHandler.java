@@ -10,7 +10,6 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.chat.TextComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -18,8 +17,6 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.entity.player.Player;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -64,9 +61,8 @@ public final class VoteCategoryHandler extends SimpleJsonResourceReloadListener 
         }
     }
 
-    @OnlyIn(Dist.CLIENT)
-    public static void handleServerPacket(SyncCategoryPacket packet) {
-        categoryMap = packet.categories;
+    public static void setCategoriesFromServer(ImmutableMap<ResourceLocation, VoteCategory> categories) {
+        categoryMap = categories;
     }
 
     @SubscribeEvent
@@ -76,7 +72,7 @@ public final class VoteCategoryHandler extends SimpleJsonResourceReloadListener 
 
     @SubscribeEvent
     public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
-        Player player = event.getPlayer();
+        Player player = event.getEntity();
         if (player instanceof ServerPlayer serverPlayer) {
             SyncCategoryPacket packet = SyncCategoryPacket.create(categoryMap);
             VoteMePacketManager.CHANNEL.send(PacketDistributor.PLAYER.with(() -> serverPlayer), packet);
@@ -87,10 +83,10 @@ public final class VoteCategoryHandler extends SimpleJsonResourceReloadListener 
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(id);
         if (categoryOptional.isPresent()) {
             Component desc = categoryOptional.get().description;
-            Component hover = new TextComponent("[" + id + "]").append("\n\n").append(desc);
-            MutableComponent base = new TextComponent("").append(categoryOptional.get().name);
+            Component hover = Component.literal("[" + id + "]").append("\n\n").append(desc);
+            MutableComponent base = Component.empty().append(categoryOptional.get().name);
             return base.withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover)));
         }
-        return new TextComponent("");
+        return Component.empty();
     }
 }

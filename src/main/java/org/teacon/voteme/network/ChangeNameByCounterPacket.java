@@ -41,8 +41,8 @@ public final class ChangeNameByCounterPacket {
                     ? Stream.of(CREATE_COUNTER, CREATE, ADMIN_CREATE, ADMIN) : Stream.of(MODIFY_COUNTER, MODIFY);
             if (permissions.anyMatch(p -> PermissionAPI.getPermission(sender, p))) {
                 ItemStack stack = sender.getInventory().getItem(this.inventoryIndex);
-                if (CounterItem.INSTANCE.equals(stack.getItem())) {
-                    CounterItem.INSTANCE.rename(sender, stack, this.artifactUUID, this.newArtifactName);
+                if (CounterItem.INSTANCE.get().equals(stack.getItem())) {
+                    CounterItem.INSTANCE.get().rename(sender, stack, this.artifactUUID, this.newArtifactName);
                 }
             }
         });

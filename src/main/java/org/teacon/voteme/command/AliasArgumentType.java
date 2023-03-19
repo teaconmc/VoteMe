@@ -6,12 +6,13 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.synchronization.ArgumentSerializer;
-import net.minecraft.commands.synchronization.ArgumentTypes;
-import net.minecraft.commands.synchronization.EmptyArgumentSerializer;
+import net.minecraft.commands.synchronization.ArgumentTypeInfos;
+import net.minecraft.commands.synchronization.SingletonArgumentInfo;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegisterEvent;
 import org.teacon.voteme.vote.VoteArtifactNames;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -49,8 +50,8 @@ public final class AliasArgumentType implements ArgumentType<String> {
     }
 
     @SubscribeEvent
-    public static void setup(FMLCommonSetupEvent event) {
-        ArgumentSerializer<AliasArgumentType> serializer = new EmptyArgumentSerializer<>(AliasArgumentType::alias);
-        event.enqueueWork(() -> ArgumentTypes.register("voteme_alias", AliasArgumentType.class, serializer));
+    public static void register(RegisterEvent event) {
+        event.register(ForgeRegistries.COMMAND_ARGUMENT_TYPES.getRegistryKey(), new ResourceLocation("voteme:alias"), () ->
+                ArgumentTypeInfos.registerByClass(AliasArgumentType.class, SingletonArgumentInfo.contextFree(AliasArgumentType::alias)));
     }
 }

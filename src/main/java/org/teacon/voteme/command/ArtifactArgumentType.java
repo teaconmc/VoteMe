@@ -9,12 +9,13 @@ import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
-import net.minecraft.commands.synchronization.ArgumentSerializer;
-import net.minecraft.commands.synchronization.ArgumentTypes;
-import net.minecraft.commands.synchronization.EmptyArgumentSerializer;
+import net.minecraft.commands.synchronization.ArgumentTypeInfos;
+import net.minecraft.commands.synchronization.SingletonArgumentInfo;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegisterEvent;
 import org.teacon.voteme.vote.VoteArtifactNames;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -85,8 +86,8 @@ public final class ArtifactArgumentType implements ArgumentType<UUID> {
     }
 
     @SubscribeEvent
-    public static void setup(FMLCommonSetupEvent event) {
-        ArgumentSerializer<ArtifactArgumentType> serializer = new EmptyArgumentSerializer<>(ArtifactArgumentType::artifact);
-        event.enqueueWork(() -> ArgumentTypes.register("voteme_artifact", ArtifactArgumentType.class, serializer));
+    public static void register(RegisterEvent event) {
+        event.register(ForgeRegistries.COMMAND_ARGUMENT_TYPES.getRegistryKey(), new ResourceLocation("voteme:artifact"), () ->
+                ArgumentTypeInfos.registerByClass(ArtifactArgumentType.class, SingletonArgumentInfo.contextFree(ArtifactArgumentType::artifact)));
     }
 }

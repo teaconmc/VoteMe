@@ -12,7 +12,6 @@ import net.minecraft.commands.arguments.selector.EntitySelector;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.chat.TextComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -76,10 +75,10 @@ public final class VoteRoleHandler extends SimpleJsonResourceReloadListener {
     public static MutableComponent getText(ResourceLocation id) {
         Optional<VoteRole> roleOptional = VoteRoleHandler.getRole(id);
         if (roleOptional.isPresent()) {
-            MutableComponent base = wrapInSquareBrackets(new TextComponent(id.toString()));
-            Component hover = new TextComponent("").append(roleOptional.get().name).append("\n");
+            MutableComponent base = wrapInSquareBrackets(Component.literal(id.toString()));
+            Component hover = Component.empty().append(roleOptional.get().name).append("\n");
             return base.withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover)));
         }
-        return new TextComponent("");
+        return Component.empty();
     }
 }

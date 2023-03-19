@@ -1,17 +1,25 @@
 modLoader="javafml"
-loaderVersion="[35,)"
+loaderVersion="[45,)"
 license="BSD-3-Clause"
 
 [[mods]]
 modId="voteme"
 version="${file.jarVersion}"
-displayName="VoteMe"
-authors="TeaConMC"
-description="Minecraft mod for in-game voting"
+displayName="Vote Me"
+authors="TeaConMC, yuriscat (Yuri's Cat), 3TUSK, ustc-zzzz"
+description="Minecraft mod for in-game voting."
 
 [[dependencies.voteme]]
 modId="forge"
 mandatory=true
-versionRange="[35.1.0,)"
+versionRange="[45,)"
 ordering="NONE"
 side="BOTH"
+
+[[dependencies.voteme]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.19,)"
+ordering="NONE"
+side="BOTH"
+

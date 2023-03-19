@@ -1,21 +1,13 @@
 package org.teacon.voteme.category;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.Util;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.GsonHelper;
-import org.teacon.voteme.http.VoteMeHttpServer;
-import org.teacon.voteme.vote.VoteDataStorage;
-import org.teacon.voteme.vote.VoteList;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Optional;
-import java.util.UUID;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -42,21 +34,5 @@ public final class VoteCategory {
             throw new JsonSyntaxException("Both name and description are expected");
         }
         return new VoteCategory(name, desc, enabledDefault, enabledModifiable);
-    }
-
-    public JsonElement toHTTPJson(ResourceLocation categoryID) {
-        JsonObject jsonObject = new JsonObject();
-        jsonObject.addProperty("id", categoryID.toString());
-        jsonObject.addProperty("name", this.name.getString());
-        jsonObject.addProperty("description", this.description.getString());
-        VoteDataStorage voteDataStorage = VoteDataStorage.get(VoteMeHttpServer.getMinecraftServer());
-        jsonObject.add("vote_lists", Util.make(new JsonArray(), array -> {
-            for (UUID artifactID : voteDataStorage.getArtifactNames().getUUIDs()) {
-                int id = voteDataStorage.getIdOrCreate(artifactID, categoryID);
-                Optional<VoteList> entryOptional = voteDataStorage.getVoteList(id);
-                entryOptional.filter(e -> e.getEnabled().orElse(this.enabledDefault)).ifPresent(e -> array.add(id));
-            }
-        }));
-        return jsonObject;
     }
 }

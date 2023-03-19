@@ -3,7 +3,7 @@ package org.teacon.voteme.command;
 import com.google.common.collect.ImmutableList;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.Util;
-import net.minecraft.network.chat.TranslatableComponent;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -23,39 +23,39 @@ import java.util.UUID;
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class VoteMePermissions {
     public static final PermissionNode<Boolean> ADMIN = Util.make(new PermissionNode<>("voteme", "admin", PermissionTypes.BOOLEAN, VoteMePermissions::moderator),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.admin.name"), new TranslatableComponent("permission.voteme.admin.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.admin.name"), Component.translatable("permission.voteme.admin.description")));
     public static final PermissionNode<Boolean> ADMIN_CREATE = Util.make(new PermissionNode<>("voteme", "admin.create", PermissionTypes.BOOLEAN, VoteMePermissions::moderator),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.admin.create.name"), new TranslatableComponent("permission.voteme.admin.create.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.admin.create.name"), Component.translatable("permission.voteme.admin.create.description")));
     public static final PermissionNode<Boolean> ADMIN_REMOVE = Util.make(new PermissionNode<>("voteme", "admin.remove", PermissionTypes.BOOLEAN, VoteMePermissions::moderator),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.admin.remove.name"), new TranslatableComponent("permission.voteme.admin.remove.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.admin.remove.name"), Component.translatable("permission.voteme.admin.remove.description")));
     public static final PermissionNode<Boolean> ADMIN_MERGE = Util.make(new PermissionNode<>("voteme", "admin.merge", PermissionTypes.BOOLEAN, VoteMePermissions::moderator),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.admin.merge.name"), new TranslatableComponent("permission.voteme.admin.merge.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.admin.merge.name"), Component.translatable("permission.voteme.admin.merge.description")));
     public static final PermissionNode<Boolean> ADMIN_CLEAR = Util.make(new PermissionNode<>("voteme", "admin.clear", PermissionTypes.BOOLEAN, VoteMePermissions::moderator),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.admin.clear.name"), new TranslatableComponent("permission.voteme.admin.clear.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.admin.clear.name"), Component.translatable("permission.voteme.admin.clear.description")));
     public static final PermissionNode<Boolean> ADMIN_SWITCH = Util.make(new PermissionNode<>("voteme", "admin.switch", PermissionTypes.BOOLEAN, VoteMePermissions::moderator),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.admin.switch.name"), new TranslatableComponent("permission.voteme.admin.switch.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.admin.switch.name"), Component.translatable("permission.voteme.admin.switch.description")));
     public static final PermissionNode<Boolean> CREATE = Util.make(new PermissionNode<>("voteme", "create", PermissionTypes.BOOLEAN, VoteMePermissions::function),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.create.name"), new TranslatableComponent("permission.voteme.create.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.create.name"), Component.translatable("permission.voteme.create.description")));
     public static final PermissionNode<Boolean> SWITCH = Util.make(new PermissionNode<>("voteme", "switch", PermissionTypes.BOOLEAN, VoteMePermissions::function),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.switch.name"), new TranslatableComponent("permission.voteme.switch.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.switch.name"), Component.translatable("permission.voteme.switch.description")));
     public static final PermissionNode<Boolean> MODIFY = Util.make(new PermissionNode<>("voteme", "modify", PermissionTypes.BOOLEAN, VoteMePermissions::function),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.modify.name"), new TranslatableComponent("permission.voteme.modify.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.modify.name"), Component.translatable("permission.voteme.modify.description")));
     public static final PermissionNode<Boolean> QUERY = Util.make(new PermissionNode<>("voteme", "query", PermissionTypes.BOOLEAN, VoteMePermissions::function),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.query.name"), new TranslatableComponent("permission.voteme.query.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.query.name"), Component.translatable("permission.voteme.query.description")));
     public static final PermissionNode<Boolean> OPEN = Util.make(new PermissionNode<>("voteme", "open", PermissionTypes.BOOLEAN, VoteMePermissions::function),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.open.name"), new TranslatableComponent("permission.voteme.open.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.open.name"), Component.translatable("permission.voteme.open.description")));
     public static final PermissionNode<Boolean> GIVE = Util.make(new PermissionNode<>("voteme", "give", PermissionTypes.BOOLEAN, VoteMePermissions::function),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.give.name"), new TranslatableComponent("permission.voteme.give.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.give.name"), Component.translatable("permission.voteme.give.description")));
     public static final PermissionNode<Boolean> LIST = Util.make(new PermissionNode<>("voteme", "list", PermissionTypes.BOOLEAN, VoteMePermissions::function),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.list.name"), new TranslatableComponent("permission.voteme.list.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.list.name"), Component.translatable("permission.voteme.list.description")));
     public static final PermissionNode<Boolean> OPEN_VOTER = Util.make(new PermissionNode<>("voteme", "open.voter", PermissionTypes.BOOLEAN, VoteMePermissions::always),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.open.voter.name"), new TranslatableComponent("permission.voteme.open.voter.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.open.voter.name"), Component.translatable("permission.voteme.open.voter.description")));
     public static final PermissionNode<Boolean> CREATE_COUNTER = Util.make(new PermissionNode<>("voteme", "create.counter", PermissionTypes.BOOLEAN, VoteMePermissions::always),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.create.counter.name"), new TranslatableComponent("permission.voteme.create.counter.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.create.counter.name"), Component.translatable("permission.voteme.create.counter.description")));
     public static final PermissionNode<Boolean> MODIFY_COUNTER = Util.make(new PermissionNode<>("voteme", "modify.counter", PermissionTypes.BOOLEAN, VoteMePermissions::always),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.modify.counter.name"), new TranslatableComponent("permission.voteme.modify.counter.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.modify.counter.name"), Component.translatable("permission.voteme.modify.counter.description")));
     public static final PermissionNode<Boolean> SWITCH_COUNTER = Util.make(new PermissionNode<>("voteme", "switch.counter", PermissionTypes.BOOLEAN, VoteMePermissions::always),
-            node -> node.setInformation(new TranslatableComponent("permission.voteme.switch.counter.name"), new TranslatableComponent("permission.voteme.switch.counter.description")));
+            node -> node.setInformation(Component.translatable("permission.voteme.switch.counter.name"), Component.translatable("permission.voteme.switch.counter.description")));
 
     @SubscribeEvent
     public static void register(PermissionGatherEvent.Nodes event) {

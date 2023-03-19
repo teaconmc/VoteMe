@@ -8,6 +8,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.SharedConstants;
 import net.minecraft.Util;
+import net.minecraft.client.GameNarrator;
 import net.minecraft.client.StringSplitter;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Gui;
@@ -18,9 +19,9 @@ import net.minecraft.client.gui.screens.inventory.BookEditScreen;
 import net.minecraft.client.gui.screens.inventory.BookViewScreen;
 import net.minecraft.client.gui.screens.inventory.PageButton;
 import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.network.chat.*;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.apache.commons.lang3.mutable.MutableInt;
@@ -40,7 +41,6 @@ import java.util.Objects;
  *
  * @author 3TUSK
  */
-@OnlyIn(Dist.CLIENT)
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class CommentScreen extends Screen {
@@ -56,12 +56,12 @@ public final class CommentScreen extends Screen {
     private PageButton backButton;
     @Nullable
     private CommentScreen.Page displayCache = CommentScreen.Page.EMPTY;
-    private Component pageMsg = TextComponent.EMPTY;
+    private Component pageMsg = Component.empty();
 
     private final VoterScreen parent;
 
     public CommentScreen(@Nonnull VoterScreen parent) {
-        super(TextComponent.EMPTY);
+        super(GameNarrator.NO_TITLE);
         this.parent = parent;
         this.pages = new ArrayList<>(parent.currentComments);
         if (this.pages.isEmpty()) {
@@ -97,11 +97,10 @@ public final class CommentScreen extends Screen {
     @Override
     protected void init() {
         this.clearDisplayCache();
-        Objects.requireNonNull(this.minecraft).keyboardHandler.setSendRepeatsToGui(true);
         // Done button
-        this.addRenderableWidget(new Button(this.width / 2 + 2, 196, 98, 20, CommonComponents.GUI_DONE, button -> this.handleExit(true)));
+        this.addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, button -> this.handleExit(true)).bounds(this.width / 2 + 2, 196, 98, 20).build());
         // Cancel button
-        this.addRenderableWidget(new Button(this.width / 2 - 100, 196, 98, 20, CommonComponents.GUI_CANCEL, button -> this.handleExit(false)));
+        this.addRenderableWidget(Button.builder(CommonComponents.GUI_CANCEL, button -> this.handleExit(false)).bounds(this.width / 2 - 100, 196, 98, 20).build());
         int x = (this.width - 192) / 2;
         int y = 159;
         this.forwardButton = this.addRenderableWidget(new PageButton(x + 116, y, true, button -> this.pageForward(), true));
@@ -137,11 +136,6 @@ public final class CommentScreen extends Screen {
         }
         this.backButton.visible = this.currentPage > 0;
         this.clearDisplayCacheAfterPageChange();
-    }
-
-    @Override
-    public void removed() {
-        Objects.requireNonNull(this.minecraft).keyboardHandler.setSendRepeatsToGui(false);
     }
 
     @Override
@@ -287,7 +281,7 @@ public final class CommentScreen extends Screen {
         RenderSystem.setShaderTexture(0, BookViewScreen.BOOK_LOCATION);
         int x = (this.width - 192) / 2;
         int y = 2;
-        this.blit(xform, x, 2, 0, 0, 192, 192);
+        blit(xform, x, 2, 0, 0, 192, 192);
         /* Begin rendering lines */
         {
             int pageIndicatorWidth = this.font.width(this.pageMsg);
@@ -316,13 +310,12 @@ public final class CommentScreen extends Screen {
 
     }
 
-    @SuppressWarnings("deprecation")
     private void renderHighlight(Rect2i[] highlights) {
         Tesselator t = Tesselator.getInstance();
         BufferBuilder builder = t.getBuilder();
         // 1.17: no longer needed due to programmable pipeline usage
         RenderSystem.setShaderColor(0.0F, 0.0F, 1.0F, 1.0F);
-        RenderSystem.disableTexture();
+        // RenderSystem.disableTexture();
         RenderSystem.enableColorLogicOp();
         RenderSystem.logicOp(GlStateManager.LogicOp.OR_REVERSE);
         builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
@@ -340,7 +333,7 @@ public final class CommentScreen extends Screen {
 
         t.end();
         RenderSystem.disableColorLogicOp();
-        RenderSystem.enableTexture();
+        // RenderSystem.enableTexture();
     }
 
     private CommentScreen.Point convertScreenToLocal(CommentScreen.Point point) {
@@ -406,9 +399,9 @@ public final class CommentScreen extends Screen {
     private CommentScreen.Page getDisplayCache() {
         if (this.displayCache == null) {
             this.displayCache = this.rebuildDisplayCache();
-            this.pageMsg = new TranslatableComponent("book.pageIndicator", this.currentPage + 1, this.getNumPages());
+            this.pageMsg = Component.translatable("book.pageIndicator", this.currentPage + 1, this.getNumPages());
         }
-        return this.displayCache;
+        return Objects.requireNonNull(this.displayCache);
     }
 
     private void clearDisplayCache() {
@@ -526,7 +519,7 @@ public final class CommentScreen extends Screen {
             this.contents = text;
             this.x = x;
             this.y = y;
-            this.asComponent = new TextComponent(text).setStyle(style);
+            this.asComponent = Component.literal(text).setStyle(style);
         }
     }
 

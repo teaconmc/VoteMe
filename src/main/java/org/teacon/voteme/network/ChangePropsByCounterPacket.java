@@ -44,8 +44,8 @@ public final class ChangePropsByCounterPacket {
             Stream<PermissionNode<Boolean>> permissions = Stream.of(SWITCH_COUNTER, SWITCH, ADMIN_SWITCH, ADMIN);
             if (permissions.anyMatch(p -> PermissionAPI.getPermission(sender, p))) {
                 ItemStack stack = sender.getInventory().getItem(this.inventoryIndex);
-                if (CounterItem.INSTANCE.equals(stack.getItem())) {
-                    CounterItem.INSTANCE.applyChanges(sender, stack,
+                if (CounterItem.INSTANCE.get().equals(stack.getItem())) {
+                    CounterItem.INSTANCE.get().applyChanges(sender, stack,
                             this.artifactUUID, this.categoryID, this.enabled, this.disabled);
                 }
             }

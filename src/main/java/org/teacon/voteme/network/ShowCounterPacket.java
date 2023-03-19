@@ -6,7 +6,6 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.api.distmarker.Dist;
@@ -121,7 +120,7 @@ public final class ShowCounterPacket {
                     ImmutableList.Builder<Pair<Component, VoteList.Stats>> scoresBuilder = ImmutableList.builder();
                     entry.buildStatsMap().forEach((subgroup, scores) -> scoresBuilder.add(Pair.of(Optional
                             .ofNullable(ResourceLocation.tryParse(subgroup)).flatMap(VoteRoleHandler::getRole)
-                            .map(role -> role.name).orElse(new TextComponent(subgroup)), scores)));
+                            .map(role -> role.name).orElse(Component.literal(subgroup)), scores)));
                     builder.add(new Info(location, category, scoresBuilder.build(), enabledCurrently));
                 }
             }

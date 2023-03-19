@@ -7,6 +7,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.network.NetworkEvent;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
@@ -25,15 +26,9 @@ public final class SyncCategoryPacket {
     }
 
     public void handle(Supplier<NetworkEvent.Context> supplier) {
-        // forge needs a separate class
-        // noinspection Convert2Lambda
-        DistExecutor.safeRunWhenOn(Dist.CLIENT, () -> new DistExecutor.SafeRunnable() {
-            @Override
-            public void run() {
-                SyncCategoryPacket p = SyncCategoryPacket.this;
-                supplier.get().enqueueWork(() -> VoteCategoryHandler.handleServerPacket(p));
-            }
-        });
+        if (FMLEnvironment.dist.isClient()) {
+            supplier.get().enqueueWork(() -> VoteCategoryHandler.setCategoriesFromServer(categories));
+        }
         supplier.get().setPacketHandled(true);
     }
 
