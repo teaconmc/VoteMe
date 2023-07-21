@@ -2,7 +2,10 @@ package org.teacon.voteme.screen;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.*;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import net.minecraft.MethodsReturnNonnullByDefault;
@@ -11,7 +14,7 @@ import net.minecraft.Util;
 import net.minecraft.client.GameNarrator;
 import net.minecraft.client.StringSplitter;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.font.TextFieldHelper;
 import net.minecraft.client.gui.screens.Screen;
@@ -271,40 +274,38 @@ public final class CommentScreen extends Screen {
         }
     }
 
-    @SuppressWarnings("deprecation")
     @Override
-    public void render(PoseStack xform, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(xform);
+    public void render(GuiGraphics matrixStack, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(matrixStack);
         this.setFocused(null);
         // 1.17: no longer needed due to programmable pipeline usage
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        RenderSystem.setShaderTexture(0, BookViewScreen.BOOK_LOCATION);
         int x = (this.width - 192) / 2;
         int y = 2;
-        blit(xform, x, 2, 0, 0, 192, 192);
+        matrixStack.blit(BookViewScreen.BOOK_LOCATION, x, 2, 0, 0, 192, 192);
         /* Begin rendering lines */
         {
             int pageIndicatorWidth = this.font.width(this.pageMsg);
-            this.font.draw(xform, this.pageMsg, x - pageIndicatorWidth + 192 - 44, 18.0F, 0);
+            matrixStack.drawString(this.font, this.pageMsg, x - pageIndicatorWidth + 192 - 44, 18, 0, false);
 
             CommentScreen.Page page = this.getDisplayCache();
             for (CommentScreen.Line line : page.lines) {
-                this.font.draw(xform, line.asComponent, line.x, line.y, 0xFF000000);
+                matrixStack.drawString(this.font, line.asComponent, line.x, line.y, 0xFF000000, false);
             }
             this.renderHighlight(page.selection);
-            this.renderCursor(xform, page.cursor, page.cursorAtEnd);
+            this.renderCursor(matrixStack, page.cursor, page.cursorAtEnd);
         }
 
-        super.render(xform, mouseX, mouseY, partialTick);
+        super.render(matrixStack, mouseX, mouseY, partialTick);
     }
 
-    private void renderCursor(PoseStack xform, CommentScreen.Point cursorPos, boolean p_238756_3_) {
+    private void renderCursor(GuiGraphics matrixStack, CommentScreen.Point cursorPos, boolean p_238756_3_) {
         if (this.frameTick / 6 % 2 == 0) {
             cursorPos = this.convertLocalToScreen(cursorPos);
             if (!p_238756_3_) {
-                Gui.fill(xform, cursorPos.x, cursorPos.y - 1, cursorPos.x + 1, cursorPos.y + 9, 0xFF000000);
+                matrixStack.fill(cursorPos.x, cursorPos.y - 1, cursorPos.x + 1, cursorPos.y + 9, 0xFF000000);
             } else {
-                this.font.draw(xform, "_", (float) cursorPos.x, (float) cursorPos.y, 0);
+                matrixStack.drawString(this.font, "_", cursorPos.x, cursorPos.y, 0);
             }
         }
 

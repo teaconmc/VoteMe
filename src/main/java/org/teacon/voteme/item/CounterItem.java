@@ -18,7 +18,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.common.CreativeModeTabRegistry;
-import net.minecraftforge.event.CreativeModeTabEvent;
+import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.network.PacketDistributor;
@@ -55,7 +55,7 @@ public final class CounterItem extends Item {
     }
 
     @SubscribeEvent
-    public static void register(CreativeModeTabEvent.BuildContents event) {
+    public static void register(BuildCreativeModeTabContentsEvent event) {
         if (VoteMeItemGroup.ID.equals(CreativeModeTabRegistry.getName(event.getTab()))) {
             event.accept(INSTANCE, CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);
         }

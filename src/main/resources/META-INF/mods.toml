@@ -1,5 +1,5 @@
 modLoader="javafml"
-loaderVersion="[45,)"
+loaderVersion="[47,)"
 license="BSD-3-Clause"
 
 [[mods]]
@@ -12,14 +12,14 @@ description="Minecraft mod for in-game voting."
 [[dependencies.voteme]]
 modId="forge"
 mandatory=true
-versionRange="[45,)"
+versionRange="[47,)"
 ordering="NONE"
 side="BOTH"
 
 [[dependencies.voteme]]
 modId="minecraft"
 mandatory=true
-versionRange="[1.19,)"
+versionRange="[1.20.1,)"
 ordering="NONE"
 side="BOTH"
 

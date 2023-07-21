@@ -2,11 +2,11 @@ package org.teacon.voteme.screen;
 
 import com.google.common.collect.ImmutableList;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.GameNarrator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.narration.NarratedElementType;
@@ -69,7 +69,7 @@ public final class VoterScreen extends Screen {
     }
 
     @Override
-    public void render(PoseStack matrixStack, int mouseX, int mouseY, float partialTicks) {
+    public void render(GuiGraphics matrixStack, int mouseX, int mouseY, float partialTicks) {
         this.renderBackground(matrixStack);
         this.drawGuiContainerBackgroundLayer(matrixStack, partialTicks, mouseX, mouseY);
         super.render(matrixStack, mouseX, mouseY, partialTicks);
@@ -138,34 +138,34 @@ public final class VoterScreen extends Screen {
         this.slideBottom = bottom;
     }
 
-    private void drawTooltips(PoseStack matrixStack, float partialTicks, int mouseX, int mouseY) {
+    private void drawTooltips(GuiGraphics matrixStack, float partialTicks, int mouseX, int mouseY) {
+        Minecraft mc = Objects.requireNonNull(this.minecraft);
         int dx = mouseX - this.width / 2, dy = mouseY - this.height / 2;
         if (dx >= -103 && dy >= -55 && dx < -6 && dy < 77) {
             int current = (this.slideTop + dy + 55) / 24;
             if (current >= 0 && current < this.infoCollection.size()) {
                 Component desc = this.infoCollection.get(current).category.description;
                 List<FormattedCharSequence> descList = this.font.split(desc, 191);
-                this.renderTooltip(matrixStack, descList.subList(0, Math.min(7, descList.size())), mouseX, mouseY);
+                matrixStack.renderTooltip(mc.font, descList.subList(0, Math.min(7, descList.size())), mouseX, mouseY);
             }
         }
     }
 
-    private void drawGuiContainerBackgroundLayer(PoseStack matrixStack, float partialTicks, int mouseX, int mouseY) {
+    private void drawGuiContainerBackgroundLayer(GuiGraphics matrixStack, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        RenderSystem.setShaderTexture(0, TEXTURE);
-        blit(matrixStack, this.width / 2 - 111, this.height / 2 - 55, 0, 42, 234, 132);
+        matrixStack.blit(TEXTURE, this.width / 2 - 111, this.height / 2 - 55, 0, 42, 234, 132);
         this.drawCategoriesInSlide(matrixStack, mc);
-        blit(matrixStack, this.width / 2 - 111, this.height / 2 - 97, 0, 0, 234, 42);
-        blit(matrixStack, this.width / 2 - 111, this.height / 2 + 77, 0, 174, 234, 32);
+        matrixStack.blit(TEXTURE, this.width / 2 - 111, this.height / 2 - 97, 0, 0, 234, 42);
+        matrixStack.blit(TEXTURE, this.width / 2 - 111, this.height / 2 + 77, 0, 174, 234, 32);
     }
 
-    private void drawGuiContainerForegroundLayer(PoseStack matrixStack, float partialTicks, int mouseX, int mouseY) {
+    private void drawGuiContainerForegroundLayer(GuiGraphics matrixStack, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
         this.drawArtifactName(matrixStack, mc.font);
     }
 
-    private void drawCategoriesInSlide(PoseStack matrixStack, Minecraft mc) {
+    private void drawCategoriesInSlide(GuiGraphics matrixStack, Minecraft mc) {
         int infoSize = this.infoCollection.size();
         if (infoSize > 0) {
             int top = Math.max(0, this.slideTop / 24);
@@ -174,45 +174,42 @@ public final class VoterScreen extends Screen {
                 int offset = i * 24 - this.slideTop;
                 int x0 = this.width / 2 - 103, y0 = this.height / 2 - 55 + offset;
                 // draw button texture
-                blit(matrixStack, x0, y0, 8, 207, 192, 24);
+                matrixStack.blit(TEXTURE, x0, y0, 8, 207, 192, 24);
                 ShowVoterPacket.Info info = this.infoCollection.get(i);
                 // draw category string
                 int x1 = x0 + 48 - font.width(info.category.name) / 2, y1 = y0 + 8;
-                mc.font.draw(matrixStack, info.category.name, x1, y1, TEXT_COLOR);
+                matrixStack.drawString(mc.font, info.category.name, x1, y1, TEXT_COLOR, false);
                 // draw votes
                 int voteLevel = this.votes.getOrDefault(info.id, info.level);
-                RenderSystem.setShaderTexture(0, TEXTURE);
                 for (int j = 0; j < 5; ++j) {
                     int x2 = x0 + 106 + 15 * j, y2 = y0 + 4, u2 = 221, v2 = voteLevel > j ? 239 : 206;
-                    blit(matrixStack, x2, y2, u2, v2, 15, 15);
+                    matrixStack.blit(TEXTURE, x2, y2, u2, v2, 15, 15);
                 }
             }
         } else {
             MutableComponent next = Component.translatable("gui.voteme.voter.no_category.next");
             int x1 = this.width / 2 - 7, dx1 = mc.font.width(next) / 2, y1 = this.height / 2 + 15;
-            mc.font.draw(matrixStack, next, x1 - dx1, y1, HINT_COLOR);
+            matrixStack.drawString(mc.font, next, x1 - dx1, y1, HINT_COLOR, false);
 
-            matrixStack.pushPose();
+            matrixStack.pose().pushPose();
             float scale = ARTIFACT_SCALE_FACTOR;
-            matrixStack.scale(scale, scale, scale);
+            matrixStack.pose().scale(scale, scale, scale);
 
             MutableComponent prev = Component.translatable("gui.voteme.voter.no_category.prev");
             int x2 = this.width / 2 - 7, dx2 = mc.font.width(prev) / 2, y2 = this.height / 2 - 9;
-            mc.font.draw(matrixStack, prev, x2 / scale - dx2, y2 / scale, HINT_COLOR);
+            matrixStack.drawString(mc.font, prev, (int) (x2 / scale - dx2), (int) (y2 / scale), HINT_COLOR, false);
 
-            matrixStack.popPose();
-
-            RenderSystem.setShaderTexture(0, TEXTURE);
+            matrixStack.pose().popPose();
         }
     }
 
-    private void drawArtifactName(PoseStack matrixStack, Font font) {
-        matrixStack.pushPose();
+    private void drawArtifactName(GuiGraphics matrixStack, Font font) {
+        matrixStack.pose().pushPose();
         float scale = ARTIFACT_SCALE_FACTOR;
-        matrixStack.scale(scale, scale, scale);
+        matrixStack.pose().scale(scale, scale, scale);
         int x3 = this.width / 2 + 1, y3 = this.height / 2 - 82, dx = font.width(this.artifact) / 2;
-        font.draw(matrixStack, Component.literal(this.artifact), x3 / scale - dx, y3 / scale, TEXT_COLOR);
-        matrixStack.popPose();
+        matrixStack.drawString(font, Component.literal(this.artifact), (int) (x3 / scale - dx), (int) (y3 / scale), TEXT_COLOR, false);
+        matrixStack.pose().popPose();
     }
 
     private static class BottomButton extends Button {
@@ -224,18 +221,17 @@ public final class VoterScreen extends Screen {
         }
 
         @Override
-        public void renderWidget(PoseStack matrixStack, int mouseX, int mouseY, float partialTicks) {
-            Minecraft mc = Minecraft.getInstance();
-            RenderSystem.setShaderTexture(0, VoterScreen.TEXTURE);
+        public void renderWidget(GuiGraphics matrixStack, int mouseX, int mouseY, float partialTicks) {
             // render button texture
             RenderSystem.enableDepthTest();
             int u0 = (this.isRed ? 7 : 60) + (this.isHovered ? 106 : 0), v0 = 234;
-            blit(matrixStack, this.getX(), this.getY(), u0, v0, this.width, this.height);
+            matrixStack.blit(TEXTURE, this.getX(), this.getY(), u0, v0, this.width, this.height);
             // render button text
             Font font = Minecraft.getInstance().font;
             float dx = font.width(this.getMessage()) / 2F;
             float x = this.getX() + (this.width + 1) / 2F - dx, y = this.getY() + (this.height - 8) / 2F;
-            font.draw(matrixStack, this.getMessage(), x, y, BUTTON_TEXT_COLOR);
+            Component p_283140_ = this.getMessage();
+            matrixStack.drawString(font, p_283140_, (int) x, (int) y, BUTTON_TEXT_COLOR, false);
         }
     }
 
@@ -269,15 +265,14 @@ public final class VoterScreen extends Screen {
         }
 
         @Override
-        public void renderWidget(PoseStack matrixStack, int mouseX, int mouseY, float partialTicks) {
+        public void renderWidget(GuiGraphics matrixStack, int mouseX, int mouseY, float partialTicks) {
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-            RenderSystem.setShaderTexture(0, TEXTURE);
             double dx = mouseX - this.getX(), dy = mouseY - this.getY() - this.slideCenter;
             int x0 = this.getX() + 192, y0 = Math.toIntExact(Math.round(mouseY - dy));
             int v0 = this.isHovered && dx >= 192 && dy < this.halfSliderHeight && dy >= -this.halfSliderHeight ? 133 : 4;
-            blit(matrixStack, x0, y0 - this.halfSliderHeight, 239, v0, 13, this.halfSliderHeight - 8);
-            blit(matrixStack, x0, y0 - 8, 239, v0 + 52, 13, 16);
-            blit(matrixStack, x0, y0 + 8, 239, v0 + 128 - this.halfSliderHeight, 13, this.halfSliderHeight - 8);
+            matrixStack.blit(TEXTURE, x0, y0 - this.halfSliderHeight, 239, v0, 13, this.halfSliderHeight - 8);
+            matrixStack.blit(TEXTURE, x0, y0 - 8, 239, v0 + 52, 13, 16);
+            matrixStack.blit(TEXTURE, x0, y0 + 8, 239, v0 + 128 - this.halfSliderHeight, 13, this.halfSliderHeight - 8);
         }
 
         @Override
