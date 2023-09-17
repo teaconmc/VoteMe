@@ -24,6 +24,7 @@ import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.server.ServerLifecycleHooks;
+import org.apache.commons.lang3.text.StrSubstitutor;
 import org.teacon.voteme.VoteMe;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.sync.DetachedSynchronizer;
@@ -76,10 +77,11 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         this.load(nbt);
     }
 
+    @SuppressWarnings("deprecation")
     private VoteSynchronizer loadSynchronizer() {
-        String uri = VoteMe.CONFIG.REDIS_ATTACH_URI.get();
-        if (uri.length() > 0) {
-            return new RedisSynchronizer(ServerLifecycleHooks.getCurrentServer(), uri);
+        String uri = StrSubstitutor.replace(VoteMe.CONFIG.REDIS_ATTACH_URI.get(), System.getenv());
+        if (!uri.isBlank()) {
+            return new RedisSynchronizer(ServerLifecycleHooks.getCurrentServer(), uri.strip());
         }
         return new DetachedSynchronizer(ServerLifecycleHooks.getCurrentServer());
     }
