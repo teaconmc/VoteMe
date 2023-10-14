@@ -339,7 +339,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
         RedisAsyncCommands<String, String> async = this.connection.async();
         async.scan(cursor, args).thenAcceptAsync(newCursor -> {
             for (String key : newCursor.getKeys()) {
-                dispatch(fromRedisKey(key), async).thenAcceptAsync(this.receivedAnnouncements::add, this.server);
+                dispatch(fromRedisKey(key), async).thenAcceptAsync(e -> this.receivedAnnouncements.add(e), this.server);
             }
             if (!newCursor.isFinished()) {
                 this.scan(newCursor, args);
@@ -384,7 +384,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                 RedisSynchronizer.this.server.submitAsync(() -> {
                     try {
                         CompoundTag nbt = TagParser.parseTag(message);
-                        deserialize(nbt).ifPresent(RedisSynchronizer.this.receivedAnnouncements::add);
+                        deserialize(nbt).ifPresent(e -> RedisSynchronizer.this.receivedAnnouncements.add(e));
                     } catch (CommandSyntaxException e) {
                         VoteMe.LOGGER.warn("Failed to parse " + message + " as a tag from redis channel", e);
                     }
