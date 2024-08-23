@@ -3,12 +3,16 @@ package org.teacon.voteme.network;
 import com.google.common.collect.ImmutableList;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.roles.VoteRole;
@@ -20,11 +24,10 @@ import org.teacon.voteme.vote.VoteList;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
-import java.util.function.Supplier;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class ShowVoterPacket {
+public final class ShowVoterPacket implements CustomPacketPayload {
 
     /**
      * Maximum permitted length in bytes that a single page of comment may contain.
@@ -38,62 +41,40 @@ public final class ShowVoterPacket {
      */
     private static final int MAX_PAGE_NUMBER = 10;
 
+    public static final Type<ShowVoterPacket> TYPE = new Type<>(ResourceLocation.parse("voteme:show_voter"));
+
+    public static final StreamCodec<RegistryFriendlyByteBuf, ShowVoterPacket> STREAM_CODEC = StreamCodec.composite(
+            UUIDUtil.STREAM_CODEC, p -> p.artifactID,
+            Info.STREAM_CODEC.apply(ByteBufCodecs.list()), p -> p.infos,
+            ByteBufCodecs.stringUtf8(MAX_LENGTH_PER_PAGE).apply(ByteBufCodecs.list(MAX_PAGE_NUMBER)), p -> p.comments,
+            ShowVoterPacket::new
+    );
+
     public final UUID artifactID;
     public final ImmutableList<Info> infos;
     public final List<String> comments;
 
-    private ShowVoterPacket(UUID artifactID, ImmutableList<Info> infos, List<String> comments) {
+    private ShowVoterPacket(UUID artifactID, List<Info> infos, List<String> comments) {
         this.artifactID = artifactID;
-        this.infos = infos;
+        this.infos = ImmutableList.copyOf(infos);
         this.comments = comments;
     }
 
-    public void handle(Supplier<NetworkEvent.Context> supplier) {
+    @Override
+    public Type<ShowVoterPacket> type() {
+        return TYPE;
+    }
+
+    public void handle(IPayloadContext context) {
         // forge needs a separate class
-        // noinspection Convert2Lambda
-        DistExecutor.safeRunWhenOn(Dist.CLIENT, () -> new DistExecutor.SafeRunnable() {
-            @Override
-            public void run() {
-                ShowVoterPacket p = ShowVoterPacket.this;
-                String artifactName = VoteArtifactNames.client().getName(p.artifactID);
-                if (!artifactName.isEmpty()) {
-                    VoterScreen gui = new VoterScreen(p.artifactID, artifactName, p.infos, p.comments);
-                    supplier.get().enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
-                }
+        if (FMLEnvironment.dist == Dist.CLIENT) {
+            ShowVoterPacket p = ShowVoterPacket.this;
+            String artifactName = VoteArtifactNames.client().getName(p.artifactID);
+            if (!artifactName.isEmpty()) {
+                VoterScreen gui = new VoterScreen(p.artifactID, artifactName, p.infos, p.comments);
+                context.enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
             }
-        });
-        supplier.get().setPacketHandled(true);
-    }
-
-    public void write(FriendlyByteBuf buffer) {
-        buffer.writeUUID(this.artifactID);
-        for (Info info : this.infos) {
-            buffer.writeInt(info.level);
-            buffer.writeResourceLocation(info.id);
-        }
-        buffer.writeInt(Integer.MIN_VALUE);
-        buffer.writeVarInt(this.comments.size());
-        for (String comment : this.comments) {
-            buffer.writeUtf(comment, MAX_LENGTH_PER_PAGE);
-        }
-    }
-
-    public static ShowVoterPacket read(FriendlyByteBuf buffer) {
-        UUID artifactID = buffer.readUUID();
-        ImmutableList.Builder<Info> builder = ImmutableList.builder();
-        for (int level = buffer.readInt(); level != Integer.MIN_VALUE; level = buffer.readInt()) {
-            ResourceLocation id = buffer.readResourceLocation();
-            Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(id);
-            if (categoryOptional.isPresent()) {
-                builder.add(new Info(id, categoryOptional.get(), level));
-            }
-        }
-        List<String> comments = new ArrayList<>(MAX_PAGE_NUMBER);
-        int pageNum = Math.min(buffer.readVarInt(), MAX_PAGE_NUMBER);
-        for (int i = 0; i < pageNum; i++) {
-            comments.add(buffer.readUtf(MAX_LENGTH_PER_PAGE));
-        }
-        return new ShowVoterPacket(artifactID, builder.build(), comments);
+        };
     }
 
     public static Optional<ShowVoterPacket> create(UUID artifactID, ServerPlayer player) {
@@ -123,6 +104,14 @@ public final class ShowVoterPacket {
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     public static final class Info {
+
+        public static final StreamCodec<RegistryFriendlyByteBuf, Info> STREAM_CODEC = StreamCodec.composite(
+                ResourceLocation.STREAM_CODEC, info -> info.id,
+                VoteCategory.STREAM_CODEC, info -> info.category,
+                ByteBufCodecs.VAR_INT, info -> info.level,
+                Info::new
+        );
+
         public final int level;
         public final ResourceLocation id;
         public final VoteCategory category;

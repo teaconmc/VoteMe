@@ -10,17 +10,18 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ImageButton;
+import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.gui.font.TextFieldHelper;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.DyeColor;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.apache.commons.lang3.tuple.Pair;
 import org.teacon.voteme.network.ChangeNameByCounterPacket;
 import org.teacon.voteme.network.ChangePropsByCounterPacket;
 import org.teacon.voteme.network.ShowCounterPacket;
-import org.teacon.voteme.network.VoteMePacketManager;
 import org.teacon.voteme.vote.VoteList;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -33,8 +34,15 @@ import java.util.stream.IntStream;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class CounterScreen extends Screen {
-    private static final ResourceLocation TEXTURE = new ResourceLocation("voteme:textures/gui/counter.png");
+    private static final ResourceLocation TEXTURE = ResourceLocation.parse("voteme:textures/gui/counter.png");
     private static final Component EMPTY_ARTIFACT_TEXT = Component.translatable("gui.voteme.counter.empty_artifact").withStyle(style -> style.withItalic(true));
+
+    // FIXME Please split the widget texture out
+    public static final WidgetSprites PREV_BUTTON_SPRITE = new WidgetSprites(TEXTURE, TEXTURE, TEXTURE, TEXTURE);
+    public static final WidgetSprites NEXT_BUTTON_SPRITE = new WidgetSprites(TEXTURE, TEXTURE, TEXTURE, TEXTURE);
+    // 原始数据如下。依次是：画布 X，画布 Y，贴图宽，贴图高，贴图高度差值（啥意思？），贴图起始 X（U），贴图起始 Y（V）
+    // this.width / 2 - 99, this.height / 2 - 20, 18, 19, 12, 207, 0
+    // this.width / 2 - 79, this.height / 2 - 20, 18, 19, 32, 207, 0
 
     private static final int BUTTON_TEXT_COLOR = 0xFF9DA95D;
     private static final int TEXT_COLOR = 0xFF000000 | DyeColor.BLACK.getTextColor();
@@ -72,8 +80,10 @@ public final class CounterScreen extends Screen {
     @Override
     protected void init() {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
-        this.addRenderableWidget(new ImageButton(this.width / 2 - 99, this.height / 2 - 20, 18, 19, 12, 207, 0, TEXTURE, this::onPrevButtonClick));
-        this.addRenderableWidget(new ImageButton(this.width / 2 - 79, this.height / 2 - 20, 18, 19, 32, 207, 0, TEXTURE, this::onNextButtonClick));
+        //this.addRenderableWidget(new ImageButton(this.width / 2 - 99, this.height / 2 - 20, 18, 19, 12, 207, 0, TEXTURE, this::onPrevButtonClick));
+        //this.addRenderableWidget(new ImageButton(this.width / 2 - 79, this.height / 2 - 20, 18, 19, 32, 207, 0, TEXTURE, this::onNextButtonClick));
+        this.addRenderableWidget(new ImageButton(this.width / 2 - 79, this.height / 2 - 20, 18, 19, PREV_BUTTON_SPRITE, this::onPrevButtonClick));
+        this.addRenderableWidget(new ImageButton(this.width / 2 - 79, this.height / 2 - 20, 18, 19, NEXT_BUTTON_SPRITE, this::onNextButtonClick));
         this.okButton = this.addRenderableWidget(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onOKButtonClick, Component.translatable("gui.voteme.counter.ok")));
         this.cancelButton = this.addRenderableWidget(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onCancelButtonClick, Component.translatable("gui.voteme.counter.cancel")));
         this.renameButton = this.addRenderableWidget(new BottomButton(this.width / 2 + 19, this.height / 2 + 77, this::onRenameButtonClick, Component.translatable("gui.voteme.counter.rename")));
@@ -84,7 +94,7 @@ public final class CounterScreen extends Screen {
 
     @Override
     public void render(GuiGraphics matrixStack, int mouseX, int mouseY, float partialTicks) {
-        this.renderBackground(matrixStack);
+        this.renderBackground(matrixStack, mouseX, mouseY, partialTicks);
         this.drawGuiContainerBackgroundLayer(matrixStack, partialTicks, mouseX, mouseY);
         super.render(matrixStack, mouseX, mouseY, partialTicks);
         this.drawGuiContainerForegroundLayer(matrixStack, partialTicks, mouseX, mouseY);
@@ -125,7 +135,7 @@ public final class CounterScreen extends Screen {
                     .filter(i -> !i.enabledCurrently && this.enabledInfos.contains(i.id)).map(i -> i.id).iterator();
             Iterable<ResourceLocation> disabled = () -> this.infoCollection.stream()
                     .filter(i -> i.enabledCurrently && !this.enabledInfos.contains(i.id)).map(i -> i.id).iterator();
-            VoteMePacketManager.CHANNEL.sendToServer(ChangePropsByCounterPacket.create(
+            PacketDistributor.sendToServer(ChangePropsByCounterPacket.create(
                     this.inventoryIndex, this.artifactUUID, info.id, enabled, disabled));
         }
     }
@@ -148,7 +158,7 @@ public final class CounterScreen extends Screen {
 
     private void onRenameButtonClick(Button button) {
         ChangeNameByCounterPacket packet = ChangeNameByCounterPacket.create(this.inventoryIndex, this.artifactUUID, this.oldArtifact = this.artifact);
-        VoteMePacketManager.CHANNEL.sendToServer(packet);
+        PacketDistributor.sendToServer(packet);
     }
 
     private void onSwitchClick(Button button) {
@@ -285,8 +295,13 @@ public final class CounterScreen extends Screen {
     }
 
     private static class BottomButton extends ImageButton {
+
+        // FIXME Split texture out as separate file
+        public static final WidgetSprites BOTTOM_BUTTON_SPRITE = new WidgetSprites(CounterScreen.TEXTURE, CounterScreen.TEXTURE);
+
         public BottomButton(int x, int y, Button.OnPress onPress, Component title) {
-            super(x, y, 39, 19, 136, 207, 0, CounterScreen.TEXTURE, 256, 256, onPress, title);
+            super(x, y, 39, 19, BOTTOM_BUTTON_SPRITE, onPress, title);
+            // u = 136, v = 207, vDiff = 0, texture total width = 256, texture total height = 256,
         }
 
         @Override

@@ -9,6 +9,7 @@ import com.google.gson.JsonElement;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.arguments.selector.EntitySelector;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
@@ -17,9 +18,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
-import net.minecraftforge.event.AddReloadListenerEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.AddReloadListenerEvent;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
@@ -28,14 +29,17 @@ import static net.minecraft.network.chat.ComponentUtils.wrapInSquareBrackets;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
 public final class VoteRoleHandler extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new GsonBuilder().create();
 
     private static SortedMap<ResourceLocation, VoteRole> roleMap = ImmutableSortedMap.of();
 
-    public VoteRoleHandler() {
+    private final HolderLookup.Provider registries;
+
+    public VoteRoleHandler(HolderLookup.Provider registries) {
         super(GSON, "vote_roles");
+        this.registries = registries;
     }
 
     public static Collection<? extends ResourceLocation> getRoles(ServerPlayer player) {
@@ -64,12 +68,12 @@ public final class VoteRoleHandler extends SimpleJsonResourceReloadListener {
 
     @Override
     protected void apply(Map<ResourceLocation, JsonElement> objects, ResourceManager manager, ProfilerFiller profiler) {
-        roleMap = ImmutableSortedMap.copyOf(Maps.transformEntries(objects, VoteRole::fromJson), Comparator.naturalOrder());
+        roleMap = ImmutableSortedMap.copyOf(Maps.transformEntries(objects, (k, v) -> VoteRole.fromJson(k, v, this.registries)), Comparator.naturalOrder());
     }
 
     @SubscribeEvent
     public static void addReloadListener(AddReloadListenerEvent event) {
-        event.addListener(new VoteRoleHandler());
+        event.addListener(new VoteRoleHandler(event.getRegistryAccess()));
     }
 
     public static MutableComponent getText(ResourceLocation id) {

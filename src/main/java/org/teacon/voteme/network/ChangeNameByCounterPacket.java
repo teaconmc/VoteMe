@@ -1,27 +1,40 @@
 package org.teacon.voteme.network;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.server.permission.PermissionAPI;
-import net.minecraftforge.server.permission.nodes.PermissionNode;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.neoforged.neoforge.server.permission.PermissionAPI;
+import net.neoforged.neoforge.server.permission.nodes.PermissionNode;
 import org.teacon.voteme.item.CounterItem;
 import org.teacon.voteme.vote.VoteArtifactNames;
 import org.teacon.voteme.vote.VoteDataStorage;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Objects;
 import java.util.UUID;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static org.teacon.voteme.command.VoteMePermissions.*;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class ChangeNameByCounterPacket {
+public final class ChangeNameByCounterPacket implements CustomPacketPayload {
+
+    public static final Type<ChangeNameByCounterPacket> TYPE = new Type<>(ResourceLocation.parse("voteme:change_name_by_counter"));
+
+    public static final StreamCodec<FriendlyByteBuf, ChangeNameByCounterPacket> STREAM_CODEC = StreamCodec.composite(
+            ByteBufCodecs.VAR_INT, p -> p.inventoryIndex,
+            UUIDUtil.STREAM_CODEC, p -> p.artifactUUID,
+            ByteBufCodecs.STRING_UTF8, p -> p.newArtifactName,
+            ChangeNameByCounterPacket::new
+    );
+
     public final int inventoryIndex;
     public final UUID artifactUUID;
     public final String newArtifactName;
@@ -32,34 +45,23 @@ public final class ChangeNameByCounterPacket {
         this.newArtifactName = newArtifactName;
     }
 
-    public void handle(Supplier<NetworkEvent.Context> supplier) {
-        supplier.get().enqueueWork(() -> {
-            ServerPlayer sender = Objects.requireNonNull(supplier.get().getSender());
-            VoteArtifactNames artifactNames = VoteDataStorage.get(sender.server).getArtifactNames();
-            boolean isCreating = artifactNames.getName(this.artifactUUID).isEmpty();
-            Stream<PermissionNode<Boolean>> permissions = isCreating
-                    ? Stream.of(CREATE_COUNTER, CREATE, ADMIN_CREATE, ADMIN) : Stream.of(MODIFY_COUNTER, MODIFY);
-            if (permissions.anyMatch(p -> PermissionAPI.getPermission(sender, p))) {
-                ItemStack stack = sender.getInventory().getItem(this.inventoryIndex);
-                if (CounterItem.INSTANCE.get().equals(stack.getItem())) {
-                    CounterItem.INSTANCE.get().rename(sender, stack, this.artifactUUID, this.newArtifactName);
-                }
+    @Override
+    public Type<ChangeNameByCounterPacket> type() {
+        return TYPE;
+    }
+
+    public void handle(IPayloadContext context) {
+        ServerPlayer sender = (ServerPlayer) context.player();
+        VoteArtifactNames artifactNames = VoteDataStorage.get(sender.server).getArtifactNames();
+        boolean isCreating = artifactNames.getName(this.artifactUUID).isEmpty();
+        Stream<PermissionNode<Boolean>> permissions = isCreating
+                ? Stream.of(CREATE_COUNTER, CREATE, ADMIN_CREATE, ADMIN) : Stream.of(MODIFY_COUNTER, MODIFY);
+        if (permissions.anyMatch(p -> PermissionAPI.getPermission(sender, p))) {
+            ItemStack stack = sender.getInventory().getItem(this.inventoryIndex);
+            if (CounterItem.INSTANCE.get().equals(stack.getItem())) {
+                CounterItem.INSTANCE.get().rename(sender, stack, this.artifactUUID, this.newArtifactName);
             }
-        });
-        supplier.get().setPacketHandled(true);
-    }
-
-    public void write(FriendlyByteBuf buffer) {
-        buffer.writeVarInt(this.inventoryIndex);
-        buffer.writeUUID(this.artifactUUID);
-        buffer.writeUtf(this.newArtifactName);
-    }
-
-    public static ChangeNameByCounterPacket read(FriendlyByteBuf buffer) {
-        int inventoryIndex = buffer.readVarInt();
-        UUID artifactUUID = buffer.readUUID();
-        String artifactName = buffer.readUtf(Short.MAX_VALUE);
-        return new ChangeNameByCounterPacket(inventoryIndex, artifactUUID, artifactName);
+        }
     }
 
     public static ChangeNameByCounterPacket create(int inventoryIndex, UUID artifactUUID, String newArtifactName) {

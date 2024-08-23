@@ -1,10 +1,10 @@
 package org.teacon.voteme;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.fml.ModLoadingContext;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.config.ModConfig;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.neoforge.common.ModConfigSpec;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -17,11 +17,11 @@ import javax.annotation.ParametersAreNonnullByDefault;
 public final class VoteMe {
     public static final Logger LOGGER = LogManager.getLogger(VoteMe.class);
 
-    public static final VoteMeConfig CONFIG;
+    public static VoteMeConfig CONFIG;
 
-    static {
-        Pair<VoteMeConfig, ForgeConfigSpec> pair = new ForgeConfigSpec.Builder().configure(VoteMeConfig::new);
-        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, pair.getRight());
+    public VoteMe(ModContainer modContainer) {
+        Pair<VoteMeConfig, ModConfigSpec> pair = new ModConfigSpec.Builder().configure(VoteMeConfig::new);
+        modContainer.registerConfig(ModConfig.Type.SERVER, pair.getRight());
         CONFIG = pair.getLeft();
     }
 }

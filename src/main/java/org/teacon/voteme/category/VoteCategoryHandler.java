@@ -7,6 +7,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
@@ -17,12 +18,12 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.entity.player.Player;
-import net.minecraftforge.event.AddReloadListenerEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.server.ServerLifecycleHooks;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.AddReloadListenerEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.teacon.voteme.network.SyncCategoryPacket;
 import org.teacon.voteme.network.VoteMePacketManager;
 
@@ -33,14 +34,16 @@ import java.util.Optional;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
 public final class VoteCategoryHandler extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new GsonBuilder().create();
 
     private static ImmutableMap<ResourceLocation, VoteCategory> categoryMap = ImmutableMap.of();
+    private final HolderLookup.Provider registries;
 
-    public VoteCategoryHandler() {
+    public VoteCategoryHandler(HolderLookup.Provider registries) {
         super(GSON, "vote_categories");
+        this.registries = registries;
     }
 
     public static Optional<VoteCategory> getCategory(ResourceLocation id) {
@@ -53,11 +56,11 @@ public final class VoteCategoryHandler extends SimpleJsonResourceReloadListener 
 
     @Override
     protected void apply(Map<ResourceLocation, JsonElement> objects, ResourceManager manager, ProfilerFiller profiler) {
-        categoryMap = ImmutableSortedMap.copyOf(Maps.transformValues(objects, VoteCategory::fromJson));
+        categoryMap = ImmutableSortedMap.copyOf(Maps.transformValues(objects, v -> VoteCategory.fromJson(v, this.registries)));
         MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         if (server != null) {
             SyncCategoryPacket packet = SyncCategoryPacket.create(categoryMap);
-            VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(), packet);
+            PacketDistributor.sendToAllPlayers(packet);
         }
     }
 
@@ -67,7 +70,7 @@ public final class VoteCategoryHandler extends SimpleJsonResourceReloadListener 
 
     @SubscribeEvent
     public static void addReloadListener(AddReloadListenerEvent event) {
-        event.addListener(new VoteCategoryHandler());
+        event.addListener(new VoteCategoryHandler(event.getRegistryAccess()));
     }
 
     @SubscribeEvent
@@ -75,7 +78,7 @@ public final class VoteCategoryHandler extends SimpleJsonResourceReloadListener 
         Player player = event.getEntity();
         if (player instanceof ServerPlayer serverPlayer) {
             SyncCategoryPacket packet = SyncCategoryPacket.create(categoryMap);
-            VoteMePacketManager.CHANNEL.send(PacketDistributor.PLAYER.with(() -> serverPlayer), packet);
+            PacketDistributor.sendToPlayer(serverPlayer, packet);
         }
     }
 

@@ -1,16 +1,20 @@
 package org.teacon.voteme.network;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.ImmutableIntArray;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.apache.commons.lang3.tuple.Pair;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
@@ -25,84 +29,48 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class ShowCounterPacket {
+public final class ShowCounterPacket implements CustomPacketPayload {
+
+    public static final Type<ShowCounterPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("voteme", "show_counter"));
+
+    public static final StreamCodec<RegistryFriendlyByteBuf, ShowCounterPacket> STREAM_CODEC = StreamCodec.composite(
+            ByteBufCodecs.VAR_INT, p -> p.invIndex,
+            UUIDUtil.STREAM_CODEC, p -> p.artifactUUID,
+            ResourceLocation.STREAM_CODEC, p -> p.category,
+            Info.STREAM_CODEC.apply(ByteBufCodecs.list()), p -> p.infos,
+            ShowCounterPacket::new
+    );
+
     public final int invIndex;
     public final UUID artifactUUID;
     public final ResourceLocation category;
     public final ImmutableList<Info> infos;
 
-    private ShowCounterPacket(int invIndex, UUID uuid, ResourceLocation category, ImmutableList<Info> infos) {
+    private ShowCounterPacket(int invIndex, UUID uuid, ResourceLocation category, List<Info> infos) {
         this.invIndex = invIndex;
         this.artifactUUID = uuid;
         this.category = category;
-        this.infos = infos;
+        this.infos = ImmutableList.copyOf(infos);
     }
 
-    public void handle(Supplier<NetworkEvent.Context> supplier) {
+    @Override
+    public Type<ShowCounterPacket> type() {
+        return TYPE;
+    }
+
+    public void handle(IPayloadContext context) {
         if (!this.infos.isEmpty()) {
-            // forge needs a separate class
-            // noinspection Convert2Lambda
-            DistExecutor.safeRunWhenOn(Dist.CLIENT, () -> new DistExecutor.SafeRunnable() {
-                @Override
-                public void run() {
-                    ShowCounterPacket p = ShowCounterPacket.this;
-                    String artifactName = VoteArtifactNames.client().getName(p.artifactUUID);
-                    CounterScreen gui = new CounterScreen(p.artifactUUID, artifactName, p.invIndex, p.category, p.infos);
-                    supplier.get().enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
-                }
-            });
-        }
-        supplier.get().setPacketHandled(true);
-    }
-
-    public void write(FriendlyByteBuf buffer) {
-        buffer.writeInt(this.invIndex);
-        buffer.writeUUID(this.artifactUUID);
-        buffer.writeResourceLocation(this.category);
-        buffer.writeVarInt(this.infos.size());
-        for (Info info : this.infos) {
-            for (Pair<Component, VoteList.Stats> entry : info.scores) {
-                VoteList.Stats stats = entry.getValue();
-                buffer.writeFloat(stats.getWeight());
-                buffer.writeFloat(stats.getFinalScore(Float.NaN));
-                buffer.writeVarInt(stats.getEffectiveCount());
-                buffer.writeVarIntArray(stats.getVoteCountArray());
-                buffer.writeComponent(entry.getKey());
-            }
-            buffer.writeFloat(Float.NaN);
-            buffer.writeResourceLocation(info.id);
-            buffer.writeBoolean(info.enabledCurrently);
-        }
-    }
-
-    public static ShowCounterPacket read(FriendlyByteBuf buffer) {
-        int inventoryIndex = buffer.readInt();
-        UUID artifactUUID = buffer.readUUID();
-        ResourceLocation category = buffer.readResourceLocation();
-        ImmutableList.Builder<Info> builder = ImmutableList.builder();
-        for (int i = 0, size = buffer.readVarInt(); i < size; ++i) {
-            ImmutableList.Builder<Pair<Component, VoteList.Stats>> scoresBuilder = ImmutableList.builder();
-            for (float weight = buffer.readFloat(); !Float.isNaN(weight); weight = buffer.readFloat()) {
-                float finalScore = buffer.readFloat();
-                int effectiveVoteCount = buffer.readVarInt();
-                // noinspection UnstableApiUsage
-                ImmutableIntArray countsByLevel = ImmutableIntArray.copyOf(buffer.readVarIntArray(6));
-                Component subgroup = buffer.readComponent();
-                scoresBuilder.add(Pair.of(subgroup, new VoteList.Stats(weight, finalScore, effectiveVoteCount, countsByLevel)));
-            }
-            ResourceLocation id = buffer.readResourceLocation();
-            boolean categoryEnabledCurrently = buffer.readBoolean();
-            Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(id);
-            if (categoryOptional.isPresent()) {
-                Info info = new Info(id, categoryOptional.get(), scoresBuilder.build(), categoryEnabledCurrently);
-                builder.add(info);
+            // neoforge claims this is sufficient
+            if (FMLEnvironment.dist == Dist.CLIENT) {
+                ShowCounterPacket p = ShowCounterPacket.this;
+                String artifactName = VoteArtifactNames.client().getName(p.artifactUUID);
+                CounterScreen gui = new CounterScreen(p.artifactUUID, artifactName, p.invIndex, p.category, p.infos);
+                context.enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
             }
         }
-        return new ShowCounterPacket(inventoryIndex, artifactUUID, category, builder.build());
     }
 
     public static Optional<ShowCounterPacket> create(int inventoryId, UUID artifactID, ResourceLocation categoryID, MinecraftServer server) {
@@ -174,5 +142,13 @@ public final class ShowCounterPacket {
         public String toString() {
             return "EditCounterPacker.Info{id='" + this.id + ", scores=" + this.scores + ", enabled=" + this.enabledCurrently + "}";
         }
+
+        public static final StreamCodec<RegistryFriendlyByteBuf, Info> STREAM_CODEC = StreamCodec.composite(
+                ResourceLocation.STREAM_CODEC, info -> info.id,
+                VoteCategory.STREAM_CODEC, info -> info.category,
+                VoteMeStreamUtils.pair(ComponentSerialization.STREAM_CODEC, VoteList.Stats.STREAM_CODEC).apply(ByteBufCodecs.list()), info -> info.scores,
+                ByteBufCodecs.BOOL, info -> info.enabledCurrently,
+                Info::new
+        );
     }
 }

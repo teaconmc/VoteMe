@@ -22,9 +22,11 @@ import net.minecraft.client.gui.screens.inventory.BookEditScreen;
 import net.minecraft.client.gui.screens.inventory.BookViewScreen;
 import net.minecraft.client.gui.screens.inventory.PageButton;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
+import net.minecraft.util.StringUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.apache.commons.lang3.mutable.MutableInt;
@@ -171,7 +173,7 @@ public final class CommentScreen extends Screen {
     public boolean charTyped(char p_231042_1_, int p_231042_2_) {
         if (super.charTyped(p_231042_1_, p_231042_2_)) {
             return true;
-        } else if (SharedConstants.isAllowedChatCharacter(p_231042_1_)) {
+        } else if (StringUtil.isAllowedChatCharacter(p_231042_1_)) {
             this.pageEdit.insertText(Character.toString(p_231042_1_));
             this.clearDisplayCache();
             return true;
@@ -276,7 +278,7 @@ public final class CommentScreen extends Screen {
 
     @Override
     public void render(GuiGraphics matrixStack, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(matrixStack);
+        this.renderBackground(matrixStack, mouseX, mouseY, partialTick);
         this.setFocused(null);
         // 1.17: no longer needed due to programmable pipeline usage
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
@@ -292,7 +294,7 @@ public final class CommentScreen extends Screen {
             for (CommentScreen.Line line : page.lines) {
                 matrixStack.drawString(this.font, line.asComponent, line.x, line.y, 0xFF000000, false);
             }
-            this.renderHighlight(page.selection);
+            this.renderHighlight(matrixStack, page.selection);
             this.renderCursor(matrixStack, page.cursor, page.cursorAtEnd);
         }
 
@@ -311,30 +313,14 @@ public final class CommentScreen extends Screen {
 
     }
 
-    private void renderHighlight(Rect2i[] highlights) {
-        Tesselator t = Tesselator.getInstance();
-        BufferBuilder builder = t.getBuilder();
-        // 1.17: no longer needed due to programmable pipeline usage
-        RenderSystem.setShaderColor(0.0F, 0.0F, 1.0F, 1.0F);
-        // RenderSystem.disableTexture();
-        RenderSystem.enableColorLogicOp();
-        RenderSystem.logicOp(GlStateManager.LogicOp.OR_REVERSE);
-        builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
-
-        for (Rect2i highlight : highlights) {
-            int minX = highlight.getX();
-            int minY = highlight.getY();
-            int maxX = minX + highlight.getWidth();
-            int maxY = minY + highlight.getHeight();
-            builder.vertex(minX, maxY, 0.0D).endVertex();
-            builder.vertex(maxX, maxY, 0.0D).endVertex();
-            builder.vertex(maxX, minY, 0.0D).endVertex();
-            builder.vertex(minX, minY, 0.0D).endVertex();
+    private void renderHighlight(GuiGraphics guiGraphics, Rect2i[] highlights) {
+        for (Rect2i rect2i : highlights) {
+            int i = rect2i.getX();
+            int j = rect2i.getY();
+            int k = i + rect2i.getWidth();
+            int l = j + rect2i.getHeight();
+            guiGraphics.fill(RenderType.guiTextHighlight(), i, j, k, l, -16776961);
         }
-
-        t.end();
-        RenderSystem.disableColorLogicOp();
-        // RenderSystem.enableTexture();
     }
 
     private CommentScreen.Point convertScreenToLocal(CommentScreen.Point point) {

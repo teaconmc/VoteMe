@@ -2,20 +2,34 @@ package org.teacon.voteme.network;
 
 import com.google.common.collect.ImmutableMap;
 import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.teacon.voteme.vote.VoteArtifactNames;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Supplier;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class SyncArtifactNamePacket {
+public final class SyncArtifactNamePacket implements CustomPacketPayload {
+
+    public static final Type<SyncArtifactNamePacket> TYPE = new Type<>(ResourceLocation.parse("voteme:sync_artifact_name"));
+
+    public static final StreamCodec<FriendlyByteBuf, SyncArtifactNamePacket> STREAM_CODEC = StreamCodec.composite(
+            ByteBufCodecs.map(HashMap::new, UUIDUtil.STREAM_CODEC, ByteBufCodecs.stringUtf8(Short.MAX_VALUE)), p -> p.artifactNames,
+            ByteBufCodecs.map(HashMap::new, UUIDUtil.STREAM_CODEC, ByteBufCodecs.stringUtf8(Short.MAX_VALUE)), p -> p.artifactAliases,
+            SyncArtifactNamePacket::create
+    );
+
     public final ImmutableMap<UUID, String> artifactNames;
     public final ImmutableMap<UUID, String> artifactAliases;
 
@@ -24,38 +38,16 @@ public final class SyncArtifactNamePacket {
         this.artifactAliases = aliases;
     }
 
-    public void handle(Supplier<NetworkEvent.Context> supplier) {
+    @Override
+    public Type<SyncArtifactNamePacket> type() {
+        return TYPE;
+    }
+
+    public void handle(IPayloadContext context) {
         SyncArtifactNamePacket packet = SyncArtifactNamePacket.this;
-        supplier.get().enqueueWork(() -> DistExecutor
-                .safeCallWhenOn(Dist.CLIENT, () -> VoteArtifactNames::handleServerPacket).accept(packet));
-        supplier.get().setPacketHandled(true);
-    }
-
-    public void write(FriendlyByteBuf buffer) {
-        for (Map.Entry<UUID, String> entry : this.artifactNames.entrySet()) {
-            buffer.writeBoolean(true);
-            buffer.writeUUID(entry.getKey());
-            buffer.writeUtf(entry.getValue());
+        if (FMLEnvironment.dist == Dist.CLIENT) {
+            VoteArtifactNames.handleServerPacket().accept(packet);
         }
-        buffer.writeBoolean(false);
-        for (Map.Entry<UUID, String> entry : this.artifactAliases.entrySet()) {
-            buffer.writeBoolean(true);
-            buffer.writeUUID(entry.getKey());
-            buffer.writeUtf(entry.getValue());
-        }
-        buffer.writeBoolean(false);
-    }
-
-    public static SyncArtifactNamePacket read(FriendlyByteBuf buffer) {
-        ImmutableMap.Builder<UUID, String> namesBuilder = ImmutableMap.builder();
-        for (boolean b = buffer.readBoolean(); b; b = buffer.readBoolean()) {
-            namesBuilder.put(buffer.readUUID(), buffer.readUtf(Short.MAX_VALUE));
-        }
-        ImmutableMap.Builder<UUID, String> aliasesBuilder = ImmutableMap.builder();
-        for (boolean b = buffer.readBoolean(); b; b = buffer.readBoolean()) {
-            aliasesBuilder.put(buffer.readUUID(), buffer.readUtf(Short.MAX_VALUE));
-        }
-        return new SyncArtifactNamePacket(namesBuilder.build(), aliasesBuilder.build());
     }
 
     public static SyncArtifactNamePacket create(Map<UUID, String> artifactNames, Map<UUID, String> artifactAliases) {

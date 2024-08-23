@@ -5,14 +5,19 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.primitives.ImmutableIntArray;
+import io.netty.buffer.ByteBuf;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import org.apache.commons.lang3.tuple.Triple;
+import org.teacon.voteme.network.VoteMeStreamUtils;
 import org.teacon.voteme.roles.VoteRole;
 import org.teacon.voteme.roles.VoteRoleHandler;
 import org.teacon.voteme.sync.VoteSynchronizer.Announcement;
@@ -219,7 +224,7 @@ public final class VoteList {
             int level = Mth.clamp(child.getInt("Level"), 1, 5);
             ImmutableSet.Builder<ResourceLocation> roleBuilder = ImmutableSet.builder();
             for (Tag roleNBT : child.getList("VoteRoles", Tag.TAG_STRING)) {
-                roleBuilder.add(new ResourceLocation(roleNBT.getAsString()));
+                roleBuilder.add(ResourceLocation.parse(roleNBT.getAsString()));
             }
             ImmutableSet<ResourceLocation> roles = roleBuilder.build();
             Instant voteTime = DEFAULT_VOTE_TIME;
@@ -281,12 +286,21 @@ public final class VoteList {
     }
 
     public static VoteDisabledKey deserializeKey(CompoundTag source) {
-        return new VoteDisabledKey(source.getUUID("ArtifactUUID"), new ResourceLocation(source.getString("Category")));
+        return new VoteDisabledKey(source.getUUID("ArtifactUUID"), ResourceLocation.parse(source.getString("Category")));
     }
 
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     public static final class Stats {
+
+        public static final StreamCodec<FriendlyByteBuf, Stats> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.FLOAT, stats -> stats.weight,
+                ByteBufCodecs.FLOAT, stats -> stats.finalScore,
+                ByteBufCodecs.VAR_INT, stats -> stats.effectiveCount,
+                VoteMeStreamUtils.IMMUTABLE_INT_ARRAY, stats -> stats.voteCountsByLevel,
+                Stats::new
+        );
+
         private final float weight;
         private final float finalScore;
         private final int effectiveCount;

@@ -110,21 +110,21 @@ public final class AnnouncementSerializer {
                 }
                 case VOTE -> {
                     VoteKey key = new VoteKey(nbt.getUUID(KEY_ARTIFACT),
-                            new ResourceLocation(nbt.getString(KEY_CATEGORY)), nbt.getUUID(KEY_VOTER));
+                            ResourceLocation.parse(nbt.getString(KEY_CATEGORY)), nbt.getUUID(KEY_VOTER));
                     Instant time = nbt.contains(KEY_VOTE_TIME, Tag.TAG_LONG)
                             ? Instant.ofEpochMilli(nbt.getLong(KEY_VOTE_TIME)) : VoteList.DEFAULT_VOTE_TIME;
                     yield new Vote(key, nbt.getInt(KEY_LEVEL), nbt.getList(KEY_VOTE_ROLES, Tag.TAG_STRING)
-                            .stream().map(t -> new ResourceLocation(t.getAsString())).collect(toImmutableSet()), time);
+                            .stream().map(t -> ResourceLocation.parse(t.getAsString())).collect(toImmutableSet()), time);
                 }
                 case VOTE_DISABLED -> {
                     VoteDisabledKey key = new VoteDisabledKey(nbt
-                            .getUUID(KEY_ARTIFACT), new ResourceLocation(nbt.getString(KEY_CATEGORY)));
+                            .getUUID(KEY_ARTIFACT), ResourceLocation.parse(nbt.getString(KEY_CATEGORY)));
                     yield new VoteDisabled(key, nbt.contains(KEY_DISABLED,
                             Tag.TAG_BYTE) ? Optional.of(nbt.getBoolean(KEY_DISABLED)) : Optional.empty());
                 }
                 case VOTE_STATS -> {
-                    VoteStatsKey key = new VoteStatsKey(nbt.getUUID(KEY_ARTIFACT), new ResourceLocation(nbt
-                            .getString(KEY_CATEGORY)), new ResourceLocation(nbt.getString(KEY_VOTE_ROLE)));
+                    VoteStatsKey key = new VoteStatsKey(nbt.getUUID(KEY_ARTIFACT), ResourceLocation.parse(nbt
+                            .getString(KEY_CATEGORY)), ResourceLocation.parse(nbt.getString(KEY_VOTE_ROLE)));
                     // noinspection UnstableApiUsage
                     yield new VoteStats(key, copyOf(nbt.getIntArray(KEY_LEVEL_COUNTS)));
                 }

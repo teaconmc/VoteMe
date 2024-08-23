@@ -3,7 +3,7 @@ package org.teacon.voteme.item;
 import com.google.common.collect.ImmutableList;
 import net.minecraft.ChatFormatting;
 import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
@@ -17,23 +17,22 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.common.CreativeModeTabRegistry;
-import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegisterEvent;
-import net.minecraftforge.registries.RegistryObject;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.common.CreativeModeTabRegistry;
+import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.RegisterEvent;
 import org.teacon.voteme.VoteMe;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
+import org.teacon.voteme.item.component.ArtifactID;
+import org.teacon.voteme.item.component.CategoryID;
 import org.teacon.voteme.network.ShowCounterPacket;
-import org.teacon.voteme.network.VoteMePacketManager;
 import org.teacon.voteme.vote.VoteArtifactNames;
 import org.teacon.voteme.vote.VoteDataStorage;
 
-import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
 import java.util.Objects;
@@ -42,22 +41,25 @@ import java.util.UUID;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD)
 public final class CounterItem extends Item {
 
-    public static final ResourceLocation ID = new ResourceLocation("voteme:counter");
+    public static final ResourceLocation ID = ResourceLocation.parse("voteme:counter");
 
-    public static final RegistryObject<CounterItem> INSTANCE = RegistryObject.create(ID, ForgeRegistries.ITEMS);
+    public static final DeferredHolder<Item, CounterItem> INSTANCE = DeferredHolder.create(Registries.ITEM, ID);
 
     @SubscribeEvent
     public static void register(RegisterEvent event) {
-        event.register(ForgeRegistries.ITEMS.getRegistryKey(), ID, () -> new CounterItem(new Properties().stacksTo(1)));
+        if (event.getRegistryKey() != Registries.ITEM) {
+            return;
+        }
+        event.register(Registries.ITEM, ID, () -> new CounterItem(new Properties().stacksTo(1)));
     }
 
     @SubscribeEvent
     public static void register(BuildCreativeModeTabContentsEvent event) {
         if (VoteMeItemGroup.ID.equals(CreativeModeTabRegistry.getName(event.getTab()))) {
-            event.accept(INSTANCE, CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);
+            event.accept(INSTANCE.get(), CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);
         }
     }
 
@@ -66,16 +68,13 @@ public final class CounterItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, @Nullable Level world, List<Component> tooltip, TooltipFlag flag) {
-        CompoundTag tag = stack.getTag();
-        tooltip.add(Component.empty());
-        if (tag != null && tag.hasUUID("CurrentArtifact")) {
-            UUID artifactID = tag.getUUID("CurrentArtifact");
+    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag tooltipFlag) {
+            UUID artifactID = stack.get(ArtifactID.INSTANCE);
             Optional<VoteArtifactNames> artifactNames = VoteArtifactNames.effective();
-            if (artifactNames.isPresent() && !artifactNames.get().getName(artifactID).isEmpty()) {
+            if (artifactNames.isPresent() && artifactID != null && !artifactNames.get().getName(artifactID).isEmpty()) {
                 MutableComponent artifactText = artifactNames.get().toText(artifactID).withStyle(ChatFormatting.GREEN);
                 tooltip.add(Component.translatable("gui.voteme.counter.current_artifact_hint", artifactText).withStyle(ChatFormatting.GRAY));
-                ResourceLocation currentCategoryID = new ResourceLocation(tag.getString("CurrentCategory"));
+                ResourceLocation currentCategoryID = stack.get(CategoryID.INSTANCE);
                 if (!VoteCategoryHandler.getIds().isEmpty()) {
                     tooltip.add(Component.empty());
                 }
@@ -91,29 +90,25 @@ public final class CounterItem extends Item {
             } else {
                 tooltip.add(Component.translatable("gui.voteme.counter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
             }
-        } else {
-            tooltip.add(Component.translatable("gui.voteme.counter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
-        }
     }
 
     @Override
     public InteractionResultHolder<ItemStack> use(Level world, Player player, InteractionHand hand) {
         ItemStack itemStack = player.getItemInHand(hand);
-        CompoundTag tag = itemStack.getOrCreateTag();
         if (player instanceof ServerPlayer) {
             Optional<ShowCounterPacket> packet = Optional.empty();
             MinecraftServer server = Objects.requireNonNull(player.getServer());
             int inventoryId = hand == InteractionHand.MAIN_HAND ? player.getInventory().selected : 40;
-            if (tag.hasUUID("CurrentArtifact")) {
-                ResourceLocation category = new ResourceLocation(tag.getString("CurrentCategory"));
-                packet = ShowCounterPacket.create(inventoryId, tag.getUUID("CurrentArtifact"), category, server);
+            UUID artifactID = itemStack.get(ArtifactID.INSTANCE);
+            ResourceLocation category = itemStack.get(CategoryID.INSTANCE);
+            if (artifactID != null && category != null) {
+                packet = ShowCounterPacket.create(inventoryId, artifactID, category, server);
             }
             if (packet.isEmpty()) {
-                packet = ShowCounterPacket.create(inventoryId, uuid -> tag.putUUID("CurrentArtifact", uuid));
+                packet = ShowCounterPacket.create(inventoryId, uuid -> itemStack.set(ArtifactID.INSTANCE, uuid));
             }
             if (packet.isPresent()) {
-                PacketDistributor.PacketTarget target = PacketDistributor.PLAYER.with(() -> (ServerPlayer) player);
-                VoteMePacketManager.CHANNEL.send(target, packet.get());
+                PacketDistributor.sendToPlayer((ServerPlayer) player, packet.get());
                 return InteractionResultHolder.consume(itemStack);
             }
         } else {
@@ -124,9 +119,8 @@ public final class CounterItem extends Item {
 
     @Override
     public Component getName(ItemStack stack) {
-        CompoundTag tag = stack.getTag();
-        if (tag != null && tag.hasUUID("CurrentArtifact")) {
-            UUID artifactID = tag.getUUID("CurrentArtifact");
+        UUID artifactID = stack.get(ArtifactID.INSTANCE);
+        if (artifactID != null) {
             Optional<VoteArtifactNames> artifactNames = VoteArtifactNames.effective();
             if (artifactNames.isPresent()) {
                 String artifactName = artifactNames.get().getName(artifactID);
@@ -151,8 +145,8 @@ public final class CounterItem extends Item {
                              ImmutableList<ResourceLocation> enabledCategories, ImmutableList<ResourceLocation> disabledCategories) {
         VoteDataStorage handler = VoteDataStorage.get(Objects.requireNonNull(sender.getServer()));
         if (this.checkMatchedArtifact(stack, artifactID)) {
-            stack.getOrCreateTag().putString("CurrentCategory", currentCategory.toString());
-            stack.getOrCreateTag().putUUID("CurrentArtifact", artifactID);
+            stack.set(CategoryID.INSTANCE, currentCategory);
+            stack.set(ArtifactID.INSTANCE, artifactID);
             for (ResourceLocation category : enabledCategories) {
                 if (VoteCategoryHandler.getCategory(category).filter(c -> c.enabledModifiable).isPresent()) {
                     int entryID = handler.getIdOrCreate(artifactID, category);
@@ -175,9 +169,9 @@ public final class CounterItem extends Item {
     }
 
     private boolean checkMatchedArtifact(ItemStack stack, UUID artifactID) {
-        CompoundTag tag = stack.getTag();
-        if (tag != null && tag.hasUUID("CurrentArtifact")) {
-            return tag.getUUID("CurrentArtifact").equals(artifactID);
+        UUID inStack = stack.get(ArtifactID.INSTANCE);
+        if (inStack != null) {
+            return inStack.equals(artifactID);
         }
         return false;
     }

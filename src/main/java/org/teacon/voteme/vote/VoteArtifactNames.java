@@ -15,13 +15,13 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.util.thread.EffectiveSide;
-import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.server.ServerLifecycleHooks;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.util.thread.EffectiveSide;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.teacon.voteme.VoteMe;
 import org.teacon.voteme.network.SyncArtifactNamePacket;
 import org.teacon.voteme.network.VoteMePacketManager;
@@ -35,7 +35,7 @@ import static net.minecraft.util.StringUtil.isNullOrEmpty;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
 public final class VoteArtifactNames {
     private boolean needsSynchronizationToClient = false;
     private final Map<UUID, String> names = new TreeMap<>();
@@ -247,16 +247,16 @@ public final class VoteArtifactNames {
         VoteArtifactNames instance = VoteDataStorage.get(Objects.requireNonNull(player.getServer())).getArtifactNames();
         if (player instanceof ServerPlayer serverPlayer) {
             SyncArtifactNamePacket packet = SyncArtifactNamePacket.create(instance.names, instance.aliases);
-            VoteMePacketManager.CHANNEL.send(PacketDistributor.PLAYER.with(() -> serverPlayer), packet);
+            PacketDistributor.sendToPlayer(serverPlayer, packet);
         }
     }
 
     @SubscribeEvent
-    public static void onTick(TickEvent.ServerTickEvent event) {
+    public static void onTick(ServerTickEvent.Pre event) {
         VoteArtifactNames instance = VoteDataStorage.get(ServerLifecycleHooks.getCurrentServer()).getArtifactNames();
-        if (instance.needsSynchronizationToClient && event.phase == TickEvent.Phase.START) {
+        if (instance.needsSynchronizationToClient) {
             SyncArtifactNamePacket packet = SyncArtifactNamePacket.create(instance.names, instance.aliases);
-            VoteMePacketManager.CHANNEL.send(PacketDistributor.ALL.noArg(), packet);
+            PacketDistributor.sendToAllPlayers(packet);
         }
     }
 

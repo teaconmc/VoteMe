@@ -13,6 +13,7 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.Util;
 import net.minecraft.commands.arguments.selector.EntitySelector;
 import net.minecraft.commands.arguments.selector.EntitySelectorParser;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.GsonHelper;
@@ -32,9 +33,9 @@ public final class VoteRole {
         this.categories = ImmutableListMultimap.copyOf(participations);
     }
 
-    public static VoteRole fromJson(ResourceLocation id, JsonElement json) {
+    public static VoteRole fromJson(ResourceLocation id, JsonElement json, HolderLookup.Provider registries) {
         JsonObject jsonObject = json.getAsJsonObject();
-        Component name = parseName(jsonObject.get("name"));
+        Component name = parseName(jsonObject.get("name"), registries);
         JsonArray participationsRaw = GsonHelper.getAsJsonArray(jsonObject, "participations");
         EntitySelector selector = parseSelector(GsonHelper.getAsString(jsonObject, "selector", "@a"));
         Multimap<ResourceLocation, Participation> participations = parseParticipations(id, participationsRaw);
@@ -45,7 +46,7 @@ public final class VoteRole {
         ImmutableListMultimap.Builder<ResourceLocation, Participation> builder = ImmutableListMultimap.builder();
         for (JsonElement child : array) {
             JsonObject participationObject = GsonHelper.convertToJsonObject(child, "participations");
-            ResourceLocation category = new ResourceLocation(GsonHelper.getAsString(participationObject, "category"));
+            ResourceLocation category = ResourceLocation.parse(GsonHelper.getAsString(participationObject, "category"));
             String subgroup = GsonHelper.getAsString(participationObject, "subgroup", id.toString());
             int truncation = GsonHelper.getAsInt(participationObject, "truncation", 0);
             float weight = GsonHelper.getAsFloat(participationObject, "weight", 1.0F);
@@ -57,15 +58,15 @@ public final class VoteRole {
     private static EntitySelector parseSelector(String str) {
         try {
             StringReader reader = new StringReader(str);
-            return new EntitySelectorParser(reader).parse();
+            return new EntitySelectorParser(reader, true).parse();
         } catch (CommandSyntaxException e) {
             String msg = "Expected selector to be an entity selector, was unknown string '" + str + "'";
             throw new JsonSyntaxException(msg);
         }
     }
 
-    private static Component parseName(JsonElement elem) {
-        Component name = Component.Serializer.fromJson(elem);
+    private static Component parseName(JsonElement elem, HolderLookup.Provider registries) {
+        Component name = Component.Serializer.fromJson(elem, registries);
         if (name == null) {
             throw new JsonSyntaxException("The name is expected in a role for voting");
         }

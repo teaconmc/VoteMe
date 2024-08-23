@@ -1,40 +1,31 @@
 package org.teacon.voteme.network;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.network.NetworkRegistry;
-import net.minecraftforge.network.simple.SimpleChannel;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = "voteme", bus = EventBusSubscriber.Bus.MOD)
 public final class VoteMePacketManager {
-    public static final String VERSION = "4"; // Last Update: Wed, 25 May 2022 02:00:00 +0800
-    public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
-            new ResourceLocation("voteme:network"), () -> VERSION, VERSION::equals, VERSION::equals);
+    public static final String VERSION = "5"; // Last Update: Thu Aug 22 19:34:54 PDT 2024
 
     @SubscribeEvent
-    public static void setup(FMLCommonSetupEvent event) {
-        CHANNEL.registerMessage(0, ShowCounterPacket.class,
-                ShowCounterPacket::write, ShowCounterPacket::read, ShowCounterPacket::handle);
-        CHANNEL.registerMessage(1, ChangePropsByCounterPacket.class,
-                ChangePropsByCounterPacket::write, ChangePropsByCounterPacket::read, ChangePropsByCounterPacket::handle);
-        CHANNEL.registerMessage(2, ChangeNameByCounterPacket.class,
-                ChangeNameByCounterPacket::write, ChangeNameByCounterPacket::read, ChangeNameByCounterPacket::handle);
-        CHANNEL.registerMessage(3, ShowVoterPacket.class,
-                ShowVoterPacket::write, ShowVoterPacket::read, ShowVoterPacket::handle);
-        CHANNEL.registerMessage(4, SubmitVotePacket.class,
-                SubmitVotePacket::write, SubmitVotePacket::read, SubmitVotePacket::handle);
-        CHANNEL.registerMessage(5, SyncCategoryPacket.class,
-                SyncCategoryPacket::write, SyncCategoryPacket::read, SyncCategoryPacket::handle);
-        CHANNEL.registerMessage(6, SyncArtifactNamePacket.class,
-                SyncArtifactNamePacket::write, SyncArtifactNamePacket::read, SyncArtifactNamePacket::handle);
-        CHANNEL.registerMessage(7, SubmitCommentPacket.class,
-                SubmitCommentPacket::write, SubmitCommentPacket::read, SubmitCommentPacket::handle);
+    public static void setup(RegisterPayloadHandlersEvent event) {
+        PayloadRegistrar registrar = event.registrar("voteme")
+                .versioned("0.8.4")
+                .versioned(VERSION);
+        registrar.playToClient(ShowCounterPacket.TYPE, ShowCounterPacket.STREAM_CODEC, ShowCounterPacket::handle);
+        registrar.playToServer(ChangePropsByCounterPacket.TYPE, ChangePropsByCounterPacket.STREAM_CODEC, ChangePropsByCounterPacket::handle);
+        registrar.playToServer(ChangeNameByCounterPacket.TYPE, ChangeNameByCounterPacket.STREAM_CODEC, ChangeNameByCounterPacket::handle);
+        registrar.playToClient(ShowVoterPacket.TYPE, ShowVoterPacket.STREAM_CODEC, ShowVoterPacket::handle);
+        registrar.playToServer(SubmitVotePacket.TYPE,  SubmitVotePacket.STREAM_CODEC, SubmitVotePacket::handle);
+        registrar.playToClient(SyncCategoryPacket.TYPE, SyncCategoryPacket.STREAM_CODEC, SyncCategoryPacket::handle);
+        registrar.playToClient(SyncArtifactNamePacket.TYPE, SyncArtifactNamePacket.STREAM_CODEC, SyncArtifactNamePacket::handle);
+        registrar.playToServer(SubmitCommentPacket.TYPE, SubmitCommentPacket.STREAM_CODEC, SubmitCommentPacket::handle);
     }
 }

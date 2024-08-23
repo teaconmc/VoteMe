@@ -25,16 +25,18 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.server.permission.PermissionAPI;
-import net.minecraftforge.server.permission.nodes.PermissionNode;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.server.permission.PermissionAPI;
+import net.neoforged.neoforge.server.permission.nodes.PermissionNode;
 import org.apache.commons.lang3.tuple.Pair;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 import org.teacon.voteme.item.CounterItem;
 import org.teacon.voteme.item.VoterItem;
+import org.teacon.voteme.item.component.ArtifactID;
+import org.teacon.voteme.item.component.CategoryID;
 import org.teacon.voteme.roles.VoteRoleHandler;
 import org.teacon.voteme.vote.VoteArtifactNames;
 import org.teacon.voteme.vote.VoteDataStorage;
@@ -66,7 +68,7 @@ import static org.teacon.voteme.command.VoteMePermissions.*;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
 public final class VoteMeCommand {
     public static final SimpleCommandExceptionType ALIAS_INVALID = new SimpleCommandExceptionType(Component.translatable("argument.voteme.alias.invalid"));
     public static final SimpleCommandExceptionType ARTIFACT_INVALID = new SimpleCommandExceptionType(Component.translatable("argument.voteme.artifact.invalid"));
@@ -240,8 +242,8 @@ public final class VoteMeCommand {
         Pair<ResourceLocation, VoteCategory> category = Pair.of(location, result.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location)));
         for (ServerPlayer player : targets) {
             ItemStack item = CounterItem.INSTANCE.get().getDefaultInstance();
-            item.getOrCreateTag().putString("CurrentCategory", category.getKey().toString());
-            item.getOrCreateTag().putUUID("CurrentArtifact", artifactID);
+            item.set(CategoryID.INSTANCE, category.getKey());
+            item.set(ArtifactID.INSTANCE, artifactID);
             processGiveItemToPlayer(player, item);
         }
         return targets.size();
@@ -252,7 +254,7 @@ public final class VoteMeCommand {
         Collection<ServerPlayer> targets = getPlayers(context, "targets");
         for (ServerPlayer player : targets) {
             ItemStack item = VoterItem.INSTANCE.get().getDefaultInstance();
-            item.getOrCreateTag().putUUID("CurrentArtifact", artifactID);
+            item.set(ArtifactID.INSTANCE, artifactID);
             processGiveItemToPlayer(player, item);
         }
         return targets.size();
@@ -262,9 +264,9 @@ public final class VoteMeCommand {
         UUID artifactID = getArtifact(context, "artifact");
         Collection<ServerPlayer> targets = getPlayers(context, "targets");
         for (ServerPlayer player : targets) {
-            CompoundTag tag = new CompoundTag();
-            tag.putUUID("CurrentArtifact", artifactID);
-            VoterItem.INSTANCE.get().open(player, tag);
+            ItemStack fakeVoter = new ItemStack(VoterItem.INSTANCE);
+            fakeVoter.set(ArtifactID.INSTANCE, artifactID);
+            VoterItem.INSTANCE.get().open(player, fakeVoter);
         }
         return targets.size();
     }

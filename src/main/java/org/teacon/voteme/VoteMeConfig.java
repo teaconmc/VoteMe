@@ -1,16 +1,16 @@
 package org.teacon.voteme;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraftforge.common.ForgeConfigSpec;
+import net.neoforged.neoforge.common.ModConfigSpec;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class VoteMeConfig {
-    public final ForgeConfigSpec.ConfigValue<String> REDIS_ATTACH_URI;
+    public final ModConfigSpec.ConfigValue<String> REDIS_ATTACH_URI;
 
-    public VoteMeConfig(ForgeConfigSpec.Builder builder) {
+    public VoteMeConfig(ModConfigSpec.Builder builder) {
         REDIS_ATTACH_URI = builder
                 .comment(
                         "Redis attach uri (example: redis://password@localhost:6379/0), env substitution supported",

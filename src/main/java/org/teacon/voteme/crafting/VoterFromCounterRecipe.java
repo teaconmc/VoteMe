@@ -1,21 +1,23 @@
 package org.teacon.voteme.crafting;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingBookCategory;
+import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CustomRecipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.SimpleCraftingRecipeSerializer;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegisterEvent;
-import net.minecraftforge.registries.RegistryObject;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.RegisterEvent;
 import org.teacon.voteme.item.CounterItem;
 import org.teacon.voteme.item.VoterItem;
 
@@ -23,27 +25,27 @@ import javax.annotation.ParametersAreNonnullByDefault;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD)
 public final class VoterFromCounterRecipe extends CustomRecipe {
-    public static final ResourceLocation ID = new ResourceLocation("voteme:crafting_special_counter_from_voter");
+    public static final ResourceLocation ID = ResourceLocation.parse("voteme:crafting_special_counter_from_voter");
 
-    public static final RegistryObject<SimpleCraftingRecipeSerializer<VoterFromCounterRecipe>> SERIALIZER = RegistryObject.create(ID, ForgeRegistries.RECIPE_SERIALIZERS);
+    public static final DeferredHolder<RecipeSerializer<?>, SimpleCraftingRecipeSerializer<VoterFromCounterRecipe>> SERIALIZER
+            = DeferredHolder.create(Registries.RECIPE_SERIALIZER, ID);
 
     @SubscribeEvent
     public static void register(RegisterEvent event) {
-        event.register(ForgeRegistries.RECIPE_SERIALIZERS.getRegistryKey(), ID,
-                () -> new SimpleCraftingRecipeSerializer<>(VoterFromCounterRecipe::new));
+        event.register(Registries.RECIPE_SERIALIZER, ID, () -> new SimpleCraftingRecipeSerializer<>(VoterFromCounterRecipe::new));
     }
 
-    private VoterFromCounterRecipe(ResourceLocation location, CraftingBookCategory category) {
-        super(location, category);
+    private VoterFromCounterRecipe(CraftingBookCategory category) {
+        super(category);
     }
 
     @Override
-    public boolean matches(CraftingContainer inv, Level worldIn) {
+    public boolean matches(CraftingInput inv, Level worldIn) {
         int voterSize = 0;
         ItemStack counter = ItemStack.EMPTY;
-        for (int i = 0, size = inv.getContainerSize(); i < size; ++i) {
+        for (int i = 0, size = inv.size(); i < size; ++i) {
             ItemStack stack = inv.getItem(i);
             if (stack.isEmpty()) {
                 continue;
@@ -62,10 +64,10 @@ public final class VoterFromCounterRecipe extends CustomRecipe {
     }
 
     @Override
-    public ItemStack assemble(CraftingContainer inv, RegistryAccess registryAccess) {
+    public ItemStack assemble(CraftingInput inv, HolderLookup.Provider registries) {
         int voterSize = 0;
         ItemStack counter = ItemStack.EMPTY;
-        for (int i = 0, size = inv.getContainerSize(); i < size; ++i) {
+        for (int i = 0, size = inv.size(); i < size; ++i) {
             ItemStack stack = inv.getItem(i);
             if (counter.isEmpty() && stack.is(CounterItem.INSTANCE.get())) {
                 counter = stack;
@@ -87,8 +89,8 @@ public final class VoterFromCounterRecipe extends CustomRecipe {
     }
 
     @Override
-    public NonNullList<ItemStack> getRemainingItems(CraftingContainer inv) {
-        NonNullList<ItemStack> list = NonNullList.withSize(inv.getContainerSize(), ItemStack.EMPTY);
+    public NonNullList<ItemStack> getRemainingItems(CraftingInput inv) {
+        NonNullList<ItemStack> list = NonNullList.withSize(inv.size(), ItemStack.EMPTY);
         for (int i = 0, size = list.size(); i < size; ++i) {
             ItemStack stack = inv.getItem(i);
             if (stack.hasCraftingRemainingItem()) {

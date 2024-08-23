@@ -11,11 +11,12 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.synchronization.ArgumentTypeInfos;
 import net.minecraft.commands.synchronization.SingletonArgumentInfo;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegisterEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.registries.NeoForgeRegistries;
+import net.neoforged.neoforge.registries.RegisterEvent;
 import org.teacon.voteme.vote.VoteArtifactNames;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -30,7 +31,7 @@ import java.util.stream.Stream;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD)
 public final class ArtifactArgumentType implements ArgumentType<UUID> {
     private static final Pattern UUID_PATTERN = Pattern.compile("^([-0-9a-fA-F]+)");
 
@@ -87,7 +88,10 @@ public final class ArtifactArgumentType implements ArgumentType<UUID> {
 
     @SubscribeEvent
     public static void register(RegisterEvent event) {
-        event.register(ForgeRegistries.COMMAND_ARGUMENT_TYPES.getRegistryKey(), new ResourceLocation("voteme:artifact"), () ->
+        if (event.getRegistryKey() != Registries.COMMAND_ARGUMENT_TYPE) {
+            return;
+        }
+        event.register(Registries.COMMAND_ARGUMENT_TYPE, ResourceLocation.parse("voteme:artifact"), () ->
                 ArgumentTypeInfos.registerByClass(ArtifactArgumentType.class, SingletonArgumentInfo.contextFree(ArtifactArgumentType::artifact)));
     }
 }

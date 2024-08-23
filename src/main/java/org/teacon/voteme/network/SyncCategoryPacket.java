@@ -2,60 +2,46 @@ package org.teacon.voteme.network;
 
 import com.google.common.collect.ImmutableMap;
 import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.chat.Component;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.fml.loading.FMLEnvironment;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Supplier;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class SyncCategoryPacket {
+public final class SyncCategoryPacket implements CustomPacketPayload {
+
+    public static final Type<SyncCategoryPacket> TYPE = new Type<>(ResourceLocation.parse("voteme:sync_category"));
+
+    public static final StreamCodec<RegistryFriendlyByteBuf, SyncCategoryPacket> STREAM_CODEC = StreamCodec.composite(
+            ByteBufCodecs.map(HashMap::new, ResourceLocation.STREAM_CODEC, VoteCategory.STREAM_CODEC), p -> p.categories,
+            SyncCategoryPacket::create
+    );
+
     public final ImmutableMap<ResourceLocation, VoteCategory> categories;
 
     private SyncCategoryPacket(ImmutableMap<ResourceLocation, VoteCategory> categories) {
         this.categories = categories;
     }
 
-    public void handle(Supplier<NetworkEvent.Context> supplier) {
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
+
+    public void handle(IPayloadContext context) {
         if (FMLEnvironment.dist.isClient()) {
-            supplier.get().enqueueWork(() -> VoteCategoryHandler.setCategoriesFromServer(categories));
+            context.enqueueWork(() -> VoteCategoryHandler.setCategoriesFromServer(categories));
         }
-        supplier.get().setPacketHandled(true);
-    }
-
-    public void write(FriendlyByteBuf buffer) {
-        for (Map.Entry<ResourceLocation, VoteCategory> entry : this.categories.entrySet()) {
-            buffer.writeBoolean(true);
-            buffer.writeResourceLocation(entry.getKey());
-            VoteCategory category = entry.getValue();
-            buffer.writeComponent(category.name);
-            buffer.writeComponent(category.description);
-            buffer.writeBoolean(category.enabledDefault);
-            buffer.writeBoolean(category.enabledModifiable);
-        }
-        buffer.writeBoolean(false);
-    }
-
-    public static SyncCategoryPacket read(FriendlyByteBuf buffer) {
-        ImmutableMap.Builder<ResourceLocation, VoteCategory> builder = ImmutableMap.builder();
-        for (boolean b = buffer.readBoolean(); b; b = buffer.readBoolean()) {
-            ResourceLocation id = buffer.readResourceLocation();
-            Component name = buffer.readComponent();
-            Component description = buffer.readComponent();
-            boolean enabledDefault = buffer.readBoolean();
-            boolean enabledModifiable = buffer.readBoolean();
-            builder.put(id, new VoteCategory(name, description, enabledDefault, enabledModifiable));
-        }
-        return new SyncCategoryPacket(builder.build());
     }
 
     public static SyncCategoryPacket create(Map<ResourceLocation, VoteCategory> categories) {

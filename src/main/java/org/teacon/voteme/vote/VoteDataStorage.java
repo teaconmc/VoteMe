@@ -11,6 +11,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.Util;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -18,12 +19,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.storage.DimensionDataStorage;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.server.ServerStartingEvent;
-import net.minecraftforge.event.server.ServerStoppingEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.server.ServerLifecycleHooks;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.apache.commons.lang3.text.StrSubstitutor;
 import org.teacon.voteme.VoteMe;
 import org.teacon.voteme.category.VoteCategoryHandler;
@@ -42,7 +43,7 @@ import static org.teacon.voteme.sync.AnnouncementSerializer.serialize;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
 public final class VoteDataStorage extends SavedData implements Closeable {
     private int nextIndex;
 
@@ -55,7 +56,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
 
     public static VoteDataStorage get(MinecraftServer server) {
         DimensionDataStorage manager = server.overworld().getDataStorage();
-        return manager.computeIfAbsent(VoteDataStorage::new, VoteDataStorage::new, "vote_lists");
+        return manager.computeIfAbsent(new Factory<>(VoteDataStorage::new, VoteDataStorage::new), "vote_lists");
     }
 
     public VoteDataStorage() {
@@ -67,14 +68,14 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         this.sync = this.loadSynchronizer();
     }
 
-    public VoteDataStorage(CompoundTag nbt) {
+    public VoteDataStorage(CompoundTag nbt, HolderLookup.Provider holderLookupProvider) {
         this.nextIndex = 1;
         this.artifactNames = new VoteArtifactNames();
         this.voteLists = new Int2ObjectRBTreeMap<>();
         this.voteListIDs = TreeBasedTable.create();
         this.voteComments = HashBasedTable.create();
         this.sync = this.loadSynchronizer();
-        this.load(nbt);
+        this.load(nbt, holderLookupProvider);
     }
 
     @SuppressWarnings("deprecation")
@@ -291,11 +292,8 @@ public final class VoteDataStorage extends SavedData implements Closeable {
     }
 
     @SubscribeEvent
-    public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase == TickEvent.Phase.START) {
-            MinecraftServer currentServer = ServerLifecycleHooks.getCurrentServer();
-            VoteDataStorage.get(currentServer).tick();
-        }
+    public static void onServerTick(ServerTickEvent.Pre event) {
+        VoteDataStorage.get(event.getServer()).tick();
     }
 
     @SubscribeEvent
@@ -312,7 +310,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         }
     }
 
-    public void load(CompoundTag nbt) {
+    public void load(CompoundTag nbt, HolderLookup.Provider holderLookupProvider) {
         VoteMe.LOGGER.info("Loading vote list data on server ...");
 
         // vote list next index and index hints
@@ -322,7 +320,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         for (Tag tag : hintTags) {
             CompoundTag child = (CompoundTag) tag;
             int hint = child.contains("VoteListIndex", Tag.TAG_INT) ? child.getInt("VoteListIndex") : this.nextIndex;
-            this.getIdOrCreate(child.getUUID("ArtifactUUID"), new ResourceLocation(child.getString("Category")), hint);
+            this.getIdOrCreate(child.getUUID("ArtifactUUID"), ResourceLocation.parse(child.getString("Category")), hint);
         }
 
         // announcements
@@ -380,7 +378,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
     }
 
     @Override
-    public CompoundTag save(CompoundTag nbt) {
+    public CompoundTag save(CompoundTag nbt, HolderLookup.Provider holderLookupProvider) {
         VoteMe.LOGGER.info("Saving vote list data on server ...");
 
         // vote list next index and index hints

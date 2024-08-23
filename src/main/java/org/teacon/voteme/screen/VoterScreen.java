@@ -19,6 +19,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.DyeColor;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.teacon.voteme.network.ShowVoterPacket;
 import org.teacon.voteme.network.SubmitCommentPacket;
 import org.teacon.voteme.network.SubmitVotePacket;
@@ -30,7 +31,7 @@ import java.util.*;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class VoterScreen extends Screen {
-    private static final ResourceLocation TEXTURE = new ResourceLocation("voteme:textures/gui/voter.png");
+    private static final ResourceLocation TEXTURE = ResourceLocation.parse("voteme:textures/gui/voter.png");
 
     private static final int BUTTON_TEXT_COLOR = 0xFFFFFFFF;
     private static final int TEXT_COLOR = 0xFF000000 | DyeColor.BLACK.getTextColor();
@@ -70,7 +71,7 @@ public final class VoterScreen extends Screen {
 
     @Override
     public void render(GuiGraphics matrixStack, int mouseX, int mouseY, float partialTicks) {
-        this.renderBackground(matrixStack);
+        this.renderBackground(matrixStack, mouseX, mouseY, partialTicks);
         this.drawGuiContainerBackgroundLayer(matrixStack, partialTicks, mouseX, mouseY);
         super.render(matrixStack, mouseX, mouseY, partialTicks);
         this.drawGuiContainerForegroundLayer(matrixStack, partialTicks, mouseX, mouseY);
@@ -92,11 +93,11 @@ public final class VoterScreen extends Screen {
     public void removed() {
         if (!this.votes.isEmpty()) {
             SubmitVotePacket packet = SubmitVotePacket.create(this.artifactID, this.votes);
-            VoteMePacketManager.CHANNEL.sendToServer(packet);
+            PacketDistributor.sendToServer(packet);
         }
         if (!this.currentComments.equals(this.oldComments)) {
             SubmitCommentPacket packet = SubmitCommentPacket.create(this.artifactID, this.currentComments);
-            VoteMePacketManager.CHANNEL.sendToServer(packet);
+            PacketDistributor.sendToServer(packet);
         }
     }
 
@@ -276,9 +277,9 @@ public final class VoterScreen extends Screen {
         }
 
         @Override
-        public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-            if (delta != 0) {
-                this.changeSlideCenter(this.slideCenter - 12 * delta);
+        public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+            if (scrollY != 0) {
+                this.changeSlideCenter(this.slideCenter - 12 * scrollY);
                 return true;
             }
             return false;

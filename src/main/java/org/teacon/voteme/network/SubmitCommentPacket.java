@@ -1,22 +1,24 @@
 package org.teacon.voteme.network;
 
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.teacon.voteme.vote.VoteDataStorage;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
-import java.util.function.Supplier;
 
-public final class SubmitCommentPacket {
+public final class SubmitCommentPacket implements CustomPacketPayload {
 
     /**
      * Maximum permitted length in bytes that a single page of comment may contain.
      * <p>
-     * A CJK Unified Ideograph typically has 3 bytes; 1024 would means ~340 Chinese
+     * A CJK Unified Ideograph typically has 3 bytes; 1024 would mean ~340 Chinese
      * characters.
      */
     private static final int MAX_LENGTH_PER_PAGE = 1024;
@@ -24,6 +26,14 @@ public final class SubmitCommentPacket {
      * Maximum permitted number of pages that one may comment on a given artifact.
      */
     private static final int MAX_PAGE_NUMBER = 10;
+
+    public static final Type<SubmitCommentPacket> TYPE = new Type<>(ResourceLocation.parse("voteme:submit_comment"));
+
+    public static final StreamCodec<FriendlyByteBuf, SubmitCommentPacket> STREAM_CODEC = StreamCodec.composite(
+            UUIDUtil.STREAM_CODEC, p -> p.artifactID,
+            ByteBufCodecs.stringUtf8(MAX_LENGTH_PER_PAGE).apply(ByteBufCodecs.list(MAX_PAGE_NUMBER)), p -> p.comments,
+            SubmitCommentPacket::create
+    );
 
     public final UUID artifactID;
     public final List<String> comments;
@@ -34,40 +44,17 @@ public final class SubmitCommentPacket {
         this.comments = comments;
     }
 
-    public void handle(Supplier<NetworkEvent.Context> supplier) {
-        NetworkEvent.Context ctx = supplier.get();
-        ctx.enqueueWork(() -> {
-            ServerPlayer sender = Objects.requireNonNull(ctx.getSender());
-            VoteDataStorage handler = VoteDataStorage.get(sender.server);
-            if (!this.problematic) {
-                VoteDataStorage.putCommentFor(handler, this.artifactID, sender.getUUID(), this.comments);
-            }
-        });
-        ctx.setPacketHandled(true);
+    @Override
+    public Type<SubmitCommentPacket> type() {
+        return TYPE;
     }
 
-    public void write(FriendlyByteBuf buffer) {
-        buffer.writeUUID(this.artifactID);
-        buffer.writeVarInt(this.comments.size());
-        for (String comment : this.comments) {
-            buffer.writeUtf(comment, MAX_LENGTH_PER_PAGE);
+    public void handle(IPayloadContext context) {
+        ServerPlayer sender = (ServerPlayer) context.player();
+        VoteDataStorage handler = VoteDataStorage.get(sender.server);
+        if (!this.problematic) {
+            VoteDataStorage.putCommentFor(handler, this.artifactID, sender.getUUID(), this.comments);
         }
-    }
-
-    public static SubmitCommentPacket read(FriendlyByteBuf buffer) {
-        UUID artifactID = buffer.readUUID();
-        List<String> comments = new ArrayList<>(MAX_PAGE_NUMBER);
-        int claimedSize = buffer.readVarInt();
-        int sanitizedSize = Math.min(claimedSize, MAX_PAGE_NUMBER);
-        // If the sanitizedSize is non-positive, the loop should exit immediately without trace.
-        for (int i = 0; i < sanitizedSize; i++) {
-            comments.add(buffer.readUtf(MAX_LENGTH_PER_PAGE));
-        }
-        SubmitCommentPacket pkt = new SubmitCommentPacket(artifactID, comments);
-        if (sanitizedSize != claimedSize) {
-            pkt.problematic = true;
-        }
-        return pkt;
     }
 
     public static SubmitCommentPacket create(UUID artifactID, List<String> comments) {

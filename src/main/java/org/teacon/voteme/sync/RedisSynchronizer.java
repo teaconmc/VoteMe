@@ -192,7 +192,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                 String[] parts = redisKeyParts[2].split(":");
                 checkArgument(parts.length == 4, "invalid message");
                 UUID artifactID = UUID.fromString(parts[0]);
-                ResourceLocation categoryID = new ResourceLocation(parts[1], parts[2]);
+                ResourceLocation categoryID = ResourceLocation.fromNamespaceAndPath(parts[1], parts[2]);
                 UUID voterID = UUID.fromString(parts[3]);
                 return new VoteKey(artifactID, categoryID, voterID);
             }
@@ -200,15 +200,15 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                 String[] parts = redisKeyParts[2].split(":");
                 checkArgument(parts.length == 3, "invalid message");
                 UUID artifactID = UUID.fromString(parts[0]);
-                ResourceLocation categoryID = new ResourceLocation(parts[1], parts[2]);
+                ResourceLocation categoryID = ResourceLocation.fromNamespaceAndPath(parts[1], parts[2]);
                 return new VoteDisabledKey(artifactID, categoryID);
             }
             case VOTE_STATS -> {
                 String[] parts = redisKeyParts[2].split(":");
                 checkArgument(parts.length == 5, "invalid message");
                 UUID artifactID = UUID.fromString(parts[0]);
-                ResourceLocation categoryID = new ResourceLocation(parts[1], parts[2]);
-                ResourceLocation roleID = new ResourceLocation(parts[3], parts[4]);
+                ResourceLocation categoryID = ResourceLocation.fromNamespaceAndPath(parts[1], parts[2]);
+                ResourceLocation roleID = ResourceLocation.fromNamespaceAndPath(parts[3], parts[4]);
                 return new VoteStatsKey(artifactID, categoryID, roleID);
             }
             default -> throw new IllegalArgumentException("unsupported announce key: " + announceKey);
@@ -245,7 +245,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                 // noinspection UnstableApiUsage
                 ImmutableSet.Builder<ResourceLocation> roles = ImmutableSet.builderWithExpectedSize(expectedSize);
                 for (int i = 0; map.containsKey("role:" + i); ++i) {
-                    ResourceLocation role = new ResourceLocation(map.get("role:" + i));
+                    ResourceLocation role = ResourceLocation.parse(map.get("role:" + i));
                     roles.add(role);
                 }
                 Instant time = Instant.parse(checkNotNull(map.getOrDefault("time", Instant.EPOCH.toString())));

@@ -8,11 +8,11 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.synchronization.ArgumentTypeInfos;
 import net.minecraft.commands.synchronization.SingletonArgumentInfo;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegisterEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.registries.RegisterEvent;
 import org.teacon.voteme.vote.VoteArtifactNames;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -21,7 +21,7 @@ import java.util.Collections;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD)
 public final class AliasArgumentType implements ArgumentType<String> {
 
     public static AliasArgumentType alias() {
@@ -51,7 +51,7 @@ public final class AliasArgumentType implements ArgumentType<String> {
 
     @SubscribeEvent
     public static void register(RegisterEvent event) {
-        event.register(ForgeRegistries.COMMAND_ARGUMENT_TYPES.getRegistryKey(), new ResourceLocation("voteme:alias"), () ->
+        event.register(Registries.COMMAND_ARGUMENT_TYPE, ResourceLocation.parse("voteme:alias"), () ->
                 ArgumentTypeInfos.registerByClass(AliasArgumentType.class, SingletonArgumentInfo.contextFree(AliasArgumentType::alias)));
     }
 }

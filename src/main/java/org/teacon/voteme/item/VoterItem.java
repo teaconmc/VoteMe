@@ -2,7 +2,7 @@ package org.teacon.voteme.item;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
@@ -15,25 +15,24 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.common.CreativeModeTabRegistry;
-import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegisterEvent;
-import net.minecraftforge.registries.RegistryObject;
-import net.minecraftforge.server.permission.PermissionAPI;
-import net.minecraftforge.server.permission.nodes.PermissionNode;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.common.CreativeModeTabRegistry;
+import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.RegisterEvent;
+import net.neoforged.neoforge.server.permission.PermissionAPI;
+import net.neoforged.neoforge.server.permission.nodes.PermissionNode;
 import org.teacon.voteme.category.VoteCategory;
 import org.teacon.voteme.category.VoteCategoryHandler;
+import org.teacon.voteme.item.component.ArtifactID;
 import org.teacon.voteme.network.ShowVoterPacket;
-import org.teacon.voteme.network.VoteMePacketManager;
 import org.teacon.voteme.vote.VoteArtifactNames;
 
-import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -43,22 +42,25 @@ import static org.teacon.voteme.command.VoteMePermissions.OPEN_VOTER;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD)
 public final class VoterItem extends Item {
 
-    public static final ResourceLocation ID = new ResourceLocation("voteme:voter");
+    public static final ResourceLocation ID = ResourceLocation.parse("voteme:voter");
 
-    public static final RegistryObject<VoterItem> INSTANCE = RegistryObject.create(ID, ForgeRegistries.ITEMS);
+    public static final DeferredHolder<Item, VoterItem> INSTANCE = DeferredHolder.create(Registries.ITEM, ID);
 
     @SubscribeEvent
     public static void register(RegisterEvent event) {
-        event.register(ForgeRegistries.ITEMS.getRegistryKey(), ID, () -> new VoterItem(new Properties()));
+        if (event.getRegistryKey() != Registries.ITEM) {
+            return;
+        }
+        event.register(Registries.ITEM, ID, () -> new VoterItem(new Properties()));
     }
 
     @SubscribeEvent
     public static void register(BuildCreativeModeTabContentsEvent event) {
         if (VoteMeItemGroup.ID.equals(CreativeModeTabRegistry.getName(event.getTab()))) {
-            event.accept(INSTANCE, CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);
+            event.accept(INSTANCE.get(), CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);
         }
     }
 
@@ -67,13 +69,10 @@ public final class VoterItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, @Nullable Level world, List<Component> tooltip, TooltipFlag flag) {
-        CompoundTag tag = stack.getTag();
-        tooltip.add(Component.empty());
-        if (tag != null && tag.hasUUID("CurrentArtifact")) {
-            UUID artifactID = tag.getUUID("CurrentArtifact");
+    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag tooltipFlag) {
+            UUID artifactID = stack.get(ArtifactID.INSTANCE);
             Optional<VoteArtifactNames> artifactNames = VoteArtifactNames.effective();
-            if (artifactNames.isPresent() && !artifactNames.get().getName(artifactID).isEmpty()) {
+            if (artifactNames.isPresent() && artifactID != null && !artifactNames.get().getName(artifactID).isEmpty()) {
                 MutableComponent artifactText = artifactNames.get().toText(artifactID).withStyle(ChatFormatting.GREEN);
                 tooltip.add(Component.translatable("gui.voteme.voter.current_artifact_hint", artifactText).withStyle(ChatFormatting.GRAY));
                 if (!VoteCategoryHandler.getIds().isEmpty()) {
@@ -90,35 +89,30 @@ public final class VoterItem extends Item {
             } else {
                 tooltip.add(Component.translatable("gui.voteme.voter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
             }
-        } else {
-            tooltip.add(Component.translatable("gui.voteme.voter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
-        }
     }
 
     @Override
     public InteractionResultHolder<ItemStack> use(Level world, Player player, InteractionHand hand) {
         ItemStack itemStack = player.getItemInHand(hand);
-        CompoundTag tag = itemStack.getTag();
         if (player instanceof ServerPlayer serverPlayer) {
-            if (this.open(serverPlayer, tag)) {
+            if (this.open(serverPlayer, itemStack)) {
                 return InteractionResultHolder.consume(itemStack);
             }
-        } else if (tag != null && tag.hasUUID("CurrentArtifact")) {
+        } else if (itemStack.has(ArtifactID.INSTANCE)) {
             return InteractionResultHolder.success(itemStack);
         }
         return InteractionResultHolder.fail(itemStack);
     }
 
-    public boolean open(ServerPlayer player, @Nullable CompoundTag tag) {
+    public boolean open(ServerPlayer player, ItemStack itemStack) {
         Stream<PermissionNode<Boolean>> permissions = Stream.of(OPEN_VOTER, OPEN);
         if (permissions.anyMatch(p -> PermissionAPI.getPermission(player, p))) {
             Optional<ShowVoterPacket> packet = Optional.empty();
-            if (tag != null && tag.hasUUID("CurrentArtifact")) {
-                packet = ShowVoterPacket.create(tag.getUUID("CurrentArtifact"), player);
+            if (itemStack.has(ArtifactID.INSTANCE)) {
+                packet = ShowVoterPacket.create(Objects.requireNonNull(itemStack.get(ArtifactID.INSTANCE), "Artifact ID must not be null here"), player);
             }
             if (packet.isPresent()) {
-                PacketDistributor.PacketTarget target = PacketDistributor.PLAYER.with(() -> player);
-                VoteMePacketManager.CHANNEL.send(target, packet.get());
+                PacketDistributor.sendToPlayer(player, packet.get());
                 return true;
             }
         }
@@ -127,9 +121,8 @@ public final class VoterItem extends Item {
 
     @Override
     public Component getName(ItemStack stack) {
-        CompoundTag tag = stack.getTag();
-        if (tag != null && tag.hasUUID("CurrentArtifact")) {
-            UUID artifactID = tag.getUUID("CurrentArtifact");
+        UUID artifactID = stack.get(ArtifactID.INSTANCE);
+        if (artifactID != null) {
             Optional<VoteArtifactNames> artifactNames = VoteArtifactNames.effective();
             if (artifactNames.isPresent()) {
                 String artifactName = artifactNames.get().getName(artifactID);
@@ -142,12 +135,8 @@ public final class VoterItem extends Item {
     }
 
     public ItemStack copyFrom(int voterSize, ItemStack stack) {
-        CompoundTag tag = stack.getTag(), newTag = new CompoundTag();
-        if (tag != null && tag.hasUUID("CurrentArtifact")) {
-            newTag.putUUID("CurrentArtifact", tag.getUUID("CurrentArtifact"));
-        }
         ItemStack result = new ItemStack(this, voterSize);
-        result.setTag(newTag);
+        result.copyFrom(stack, ArtifactID.INSTANCE);
         return result;
     }
 }
