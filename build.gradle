@@ -1,35 +1,98 @@
 plugins {
+    id 'java-library'
     id 'eclipse'
+    id 'idea'
     id 'maven-publish'
-    id 'net.minecraftforge.gradle' version '6.0.+'
-    id 'com.github.johnrengelman.shadow' version '8.1.+'
+    id 'net.neoforged.moddev' version '1.0.14'
+    id 'com.gradleup.shadow' version '8.3.0' // https://github.com/GradleUp/shadow/pull/876
 }
 
-apply from: 'gradle/teacon-forge.gradle'
+tasks.named('wrapper', Wrapper).configure {
+    // Define wrapper values here so as to not have to always do so when updating gradlew.properties.
+    // Switching this to Wrapper.DistributionType.ALL will download the full gradle sources that comes with
+    // documentation attached on cursor hover of gradle classes and methods. However, this comes with increased
+    // file size for Gradle. If you do switch this to ALL, run the Gradle wrapper task twice afterwards.
+    // (Verify by checking gradle/wrapper/gradle-wrapper.properties to see if distributionUrl now points to `-all`)
+    distributionType = Wrapper.DistributionType.BIN
+}
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+abstract class TeaConDumpPathToGitHub extends DefaultTask {
+    @Input
+    abstract Property<String> getPublishName()
+    @InputFile
+    abstract RegularFileProperty getTargetFile()
+    @TaskAction
+    void dump() {
+        if (System.env.GITHUB_ACTIONS) {
+            File theFile = targetFile.getAsFile().get()
 
-// definitions at gradle/teacon-forge.gradle
-teacon {
-    modId = 'voteme'
-    modVersion = '0.8.3'
-    modLicense = 'BSD-3-Clause'
-    modGitHubRepo = 'teaconmc/VoteMe'
-    modAuthors = ['yuriscat (Yuri\'s Cat)', '3TUSK', 'ustc-zzzz']
-    modDescription = 'Minecraft mod for in-game voting.'
+            def outputFile = new File(System.env.GITHUB_OUTPUT)
+            // Use the env-specific line separator for maximally possible compatibility
+            def newLine = System.getProperty('line.separator')
 
-    platform = 'forge-1.20.1-47.1.1'
-    // parchment = '2022.05.22'
+            // Write out new env variable for later usage
+            outputFile << newLine << "artifact_name=${theFile.getName()}"
+            outputFile << newLine << "artifact_publish_name=${publishName.get()}"
+            outputFile << newLine << "artifact_path=${theFile.absolutePath}"
+        }
+    }
+}
 
-    // uncomment these lines if you need
-    modName = 'Vote Me' // default to repo name
-    // modGitHubBranch = 1.18-forge // for referring the license
-    // modifyMemberAccess = true // for access transformer
-    // useDataGeneration = true // for data generation
-    publishTask = shadowJar // for shadow jar or other usages
-    lazyTokens = ['minecraft_classpath': { (project.configurations.shadow - project.configurations.minecraft).asPath }] // for runtime tokens
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-    // use './gradlew -q printModMeta > src/main/resources/META-INF/mods.toml' to generate mod meta
+version = '0.8.3'
+group = 'org.teacon'
+
+base {
+    archivesName = 'VoteMe-NeoForge-1.21'
+}
+
+neoForge {
+    // Specify the version of NeoForge to use.
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    // Default run configurations.
+    // These can be tweaked, removed, or duplicated as needed.
+    runs {
+        client {
+            client()
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+        }
+
+        // applies to all the run configs above
+        configureEach {
+            // Recommended logging data for a userdev environment
+            // The markers can be added/remove as needed separated by commas.
+            // "SCAN": For mods scan.
+            // "REGISTRIES": For firing of registry events.
+            // "REGISTRYDUMP": For getting the contents of all registries.
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+
+            // Recommended logging level for the console
+            // You can set various levels here.
+            // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        // define mod <-> source bindings
+        // these are used to tell the game which sources are for which mod
+        // mostly optional in a single mod project
+        // but multi mod projects should define one per mod
+        voteme {
+            sourceSet(sourceSets.main)
+        }
+    }
 }
 
 configurations {
@@ -52,9 +115,86 @@ shadowJar {
     relocate 'io.lettuce', 'org.teacon.voteme.lettuce'
     relocate 'org.reactivestreams', 'org.teacon.voteme.reactivestreams'
 }
+tasks.build.dependsOn shadowJar
 
-jar { it.enabled false }
+tasks.withType(ProcessResources).configureEach {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            neo_version_range      : neo_version_range,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+            mod_authors            : mod_authors,
+            mod_description        : mod_description
+    ]
+    inputs.properties replaceProperties
 
-reobf {
-    jar { it.enabled false }
+    filesMatching(['META-INF/neoforge.mods.toml']) {
+        expand replaceProperties
+    }
+}
+
+publishing {
+    publications {
+        release(MavenPublication) {
+            groupId = "org.teacon"
+            artifactId = "VoteMe-NeoForge-1.21"
+
+            artifact shadowJar
+            pom {
+                name = 'VoteMe for Minecraft 1.21'
+                description = 'Minecraft mod for in-game voting.'
+                url = 'https://github.com/teaconmc/VoteMe'
+                issueManagement {
+                    system = 'GitHub Issues'
+                    url = 'https://github.com/teaconmc/VoteMe/issues'
+                }
+                scm {
+                    url = 'https://github.com/teaconmc/VoteMe'
+                    connection = 'scm:git:git://github.com/teaconmc/VoteMe.git'
+                    developerConnection = 'scm:git:git@github.com:teaconmc/VoteMe.git'
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = "teacon"
+            url = "s3://maven/"
+            credentials(AwsCredentials) {
+                accessKey = System.env.ARCHIVE_ACCESS_KEY
+                secretKey = System.env.ARCHIVE_SECRET_KEY
+            }
+        }
+    }
+}
+
+tasks.withType(PublishToMavenRepository) {
+    onlyIf {
+        System.env.ARCHIVE_ACCESS_KEY && System.env.ARCHIVE_SECRET_KEY
+    }
+}
+
+tasks.register("githubActionOutput", TeaConDumpPathToGitHub) { task ->
+    task.onlyIf {
+        System.env.GITHUB_ACTIONS
+    }
+    task.getPublishName().set("${jar.archiveBaseName.get()}-${version}.jar")
+    task.getTargetFile().set(jar.archiveFile)
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+
+// IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
 }
