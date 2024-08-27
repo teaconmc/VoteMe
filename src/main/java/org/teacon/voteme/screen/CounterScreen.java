@@ -35,14 +35,13 @@ import java.util.stream.IntStream;
 @ParametersAreNonnullByDefault
 public final class CounterScreen extends Screen {
     private static final ResourceLocation TEXTURE = ResourceLocation.parse("voteme:textures/gui/counter.png");
+    private static final ResourceLocation PREV_BUTTON_TEX = ResourceLocation.parse("voteme:counter_prev_button");
+    private static final ResourceLocation NEXT_BUTTON_TEX = ResourceLocation.parse("voteme:counter_next_button");
+    private static final ResourceLocation BLANK_BUTTON_TEX = ResourceLocation.parse("voteme:counter_blank_button");
     private static final Component EMPTY_ARTIFACT_TEXT = Component.translatable("gui.voteme.counter.empty_artifact").withStyle(style -> style.withItalic(true));
 
-    // FIXME Please split the widget texture out
-    public static final WidgetSprites PREV_BUTTON_SPRITE = new WidgetSprites(TEXTURE, TEXTURE, TEXTURE, TEXTURE);
-    public static final WidgetSprites NEXT_BUTTON_SPRITE = new WidgetSprites(TEXTURE, TEXTURE, TEXTURE, TEXTURE);
-    // 原始数据如下。依次是：画布 X，画布 Y，贴图宽，贴图高，贴图高度差值（啥意思？），贴图起始 X（U），贴图起始 Y（V）
-    // this.width / 2 - 99, this.height / 2 - 20, 18, 19, 12, 207, 0
-    // this.width / 2 - 79, this.height / 2 - 20, 18, 19, 32, 207, 0
+    public static final WidgetSprites PREV_BUTTON_SPRITE = new WidgetSprites(PREV_BUTTON_TEX, PREV_BUTTON_TEX);
+    public static final WidgetSprites NEXT_BUTTON_SPRITE = new WidgetSprites(NEXT_BUTTON_TEX, NEXT_BUTTON_TEX);
 
     private static final int BUTTON_TEXT_COLOR = 0xFF9DA95D;
     private static final int TEXT_COLOR = 0xFF000000 | DyeColor.BLACK.getTextColor();
@@ -80,8 +79,6 @@ public final class CounterScreen extends Screen {
     @Override
     protected void init() {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
-        //this.addRenderableWidget(new ImageButton(this.width / 2 - 99, this.height / 2 - 20, 18, 19, 12, 207, 0, TEXTURE, this::onPrevButtonClick));
-        //this.addRenderableWidget(new ImageButton(this.width / 2 - 79, this.height / 2 - 20, 18, 19, 32, 207, 0, TEXTURE, this::onNextButtonClick));
         this.addRenderableWidget(new ImageButton(this.width / 2 - 79, this.height / 2 - 20, 18, 19, PREV_BUTTON_SPRITE, this::onPrevButtonClick));
         this.addRenderableWidget(new ImageButton(this.width / 2 - 79, this.height / 2 - 20, 18, 19, NEXT_BUTTON_SPRITE, this::onNextButtonClick));
         this.okButton = this.addRenderableWidget(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onOKButtonClick, Component.translatable("gui.voteme.counter.ok")));
@@ -235,7 +232,7 @@ public final class CounterScreen extends Screen {
         for (int size = Math.min(7, descriptions.size()), i = 0; i < size; ++i) {
             FormattedCharSequence description = descriptions.get(i);
             int x1 = this.width / 2 - 95, y1 = 9 * i + this.height / 2 + 6;
-            matrixStack.drawString(font, description, x1, y1, TEXT_COLOR);
+            matrixStack.drawString(font, description, x1, y1, TEXT_COLOR, false);
         }
     }
 
@@ -296,22 +293,21 @@ public final class CounterScreen extends Screen {
 
     private static class BottomButton extends ImageButton {
 
-        // FIXME Split texture out as separate file
-        public static final WidgetSprites BOTTOM_BUTTON_SPRITE = new WidgetSprites(CounterScreen.TEXTURE, CounterScreen.TEXTURE);
+        public static final WidgetSprites BOTTOM_BUTTON_SPRITE = new WidgetSprites(CounterScreen.BLANK_BUTTON_TEX, CounterScreen.BLANK_BUTTON_TEX);
 
         public BottomButton(int x, int y, Button.OnPress onPress, Component title) {
             super(x, y, 39, 19, BOTTOM_BUTTON_SPRITE, onPress, title);
-            // u = 136, v = 207, vDiff = 0, texture total width = 256, texture total height = 256,
         }
 
         @Override
         public void renderWidget(GuiGraphics matrixStack, int mouseX, int mouseY, float partialTicks) {
             super.renderWidget(matrixStack, mouseX, mouseY, partialTicks);
             Font font = Minecraft.getInstance().font;
-            float dx = font.width(this.getMessage()) / 2F;
-            float x = this.getX() + (this.width + 1) / 2F - dx, y = this.getY() + (this.height - 9) / 2F;
-            Component p_283140_ = this.getMessage();
-            matrixStack.drawString(font, p_283140_, (int) x, (int) y, BUTTON_TEXT_COLOR, false);
+            //float dx = font.width(this.getMessage()) / 2F;
+            //float x = this.getX() + (this.width + 1) / 2F - dx, y = this.getY() + (this.height - 9) / 2F;
+            //Component p_283140_ = this.getMessage();
+            //matrixStack.drawString(font, p_283140_, (int) x, (int) y, BUTTON_TEXT_COLOR, false);
+            this.renderString(matrixStack, font, BUTTON_TEXT_COLOR);
         }
     }
 
