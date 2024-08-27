@@ -79,7 +79,7 @@ public final class CounterScreen extends Screen {
     @Override
     protected void init() {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
-        this.addRenderableWidget(new ImageButton(this.width / 2 - 79, this.height / 2 - 20, 18, 19, PREV_BUTTON_SPRITE, this::onPrevButtonClick));
+        this.addRenderableWidget(new ImageButton(this.width / 2 - 99, this.height / 2 - 20, 18, 19, PREV_BUTTON_SPRITE, this::onPrevButtonClick));
         this.addRenderableWidget(new ImageButton(this.width / 2 - 79, this.height / 2 - 20, 18, 19, NEXT_BUTTON_SPRITE, this::onNextButtonClick));
         this.okButton = this.addRenderableWidget(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onOKButtonClick, Component.translatable("gui.voteme.counter.ok")));
         this.cancelButton = this.addRenderableWidget(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onCancelButtonClick, Component.translatable("gui.voteme.counter.cancel")));
