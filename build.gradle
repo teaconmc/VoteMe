@@ -170,6 +170,8 @@ tasks.register("githubActionOutput", TeaConDumpPathToGitHub) { task ->
     task.onlyIf {
         System.env.GITHUB_ACTIONS
     }
+    task.dependsOn shadowJar
+    task.mustRunAfter shadowJar
     task.getPublishName().set("${jar.archiveBaseName.get()}-${version}.jar")
     task.getTargetFile().set(jar.archiveFile)
 }
