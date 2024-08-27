@@ -91,14 +91,14 @@ public final class CounterScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics matrixStack, int mouseX, int mouseY, float partialTicks) {
-        this.renderBackground(matrixStack, mouseX, mouseY, partialTicks);
-        this.drawGuiContainerBackgroundLayer(matrixStack, partialTicks, mouseX, mouseY);
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
+        this.renderBackground(guiGraphics, mouseX, mouseY, partialTicks);
+        this.drawGuiContainerBackgroundLayer(guiGraphics, partialTicks, mouseX, mouseY);
         for (Renderable renderable : this.renderables) {
-            renderable.render(matrixStack, mouseX, mouseY, partialTicks);
+            renderable.render(guiGraphics, mouseX, mouseY, partialTicks);
         }
-        this.drawGuiContainerForegroundLayer(matrixStack, partialTicks, mouseX, mouseY);
-        this.drawTooltips(matrixStack, partialTicks, mouseX, mouseY);
+        this.drawGuiContainerForegroundLayer(guiGraphics, partialTicks, mouseX, mouseY);
+        this.drawTooltips(guiGraphics, partialTicks, mouseX, mouseY);
     }
 
     @Override
@@ -168,14 +168,14 @@ public final class CounterScreen extends Screen {
         }
     }
 
-    private void drawTooltips(GuiGraphics matrixStack, float partialTicks, int mouseX, int mouseY) {
+    private void drawTooltips(GuiGraphics guiGraphics, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
         int dx = mouseX - this.width / 2, dy = mouseY - this.height / 2;
         if (dx >= -79 && dy >= -20 && dx < -61 && dy < -1) {
-            matrixStack.renderTooltip(mc.font, Component.translatable("gui.voteme.counter.next"), mouseX, mouseY);
+            guiGraphics.renderTooltip(mc.font, Component.translatable("gui.voteme.counter.next"), mouseX, mouseY);
         }
         if (dx >= -99 && dy >= -20 && dx < -81 && dy < -1) {
-            matrixStack.renderTooltip(mc.font, Component.translatable("gui.voteme.counter.prev"), mouseX, mouseY);
+            guiGraphics.renderTooltip(mc.font, Component.translatable("gui.voteme.counter.prev"), mouseX, mouseY);
         }
         if (dx >= 73 && dy >= -19 && dx < 99 && dy < -2) {
             List<Component> tooltipList = new ArrayList<>();
@@ -204,10 +204,10 @@ public final class CounterScreen extends Screen {
                     }
                 }
             }
-            matrixStack.renderComponentTooltip(mc.font, tooltipList, mouseX, mouseY);
+            guiGraphics.renderComponentTooltip(mc.font, tooltipList, mouseX, mouseY);
         }
         if (dx >= -98 && dy >= 76 && dx < -61 && dy < 96) {
-            matrixStack.renderTooltip(mc.font, Component.translatable("gui.voteme.counter.switch"), mouseX, mouseY);
+            guiGraphics.renderTooltip(mc.font, Component.translatable("gui.voteme.counter.switch"), mouseX, mouseY);
         }
     }
 
@@ -216,64 +216,64 @@ public final class CounterScreen extends Screen {
         // No blur, thank you.
     }
 
-    private void drawGuiContainerBackgroundLayer(GuiGraphics matrixStack, float partialTicks, int mouseX, int mouseY) {
+    private void drawGuiContainerBackgroundLayer(GuiGraphics guiGraphics, float partialTicks, int mouseX, int mouseY) {
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        matrixStack.blit(TEXTURE, this.width / 2 - 111, this.height / 2 - 97, 0, 0, 234, 206);
+        guiGraphics.blit(TEXTURE, this.width / 2 - 111, this.height / 2 - 97, 0, 0, 234, 206);
     }
 
-    private void drawGuiContainerForegroundLayer(GuiGraphics matrixStack, float partialTicks, int mouseX, int mouseY) {
+    private void drawGuiContainerForegroundLayer(GuiGraphics guiGraphics, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
         ShowCounterPacket.Info info = this.infoCollection.iterator().next();
-        this.drawCategoryName(matrixStack, info, mc.font);
-        this.drawCategoryDescription(matrixStack, info, mc.font);
-        this.drawCategoryScore(matrixStack, info, mc.font);
-        this.drawArtifactName(matrixStack, mc.font);
+        this.drawCategoryName(guiGraphics, info, mc.font);
+        this.drawCategoryDescription(guiGraphics, info, mc.font);
+        this.drawCategoryScore(guiGraphics, info, mc.font);
+        this.drawArtifactName(guiGraphics, mc.font);
     }
 
-    private void drawCategoryName(GuiGraphics matrixStack, ShowCounterPacket.Info info, Font font) {
+    private void drawCategoryName(GuiGraphics guiGraphics, ShowCounterPacket.Info info, Font font) {
         int x0 = this.width / 2 - 52, y0 = this.height / 2 - 14;
-        matrixStack.drawString(font, info.category.name, x0, y0, TEXT_COLOR, false);
+        guiGraphics.drawString(font, info.category.name, x0, y0, TEXT_COLOR, false);
     }
 
-    private void drawCategoryDescription(GuiGraphics matrixStack, ShowCounterPacket.Info info, Font font) {
+    private void drawCategoryDescription(GuiGraphics guiGraphics, ShowCounterPacket.Info info, Font font) {
         List<FormattedCharSequence> descriptions = font.split(info.category.description, 191);
         for (int size = Math.min(7, descriptions.size()), i = 0; i < size; ++i) {
             FormattedCharSequence description = descriptions.get(i);
             int x1 = this.width / 2 - 95, y1 = 9 * i + this.height / 2 + 6;
-            matrixStack.drawString(font, description, x1, y1, TEXT_COLOR, false);
+            guiGraphics.drawString(font, description, x1, y1, TEXT_COLOR, false);
         }
     }
 
-    private void drawCategoryScore(GuiGraphics matrixStack, ShowCounterPacket.Info info, Font font) {
+    private void drawCategoryScore(GuiGraphics guiGraphics, ShowCounterPacket.Info info, Font font) {
         Component score = Component.literal(this.enabledInfos.contains(info.id) ? String.format("%.1f", info.finalStat.getFinalScore(6.0F)) : "--");
         int x2 = this.width / 2 - font.width(score) / 2 + 87, y2 = this.height / 2 - 14;
-        matrixStack.drawString(font, score, x2, y2, TEXT_COLOR, false);
+        guiGraphics.drawString(font, score, x2, y2, TEXT_COLOR, false);
     }
 
-    private void drawArtifactName(GuiGraphics matrixStack, Font font) {
-        matrixStack.pose().pushPose();
+    private void drawArtifactName(GuiGraphics guiGraphics, Font font) {
+        guiGraphics.pose().pushPose();
         float scale = ARTIFACT_SCALE_FACTOR;
-        matrixStack.pose().scale(scale, scale, scale);
+        guiGraphics.pose().scale(scale, scale, scale);
         int x3 = this.width / 2 + 1, y3 = this.height / 2 - 43;
         int start = this.artifactInput.getSelectionPos(), end = this.artifactInput.getCursorPos();
         if (this.artifact.isEmpty()) {
             // draw hint text
             int dx0 = font.width(EMPTY_ARTIFACT_TEXT) / 2;
-            matrixStack.drawString(font, EMPTY_ARTIFACT_TEXT, (int) (x3 / scale - dx0), (int) (y3 / scale), SUGGESTION_COLOR, false);
+            guiGraphics.drawString(font, EMPTY_ARTIFACT_TEXT, (int) (x3 / scale - dx0), (int) (y3 / scale), SUGGESTION_COLOR, false);
         } else {
             // draw actual text
             int dx = font.width(this.artifact) / 2;
             boolean renderArtifactCursor = this.artifactCursorTick / 6 % 2 == 0;
-            matrixStack.drawString(font, Component.literal(this.artifact), (int) (x3 / scale - dx), (int) (y3 / scale), TEXT_COLOR, false);
+            guiGraphics.drawString(font, Component.literal(this.artifact), (int) (x3 / scale - dx), (int) (y3 / scale), TEXT_COLOR, false);
             if (end >= 0) {
                 // draw cursor
                 if (renderArtifactCursor) {
                     if (end >= this.artifact.length()) {
                         int dx1 = font.width(this.artifact);
-                        matrixStack.drawString(font, Component.literal("_"), (int) (x3 / scale - dx + dx1), (int) (y3 / scale), TEXT_COLOR, false);
+                        guiGraphics.drawString(font, Component.literal("_"), (int) (x3 / scale - dx + dx1), (int) (y3 / scale), TEXT_COLOR, false);
                     } else {
                         int dx1 = font.width(this.artifact.substring(0, end));
-                        matrixStack.fill((int) (x3 / scale - dx + dx1), (int) (y3 / scale) - 1, (int) (x3 / scale - dx + dx1) + 1, (int) (y3 / scale) + 9, TEXT_COLOR);
+                        guiGraphics.fill((int) (x3 / scale - dx + dx1), (int) (y3 / scale) - 1, (int) (x3 / scale - dx + dx1) + 1, (int) (y3 / scale) + 9, TEXT_COLOR);
                     }
                 }
                 // draw selection
@@ -283,13 +283,13 @@ public final class CounterScreen extends Screen {
                     RenderSystem.logicOp(GlStateManager.LogicOp.OR_REVERSE);
                     int dx2 = font.width(this.artifact.substring(0, end));
                     int dx3 = font.width(this.artifact.substring(0, start));
-                    matrixStack.fill((int) (x3 / scale - dx + dx2), (int) (y3 / scale), (int) (x3 / scale - dx + dx3), (int) (y3 / scale) + 9, SELECTION_COLOR);
+                    guiGraphics.fill((int) (x3 / scale - dx + dx2), (int) (y3 / scale), (int) (x3 / scale - dx + dx3), (int) (y3 / scale) + 9, SELECTION_COLOR);
                     RenderSystem.disableColorLogicOp();
                     // RenderSystem.enableTexture();
                 }
             }
         }
-        matrixStack.pose().popPose();
+        guiGraphics.pose().popPose();
     }
 
     private static <T> List<T> rotateAsFirst(List<T> initial, Predicate<T> filter) {
@@ -308,14 +308,14 @@ public final class CounterScreen extends Screen {
         }
 
         @Override
-        public void renderWidget(GuiGraphics matrixStack, int mouseX, int mouseY, float partialTicks) {
-            super.renderWidget(matrixStack, mouseX, mouseY, partialTicks);
+        public void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
+            super.renderWidget(guiGraphics, mouseX, mouseY, partialTicks);
             Font font = Minecraft.getInstance().font;
             //float dx = font.width(this.getMessage()) / 2F;
             //float x = this.getX() + (this.width + 1) / 2F - dx, y = this.getY() + (this.height - 9) / 2F;
             //Component p_283140_ = this.getMessage();
-            //matrixStack.drawString(font, p_283140_, (int) x, (int) y, BUTTON_TEXT_COLOR, false);
-            this.renderString(matrixStack, font, BUTTON_TEXT_COLOR);
+            //guiGraphics.drawString(font, p_283140_, (int) x, (int) y, BUTTON_TEXT_COLOR, false);
+            this.renderString(guiGraphics, font, BUTTON_TEXT_COLOR);
         }
     }
 
@@ -336,7 +336,7 @@ public final class CounterScreen extends Screen {
         }
 
         @Override
-        public void renderWidget(GuiGraphics matrixStack, int mouseX, int mouseY, float partialTicks) {
+        public void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
             // calculate offset and alpha
             double progress = Math.tanh((this.ticksFromPressing += partialTicks) / 3);
             double transition = this.enabled.getAsBoolean() ? progress : 1 - progress;
@@ -345,14 +345,14 @@ public final class CounterScreen extends Screen {
 
             // render background and switch-off button
             RenderSystem.enableDepthTest();
-            matrixStack.blit(TEXTURE, this.getX(), this.getY(), 13, 228, this.width, this.height, 256, 256);
-            matrixStack.blit(TEXTURE, this.getX() + offset + 2, this.getY() + 2, 69, 230, 16, 16, 256, 256);
+            guiGraphics.blit(TEXTURE, this.getX(), this.getY(), 13, 228, this.width, this.height, 256, 256);
+            guiGraphics.blit(TEXTURE, this.getX() + offset + 2, this.getY() + 2, 69, 230, 16, 16, 256, 256);
 
             // render switch-on button with blend
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
-            matrixStack.blit(TEXTURE, this.getX() + offset + 2, this.getY() + 2, 52, 230, 16, 16, 256, 256);
+            guiGraphics.blit(TEXTURE, this.getX() + offset + 2, this.getY() + 2, 52, 230, 16, 16, 256, 256);
         }
     }
 }
