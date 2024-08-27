@@ -208,6 +208,11 @@ public final class CounterScreen extends Screen {
         }
     }
 
+    @Override
+    protected void renderBlurredBackground(float partialTick) {
+        // No blur, thank you.
+    }
+
     private void drawGuiContainerBackgroundLayer(GuiGraphics matrixStack, float partialTicks, int mouseX, int mouseY) {
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         matrixStack.blit(TEXTURE, this.width / 2 - 111, this.height / 2 - 97, 0, 0, 234, 206);
