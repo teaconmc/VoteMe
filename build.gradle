@@ -40,7 +40,7 @@ abstract class TeaConDumpPathToGitHub extends DefaultTask {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-version = '0.8.3'
+version = mod_version
 group = 'org.teacon'
 
 base {

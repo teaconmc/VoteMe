@@ -4,7 +4,7 @@ license="BSD-3-Clause"
 
 [[mods]]
 modId="voteme"
-version="${file.jarVersion}"
+version="${mod_version}"
 displayName="Vote Me"
 authors="TeaConMC, yuriscat (Yuri's Cat), 3TUSK, ustc-zzzz"
 description="Minecraft mod for in-game voting."
