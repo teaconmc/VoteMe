@@ -187,6 +187,10 @@ tasks.withType(PublishToMavenRepository) {
     }
 }
 
+tasks.publishReleasePublicationToTeaconRepository {
+    mustRunAfter jar
+}
+
 tasks.register("githubActionOutput", TeaConDumpPathToGitHub) { task ->
     task.onlyIf {
         System.env.GITHUB_ACTIONS
