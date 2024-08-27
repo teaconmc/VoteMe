@@ -11,6 +11,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ImageButton;
 import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.gui.font.TextFieldHelper;
 import net.minecraft.client.gui.screens.Screen;
@@ -80,12 +81,17 @@ public final class CounterScreen extends Screen {
     @Override
     protected void init() {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
-        this.addRenderableWidget(new ImageButton(this.width / 2 - 99, this.height / 2 - 20, 18, 19, PREV_BUTTON_SPRITE, this::onPrevButtonClick));
-        this.addRenderableWidget(new ImageButton(this.width / 2 - 79, this.height / 2 - 20, 18, 19, NEXT_BUTTON_SPRITE, this::onNextButtonClick));
+        var prevCategoryButton = new ImageButton(this.width / 2 - 99, this.height / 2 - 20, 18, 19, PREV_BUTTON_SPRITE, this::onPrevButtonClick);
+        prevCategoryButton.setTooltip(Tooltip.create(Component.translatable("gui.voteme.counter.prev")));
+        this.addRenderableWidget(prevCategoryButton);
+        var nextCategoryButton = new ImageButton(this.width / 2 - 79, this.height / 2 - 20, 18, 19, NEXT_BUTTON_SPRITE, this::onNextButtonClick);
+        nextCategoryButton.setTooltip(Tooltip.create(Component.translatable("gui.voteme.counter.next")));
+        this.addRenderableWidget(nextCategoryButton);
         this.okButton = this.addRenderableWidget(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onOKButtonClick, Component.translatable("gui.voteme.counter.ok")));
         this.cancelButton = this.addRenderableWidget(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onCancelButtonClick, Component.translatable("gui.voteme.counter.cancel")));
         this.renameButton = this.addRenderableWidget(new BottomButton(this.width / 2 + 19, this.height / 2 + 77, this::onRenameButtonClick, Component.translatable("gui.voteme.counter.rename")));
         this.bottomSwitch = this.addRenderableWidget(new BottomSwitch(this.width / 2 - 98, this.height / 2 + 76, () -> this.enabledInfos.contains(this.infoCollection.iterator().next().id), this::onSwitchClick, Component.translatable("gui.voteme.counter.switch")));
+        this.bottomSwitch.setTooltip(Tooltip.create(Component.translatable("gui.voteme.counter.switch")));
         this.artifactInput = new TextFieldHelper(() -> this.artifact, text -> this.artifact = text, TextFieldHelper.createClipboardGetter(mc), TextFieldHelper.createClipboardSetter(mc), text -> mc.font.width(text) * ARTIFACT_SCALE_FACTOR <= 199);
         this.cancelButton.visible = this.renameButton.visible = this.bottomSwitch.visible = false;
     }
@@ -171,12 +177,6 @@ public final class CounterScreen extends Screen {
     private void drawTooltips(GuiGraphics guiGraphics, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
         int dx = mouseX - this.width / 2, dy = mouseY - this.height / 2;
-        if (dx >= -79 && dy >= -20 && dx < -61 && dy < -1) {
-            guiGraphics.renderTooltip(mc.font, Component.translatable("gui.voteme.counter.next"), mouseX, mouseY);
-        }
-        if (dx >= -99 && dy >= -20 && dx < -81 && dy < -1) {
-            guiGraphics.renderTooltip(mc.font, Component.translatable("gui.voteme.counter.prev"), mouseX, mouseY);
-        }
         if (dx >= 73 && dy >= -19 && dx < 99 && dy < -2) {
             List<Component> tooltipList = new ArrayList<>();
             ShowCounterPacket.Info info = this.infoCollection.iterator().next();
@@ -205,9 +205,6 @@ public final class CounterScreen extends Screen {
                 }
             }
             guiGraphics.renderComponentTooltip(mc.font, tooltipList, mouseX, mouseY);
-        }
-        if (dx >= -98 && dy >= 76 && dx < -61 && dy < 96) {
-            guiGraphics.renderTooltip(mc.font, Component.translatable("gui.voteme.counter.switch"), mouseX, mouseY);
         }
     }
 
