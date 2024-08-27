@@ -10,6 +10,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ImageButton;
+import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.gui.font.TextFieldHelper;
 import net.minecraft.client.gui.screens.Screen;
@@ -93,7 +94,9 @@ public final class CounterScreen extends Screen {
     public void render(GuiGraphics matrixStack, int mouseX, int mouseY, float partialTicks) {
         this.renderBackground(matrixStack, mouseX, mouseY, partialTicks);
         this.drawGuiContainerBackgroundLayer(matrixStack, partialTicks, mouseX, mouseY);
-        super.render(matrixStack, mouseX, mouseY, partialTicks);
+        for (Renderable renderable : this.renderables) {
+            renderable.render(matrixStack, mouseX, mouseY, partialTicks);
+        }
         this.drawGuiContainerForegroundLayer(matrixStack, partialTicks, mouseX, mouseY);
         this.drawTooltips(matrixStack, partialTicks, mouseX, mouseY);
     }
