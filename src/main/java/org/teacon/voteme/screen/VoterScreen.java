@@ -9,6 +9,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
@@ -70,12 +71,19 @@ public final class VoterScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics matrixStack, int mouseX, int mouseY, float partialTicks) {
-        this.renderBackground(matrixStack, mouseX, mouseY, partialTicks);
-        this.drawGuiContainerBackgroundLayer(matrixStack, partialTicks, mouseX, mouseY);
-        super.render(matrixStack, mouseX, mouseY, partialTicks);
-        this.drawGuiContainerForegroundLayer(matrixStack, partialTicks, mouseX, mouseY);
-        this.drawTooltips(matrixStack, partialTicks, mouseX, mouseY);
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
+        this.renderBackground(guiGraphics, mouseX, mouseY, partialTicks);
+        this.drawGuiContainerBackgroundLayer(guiGraphics, partialTicks, mouseX, mouseY);
+        for (Renderable renderable : this.renderables) {
+            renderable.render(guiGraphics, mouseX, mouseY, partialTicks);
+        }
+        this.drawGuiContainerForegroundLayer(guiGraphics, partialTicks, mouseX, mouseY);
+        this.drawTooltips(guiGraphics, partialTicks, mouseX, mouseY);
+    }
+
+    @Override
+    protected void renderBlurredBackground(float partialTick) {
+        // No blur, thank you
     }
 
     @Override
