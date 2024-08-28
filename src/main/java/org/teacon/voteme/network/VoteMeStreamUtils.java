@@ -1,7 +1,6 @@
 package org.teacon.voteme.network;
 
 import com.google.common.primitives.ImmutableIntArray;
-import io.netty.buffer.ByteBuf;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import org.apache.commons.lang3.tuple.Pair;

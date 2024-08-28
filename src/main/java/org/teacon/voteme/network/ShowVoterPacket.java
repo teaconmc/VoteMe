@@ -66,15 +66,7 @@ public final class ShowVoterPacket implements CustomPacketPayload {
     }
 
     public void handle(IPayloadContext context) {
-        // forge needs a separate class
-        if (FMLEnvironment.dist == Dist.CLIENT) {
-            ShowVoterPacket p = ShowVoterPacket.this;
-            String artifactName = VoteArtifactNames.client().getName(p.artifactID);
-            if (!artifactName.isEmpty()) {
-                VoterScreen gui = new VoterScreen(p.artifactID, artifactName, p.infos, p.comments);
-                context.enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
-            }
-        };
+        Handler.handle(this, context);
     }
 
     public static Optional<ShowVoterPacket> create(UUID artifactID, ServerPlayer player) {
@@ -99,6 +91,19 @@ public final class ShowVoterPacket implements CustomPacketPayload {
             return Optional.of(new ShowVoterPacket(artifactID, builder.build(), comments));
         }
         return Optional.empty();
+    }
+
+    static final class Handler {
+        static void handle(ShowVoterPacket packet, IPayloadContext context) {
+            // forge needs a separate class
+            if (FMLEnvironment.dist == Dist.CLIENT) {
+                String artifactName = VoteArtifactNames.client().getName(packet.artifactID);
+                if (!artifactName.isEmpty()) {
+                    VoterScreen gui = new VoterScreen(packet.artifactID, artifactName, packet.infos, packet.comments);
+                    context.enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
+                }
+            };
+        }
     }
 
     @MethodsReturnNonnullByDefault

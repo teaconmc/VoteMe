@@ -1,6 +1,5 @@
 package org.teacon.voteme.network;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.UUIDUtil;

@@ -62,15 +62,7 @@ public final class ShowCounterPacket implements CustomPacketPayload {
     }
 
     public void handle(IPayloadContext context) {
-        if (!this.infos.isEmpty()) {
-            // neoforge claims this is sufficient
-            if (FMLEnvironment.dist == Dist.CLIENT) {
-                ShowCounterPacket p = ShowCounterPacket.this;
-                String artifactName = VoteArtifactNames.client().getName(p.artifactUUID);
-                CounterScreen gui = new CounterScreen(p.artifactUUID, artifactName, p.invIndex, p.category, p.infos);
-                context.enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
-            }
-        }
+        Handler.handle(this, context);
     }
 
     public static Optional<ShowCounterPacket> create(int inventoryId, UUID artifactID, ResourceLocation categoryID, MinecraftServer server) {
@@ -119,6 +111,20 @@ public final class ShowCounterPacket implements CustomPacketPayload {
             return Optional.of(new ShowCounterPacket(inventoryId, newArtifactUUID, categoryID, infos));
         }
         return Optional.empty();
+    }
+
+    static final class Handler {
+        public static void handle(ShowCounterPacket packet, IPayloadContext context) {
+            if (!packet.infos.isEmpty()) {
+                // neoforge claims this is sufficient
+                if (FMLEnvironment.dist == Dist.CLIENT) {
+                    ShowCounterPacket p = packet;
+                    String artifactName = VoteArtifactNames.client().getName(p.artifactUUID);
+                    CounterScreen gui = new CounterScreen(p.artifactUUID, artifactName, p.invIndex, p.category, p.infos);
+                    context.enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
+                }
+            }
+        }
     }
 
     @MethodsReturnNonnullByDefault
