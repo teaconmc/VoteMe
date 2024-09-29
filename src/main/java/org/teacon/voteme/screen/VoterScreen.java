@@ -24,7 +24,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import org.teacon.voteme.network.ShowVoterPacket;
 import org.teacon.voteme.network.SubmitCommentPacket;
 import org.teacon.voteme.network.SubmitVotePacket;
-import org.teacon.voteme.network.VoteMePacketManager;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
@@ -294,7 +293,7 @@ public final class VoterScreen extends Screen {
         }
 
         @Override
-        public void onClick(double mouseX, double mouseY) {
+        public void onClick(double mouseX, double mouseY, int button) {
             double dx = mouseX - this.getX(), dy = mouseY - this.getY();
             if (dx >= 192 && dy >= this.slideCenter + this.halfSliderHeight) {
                 this.changeSlideCenter(this.slideCenter + 1);

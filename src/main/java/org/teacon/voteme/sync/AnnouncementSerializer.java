@@ -37,30 +37,32 @@ public final class AnnouncementSerializer {
     private static final String KEY_DISABLED = "Disabled";
     private static final String KEY_LEVEL = "Level";
     private static final String KEY_LEVEL_COUNTS = "LevelCounts";
+    private static final String KEY_REVISION = "Revision";
     private static final String KEY_VOTER = "VoterUUID";
     private static final String KEY_VOTE_ROLE = "VoteRole";
     private static final String KEY_VOTE_ROLES = "VoteRoles";
     private static final String KEY_VOTE_TIME = "VoteTime";
 
     public static Optional<CompoundTag> serialize(Announcement announcement) {
-        try {
-            CompoundTag nbt = new CompoundTag();
-            if (announcement instanceof Artifact artifact) {
+        CompoundTag nbt = new CompoundTag();
+        switch (announcement) {
+            case Artifact artifact -> {
                 nbt.putString(KEY_ANNOUNCEMENT, ARTIFACT);
                 nbt.putUUID(KEY_ARTIFACT, artifact.key().artifactID());
                 nbt.putString(KEY_ARTIFACT_NAME, artifact.name());
                 artifact.alias().ifPresent(alias -> nbt.putString(KEY_ALIAS, alias));
                 return Optional.of(nbt);
             }
-            if (announcement instanceof Comments comments) {
+            case Comments comments -> {
                 nbt.putString(KEY_ANNOUNCEMENT, COMMENTS);
                 nbt.putUUID(KEY_ARTIFACT, comments.key().artifactID());
                 nbt.putUUID(KEY_VOTER, comments.key().voterID());
+                nbt.putInt(KEY_REVISION, comments.key().revision());
                 nbt.put(KEY_COMMENTS, Util.make(new ListTag(), tag -> comments
                         .comments().forEach(c -> tag.add(StringTag.valueOf(c)))));
                 return Optional.of(nbt);
             }
-            if (announcement instanceof Vote vote) {
+            case Vote vote -> {
                 nbt.putString(KEY_ANNOUNCEMENT, VOTE);
                 nbt.putUUID(KEY_ARTIFACT, vote.key().artifactID());
                 nbt.putString(KEY_CATEGORY, vote.key().categoryID().toString());
@@ -71,26 +73,21 @@ public final class AnnouncementSerializer {
                 nbt.putLong(KEY_VOTE_TIME, vote.time().toEpochMilli());
                 return Optional.of(nbt);
             }
-            if (announcement instanceof VoteDisabled voteDisabled) {
+            case VoteDisabled voteDisabled -> {
                 nbt.putString(KEY_ANNOUNCEMENT, VOTE_DISABLED);
                 nbt.putUUID(KEY_ARTIFACT, voteDisabled.key().artifactID());
                 nbt.putString(KEY_CATEGORY, voteDisabled.key().categoryID().toString());
                 voteDisabled.disabled().ifPresent(disabled -> nbt.putBoolean(KEY_DISABLED, disabled));
                 return Optional.of(nbt);
             }
-            if (announcement instanceof VoteStats voteStats) {
+            case VoteStats voteStats -> {
                 nbt.putString(KEY_ANNOUNCEMENT, VOTE_STATS);
                 nbt.putUUID(KEY_ARTIFACT, voteStats.key().artifactID());
                 nbt.putString(KEY_CATEGORY, voteStats.key().categoryID().toString());
                 nbt.putString(KEY_VOTE_ROLE, voteStats.key().roleID().toString());
-                // noinspection UnstableApiUsage
                 nbt.putIntArray(KEY_LEVEL_COUNTS, voteStats.counts().toArray());
                 return Optional.of(nbt);
             }
-            throw new IllegalArgumentException("unsupported announcement type: " + announcement.getClass());
-        } catch (IllegalArgumentException e) {
-            VoteMe.LOGGER.warn("Failed to serialize " + announcement + " to nbt", e);
-            return Optional.empty();
         }
     }
 
@@ -104,7 +101,8 @@ public final class AnnouncementSerializer {
                             Tag.TAG_STRING) ? Optional.of(nbt.getString(KEY_ALIAS)) : Optional.empty());
                 }
                 case COMMENTS -> {
-                    CommentsKey key = new CommentsKey(nbt.getUUID(KEY_ARTIFACT), nbt.getUUID(KEY_VOTER));
+                    CommentsKey key = new CommentsKey(
+                            nbt.getUUID(KEY_ARTIFACT), nbt.getUUID(KEY_VOTER), nbt.getInt(KEY_REVISION));
                     yield new Comments(key, nbt.getList(KEY_COMMENTS, Tag.TAG_STRING)
                             .stream().map(Tag::getAsString).collect(toImmutableList()));
                 }
@@ -125,7 +123,6 @@ public final class AnnouncementSerializer {
                 case VOTE_STATS -> {
                     VoteStatsKey key = new VoteStatsKey(nbt.getUUID(KEY_ARTIFACT), ResourceLocation.parse(nbt
                             .getString(KEY_CATEGORY)), ResourceLocation.parse(nbt.getString(KEY_VOTE_ROLE)));
-                    // noinspection UnstableApiUsage
                     yield new VoteStats(key, copyOf(nbt.getIntArray(KEY_LEVEL_COUNTS)));
                 }
                 default -> throw new IllegalArgumentException("unsupported announce key: " + announceKey);

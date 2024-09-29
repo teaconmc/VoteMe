@@ -61,6 +61,7 @@ public final class DetachedSynchronizer implements VoteSynchronizer {
     @Override
     public Collection<? extends Announcement> dequeue() {
         Preconditions.checkArgument(this.server.isSameThread(), "server thread");
+        // noinspection SizeReplaceableByIsEmpty
         if (this.queued.size() > 0) {
             VoteMe.LOGGER.info("Retrieving {} announcement locally.", this.queued.size());
             Collection<? extends Announcement> result = this.queued;

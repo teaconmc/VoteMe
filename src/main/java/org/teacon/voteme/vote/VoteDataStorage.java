@@ -1,9 +1,6 @@
 package org.teacon.voteme.vote;
 
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Table;
-import com.google.common.collect.TreeBasedTable;
+import com.google.common.collect.*;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -50,7 +47,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
     private final VoteArtifactNames artifactNames;
     private final Int2ObjectMap<VoteList> voteLists;
     private final Table<UUID, ResourceLocation, Integer> voteListIDs;
-    private final Table<UUID, UUID, ImmutableList<String>> voteComments;
+    private final Table<UUID, UUID, CommentsEntry> voteComments;
 
     private final VoteSynchronizer sync;
 
@@ -80,11 +77,9 @@ public final class VoteDataStorage extends SavedData implements Closeable {
 
     @SuppressWarnings("deprecation")
     private VoteSynchronizer loadSynchronizer() {
+        MinecraftServer server = Objects.requireNonNull(ServerLifecycleHooks.getCurrentServer());
         String uri = StrSubstitutor.replace(VoteMe.CONFIG.REDIS_ATTACH_URI.get(), System.getenv());
-        if (!uri.isBlank()) {
-            return new RedisSynchronizer(ServerLifecycleHooks.getCurrentServer(), uri.strip());
-        }
-        return new DetachedSynchronizer(ServerLifecycleHooks.getCurrentServer());
+        return uri.isBlank() ? new DetachedSynchronizer(server) : new RedisSynchronizer(server, uri.strip());
     }
 
     private void tick() {
@@ -106,38 +101,35 @@ public final class VoteDataStorage extends SavedData implements Closeable {
     }
 
     private void handle(VoteSynchronizer.Announcement announcement) {
-        if (announcement instanceof VoteSynchronizer.Artifact artifact) {
-            this.artifactNames.publish(artifact);
-            return;
+        switch (announcement) {
+            case VoteSynchronizer.Artifact artifact -> this.artifactNames.publish(artifact);
+            case VoteSynchronizer.Comments comments -> this.handleCommentsAnnouncement(comments);
+            case VoteSynchronizer.VoteDisabled voteDisabled -> {
+                int id = this.getIdOrCreate(voteDisabled.key().artifactID(), voteDisabled.key().categoryID());
+                this.getVoteList(id).ifPresent(v -> v.publish(voteDisabled));
+            }
+            case VoteSynchronizer.Vote vote -> {
+                int id = this.getIdOrCreate(vote.key().artifactID(), vote.key().categoryID());
+                this.getVoteList(id).ifPresent(v -> v.publish(vote));
+            }
+            case VoteSynchronizer.VoteStats voteStats -> {
+                int id = this.getIdOrCreate(voteStats.key().artifactID(), voteStats.key().categoryID());
+                this.getVoteList(id).ifPresent(v -> v.publish(voteStats));
+            }
         }
-        if (announcement instanceof VoteSynchronizer.Comments comments) {
-            this.handleCommentsAnnouncement(comments);
-            return;
-        }
-        if (announcement instanceof VoteSynchronizer.VoteDisabled voteDisabled) {
-            int id = this.getIdOrCreate(voteDisabled.key().artifactID(), voteDisabled.key().categoryID());
-            this.getVoteList(id).ifPresent(v -> v.publish(voteDisabled));
-            return;
-        }
-        if (announcement instanceof VoteSynchronizer.Vote vote) {
-            int id = this.getIdOrCreate(vote.key().artifactID(), vote.key().categoryID());
-            this.getVoteList(id).ifPresent(v -> v.publish(vote));
-            return;
-        }
-        if (announcement instanceof VoteSynchronizer.VoteStats voteStats) {
-            int id = this.getIdOrCreate(voteStats.key().artifactID(), voteStats.key().categoryID());
-            this.getVoteList(id).ifPresent(v -> v.publish(voteStats));
-            return;
-        }
-        throw new IllegalArgumentException("unsupported announcement type: " + announcement.getClass());
     }
 
     private void handleCommentsAnnouncement(VoteSynchronizer.Comments comments) {
-        this.voteComments.put(comments.key().artifactID(), comments.key().voterID(), comments.comments());
+        UUID artifactID = comments.key().artifactID(), voterID = comments.key().voterID();
+        CommentsEntry oldEntry = this.voteComments.get(artifactID, voterID);
+        if (oldEntry == null || oldEntry.revision() <= comments.key().revision()) {
+            CommentsEntry newEntry = new CommentsEntry(comments.key().revision(), comments.comments());
+            this.voteComments.put(artifactID, voterID, newEntry);
+        }
     }
 
-    private void emitCommentsAnnouncement(UUID artifactID, UUID voterID, ImmutableList<String> comments) {
-        VoteSynchronizer.CommentsKey key = new VoteSynchronizer.CommentsKey(artifactID, voterID);
+    private void emitCommentsAnnouncement(UUID artifactID, UUID voterID, int revision, ImmutableList<String> comments) {
+        VoteSynchronizer.CommentsKey key = new VoteSynchronizer.CommentsKey(artifactID, voterID, revision);
         this.sync.publish(List.of(new VoteSynchronizer.Comments(key, comments)));
         this.setDirty();
     }
@@ -176,27 +168,23 @@ public final class VoteDataStorage extends SavedData implements Closeable {
 
     public static ImmutableList<String> getCommentFor(VoteDataStorage handler, UUID artifactID, UUID voterID) {
         if (handler.voteComments.contains(artifactID, voterID)) {
-            return Objects.requireNonNull(handler.voteComments.get(artifactID, voterID));
+            return Objects.requireNonNull(handler.voteComments.get(artifactID, voterID)).comments();
         }
         return ImmutableList.of();
     }
 
     public static Map<UUID, ImmutableList<String>> getAllCommentsFor(VoteDataStorage handler, UUID artifactID) {
-        return Collections.unmodifiableMap(handler.voteComments.row(artifactID));
+        Map<UUID, CommentsEntry> map = handler.voteComments.row(artifactID);
+        return Collections.unmodifiableMap(Maps.transformValues(map, CommentsEntry::comments));
     }
 
     public static void putCommentFor(VoteDataStorage handler, UUID artifactID, UUID voterID, List<String> newComments) {
-        if (newComments.isEmpty()) {
-            ImmutableList<String> oldComments = handler.voteComments.remove(artifactID, voterID);
-            if (!Objects.requireNonNullElse(oldComments, ImmutableList.of()).isEmpty()) {
-                handler.emitCommentsAnnouncement(artifactID, voterID, ImmutableList.of());
-            }
-        } else {
+        CommentsEntry old = handler.voteComments.get(artifactID, voterID);
+        if (old == null ? !newComments.isEmpty() : !newComments.equals(old.comments())) {
+            int revision = old == null ? 0 : old.revision() + 1;
             ImmutableList<String> comments = ImmutableList.copyOf(newComments);
-            ImmutableList<String> oldComments = handler.voteComments.put(artifactID, voterID, comments);
-            if (!comments.equals(Objects.requireNonNullElse(oldComments, ImmutableList.of()))) {
-                handler.emitCommentsAnnouncement(artifactID, voterID, comments);
-            }
+            handler.voteComments.put(artifactID, voterID, new CommentsEntry(revision, comments));
+            handler.emitCommentsAnnouncement(artifactID, voterID, revision, comments);
         }
     }
 
@@ -333,48 +321,8 @@ public final class VoteDataStorage extends SavedData implements Closeable {
             }
         }
 
-        /* * * * * * * * LEGACY PART START * * * * * * * */
-
-        // vote lists
-        ListTag lists = nbt.getList("VoteLists", Tag.TAG_COMPOUND);
-        for (int i = 0, size = lists.size(); i < size; ++i) {
-            CompoundTag child = lists.getCompound(i);
-            VoteSynchronizer.VoteDisabledKey key = VoteList.deserializeKey(child);
-            int hint = child.contains("VoteListIndex", Tag.TAG_INT) ? child.getInt("VoteListIndex") : this.nextIndex;
-            int id = this.getIdOrCreate(key.artifactID(), key.categoryID(), hint);
-            this.voteLists.get(id).loadLegacyNBT(child);
-        }
-
-        // artifacts
-        int loadedArtifactSize = this.artifactNames.loadLegacyNBT(nbt);
-
-        // comments
-        int commentsSize = 0;
-        CompoundTag commentsCollection = nbt.getCompound("VoteComments");
-        for (String artifactID : commentsCollection.getAllKeys()) {
-            CompoundTag allComments = commentsCollection.getCompound(artifactID);
-            for (String voterID : allComments.getAllKeys()) {
-                ImmutableList<String> comments = allComments.getList(voterID, Tag.TAG_STRING)
-                        .stream().map(Tag::getAsString).collect(ImmutableList.toImmutableList());
-                if (comments.isEmpty()) {
-                    this.voteComments.put(UUID.fromString(artifactID), UUID.fromString(voterID), comments);
-                } else {
-                    this.voteComments.remove(UUID.fromString(artifactID), UUID.fromString(voterID));
-                }
-                commentsSize += 1;
-                this.emitCommentsAnnouncement(UUID.fromString(artifactID), UUID.fromString(voterID), comments);
-            }
-        }
-
-        /* * * * * * * * LEGACY PART FINISH * * * * * * * */
-
         int size = 1 + hintTags.size() + announcementTags.size();
-        int legacySize = lists.size() + loadedArtifactSize + commentsSize;
-        if (legacySize > 0) {
-            VoteMe.LOGGER.info("Loaded {} data and {} legacy data on server.", size, legacySize);
-        } else {
-            VoteMe.LOGGER.info("Loaded {} data on server.", size);
-        }
+        VoteMe.LOGGER.info("Loaded {} data on server.", size);
     }
 
     @Override
@@ -398,9 +346,9 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         ListTag announcementTags = new ListTag();
         List<VoteSynchronizer.Announcement> announcements = new ArrayList<>();
         this.artifactNames.buildAnnouncements(announcements);
-        for (Table.Cell<UUID, UUID, ImmutableList<String>> e : this.voteComments.cellSet()) {
-            VoteSynchronizer.CommentsKey key = new VoteSynchronizer.CommentsKey(e.getRowKey(), e.getColumnKey());
-            announcements.add(new VoteSynchronizer.Comments(key, e.getValue()));
+        for (Table.Cell<UUID, UUID, CommentsEntry> e : this.voteComments.cellSet()) {
+            VoteSynchronizer.CommentsKey key = new VoteSynchronizer.CommentsKey(e.getRowKey(), e.getColumnKey(), e.getValue().revision());
+            announcements.add(new VoteSynchronizer.Comments(key, e.getValue().comments()));
         }
         this.voteLists.values().forEach(v -> v.buildAnnouncements(announcements));
         announcements.forEach(announcement -> serialize(announcement).ifPresent(announcementTags::add));
@@ -413,5 +361,9 @@ public final class VoteDataStorage extends SavedData implements Closeable {
     @Override
     public void close() throws IOException {
         this.sync.close();
+    }
+
+    public record CommentsEntry(int revision, ImmutableList<String> comments) {
+        // nothing here
     }
 }

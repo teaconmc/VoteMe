@@ -50,7 +50,7 @@ public interface VoteSynchronizer extends Closeable {
 
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
-    record CommentsKey(UUID artifactID, UUID voterID) implements AnnounceKey<Comments> {
+    record CommentsKey(UUID artifactID, UUID voterID, int revision) implements AnnounceKey<Comments> {
         @Override
         public Comments cast(Announcement announcement) {
             return (Comments) announcement;

@@ -70,25 +70,25 @@ public final class VoterItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag tooltipFlag) {
-            UUID artifactID = stack.get(ArtifactID.INSTANCE);
-            Optional<VoteArtifactNames> artifactNames = VoteArtifactNames.effective();
-            if (artifactNames.isPresent() && artifactID != null && !artifactNames.get().getName(artifactID).isEmpty()) {
-                MutableComponent artifactText = artifactNames.get().toText(artifactID).withStyle(ChatFormatting.GREEN);
-                tooltip.add(Component.translatable("gui.voteme.voter.current_artifact_hint", artifactText).withStyle(ChatFormatting.GRAY));
-                if (!VoteCategoryHandler.getIds().isEmpty()) {
-                    tooltip.add(Component.empty());
-                }
-                for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
-                    Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
-                    if (categoryOptional.isPresent()) {
-                        Component categoryName = categoryOptional.get().name;
-                        MutableComponent categoryText = Component.empty().append(categoryName).withStyle(ChatFormatting.YELLOW);
-                        tooltip.add(Component.translatable("gui.voteme.counter.category_hint", categoryText).withStyle(ChatFormatting.GRAY));
-                    }
-                }
-            } else {
-                tooltip.add(Component.translatable("gui.voteme.voter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
+        UUID artifactID = stack.get(ArtifactID.INSTANCE);
+        Optional<VoteArtifactNames> artifactNames = VoteArtifactNames.effective();
+        if (artifactNames.isPresent() && artifactID != null && !artifactNames.get().getName(artifactID).isEmpty()) {
+            MutableComponent artifactText = artifactNames.get().toText(artifactID).withStyle(ChatFormatting.GREEN);
+            tooltip.add(Component.translatable("gui.voteme.voter.current_artifact_hint", artifactText).withStyle(ChatFormatting.GRAY));
+            if (!VoteCategoryHandler.getIds().isEmpty()) {
+                tooltip.add(Component.empty());
             }
+            for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
+                Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
+                if (categoryOptional.isPresent()) {
+                    Component categoryName = categoryOptional.get().name;
+                    MutableComponent categoryText = Component.empty().append(categoryName).withStyle(ChatFormatting.YELLOW);
+                    tooltip.add(Component.translatable("gui.voteme.counter.category_hint", categoryText).withStyle(ChatFormatting.GRAY));
+                }
+            }
+        } else {
+            tooltip.add(Component.translatable("gui.voteme.voter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
+        }
     }
 
     @Override
@@ -136,7 +136,7 @@ public final class VoterItem extends Item {
 
     public ItemStack copyFrom(int voterSize, ItemStack stack) {
         ItemStack result = new ItemStack(this, voterSize);
-        result.copyFrom(stack, ArtifactID.INSTANCE);
+        result.set(ArtifactID.INSTANCE, stack.get(ArtifactID.INSTANCE));
         return result;
     }
 }

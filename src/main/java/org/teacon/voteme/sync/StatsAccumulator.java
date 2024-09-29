@@ -29,7 +29,7 @@ public final class StatsAccumulator {
             for (ResourceLocation roleID : vote.roles()) {
                 VoteStatsKey key = new VoteStatsKey(vote.key().artifactID(), vote.key().categoryID(), roleID);
                 this.countMaps.get(vote.level()).mergeInt(key, 1, Integer::sum);
-                this.countMaps.get(0).mergeInt(key, -1, Integer::sum);
+                this.countMaps.getFirst().mergeInt(key, -1, Integer::sum);
             }
         }
     }
@@ -39,7 +39,7 @@ public final class StatsAccumulator {
             for (ResourceLocation roleID : vote.roles()) {
                 VoteStatsKey key = new VoteStatsKey(vote.key().artifactID(), vote.key().categoryID(), roleID);
                 this.countMaps.get(vote.level()).mergeInt(key, -1, Integer::sum);
-                this.countMaps.get(0).mergeInt(key, 1, Integer::sum);
+                this.countMaps.getFirst().mergeInt(key, 1, Integer::sum);
             }
         }
     }

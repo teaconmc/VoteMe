@@ -32,7 +32,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.failedStage;
 import static org.teacon.voteme.sync.AnnouncementSerializer.*;
 
 @MethodsReturnNonnullByDefault
@@ -76,11 +75,11 @@ public final class RedisSynchronizer implements VoteSynchronizer {
         }
         List<Vote> watchedVotes = new ArrayList<>();
         accumulator.buildAffectedVotes(watchedVotes);
+        // noinspection SizeReplaceableByIsEmpty
         if (watchedVotes.size() > 0) {
             String[] watchedKeys = watchedVotes.stream().map(v -> toRedisKey(v.key())).toArray(String[]::new);
             VoteMe.LOGGER.info("Watch {} key(s) for updating vote related data in redis.", watchedKeys.length);
             List<Vote> affectedVotes = new ArrayList<>();
-            // noinspection UnstableApiUsage
             Map<VoteStatsKey, ImmutableIntArray> affectedStatsMap = new HashMap<>();
             RedisAsyncCommands<String, String> async = this.connection.async();
             AtomicBoolean succeed = new AtomicBoolean();
@@ -117,15 +116,11 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                             futures.add(async.hset(key, builder.build()).toCompletableFuture());
                         }
                         // submit affected stats
-                        // noinspection UnstableApiUsage
                         for (Map.Entry<VoteStatsKey, ImmutableIntArray> entry : affectedStatsMap.entrySet()) {
                             String key = toRedisKey(entry.getKey());
-                            // noinspection UnstableApiUsage
                             ImmutableIntArray counts = entry.getValue();
-                            // noinspection UnstableApiUsage
                             int bound = counts.length();
                             for (int i = 0; i < bound; ++i) {
-                                // noinspection UnstableApiUsage
                                 futures.add(async.hincrby(key, "level:" + i, counts.get(i)).toCompletableFuture());
                             }
                         }
@@ -138,7 +133,6 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                             for (Vote affectedVote : affectedVotes) {
                                 async.publish(SYNC, serialize(affectedVote).orElseThrow().toString());
                             }
-                            // noinspection UnstableApiUsage
                             for (Map.Entry<VoteStatsKey, ImmutableIntArray> entry : affectedStatsMap.entrySet()) {
                                 VoteStats voteStats = new VoteStats(entry.getKey(), entry.getValue());
                                 async.publish(SYNC, serialize(voteStats).orElseThrow().toString());
@@ -154,22 +148,13 @@ public final class RedisSynchronizer implements VoteSynchronizer {
     }
 
     private static String toRedisKey(AnnounceKey<?> announceKey) {
-        if (announceKey instanceof ArtifactKey key) {
-            return ARTIFACT + ":" + key.artifactID();
-        }
-        if (announceKey instanceof CommentsKey key) {
-            return COMMENTS + ":" + key.artifactID() + ":" + key.voterID();
-        }
-        if (announceKey instanceof VoteKey key) {
-            return VOTE + ":" + key.artifactID() + ":" + key.categoryID() + ":" + key.voterID();
-        }
-        if (announceKey instanceof VoteDisabledKey key) {
-            return VOTE_DISABLED + ":" + key.artifactID() + ":" + key.categoryID();
-        }
-        if (announceKey instanceof VoteStatsKey key) {
-            return VOTE_STATS + ":" + key.artifactID() + ":" + key.categoryID() + ":" + key.roleID();
-        }
-        throw new IllegalArgumentException("unsupported announce key");
+        return switch (announceKey) {
+            case ArtifactKey key -> ARTIFACT + ":" + key.artifactID();
+            case CommentsKey key -> COMMENTS + ":" + key.artifactID() + ":" + key.voterID() + ":";
+            case VoteKey key -> VOTE + ":" + key.artifactID() + ":" + key.categoryID() + ":" + key.voterID();
+            case VoteDisabledKey key -> VOTE_DISABLED + ":" + key.artifactID() + ":" + key.categoryID();
+            case VoteStatsKey key -> VOTE_STATS + ":" + key.artifactID() + ":" + key.categoryID() + ":" + key.roleID();
+        };
     }
 
     private static AnnounceKey<?> fromRedisKey(String redisKey) {
@@ -183,10 +168,11 @@ public final class RedisSynchronizer implements VoteSynchronizer {
             }
             case COMMENTS -> {
                 String[] parts = redisKeyParts[2].split(":");
-                checkArgument(parts.length == 2, "invalid message");
+                checkArgument(parts.length == 2 || parts.length == 3, "invalid message");
                 UUID artifactID = UUID.fromString(parts[0]);
                 UUID voterID = UUID.fromString(parts[1]);
-                return new CommentsKey(artifactID, voterID);
+                int revision = parts.length > 2 ? Integer.parseInt(parts[2]) : 0;
+                return new CommentsKey(artifactID, voterID, revision);
             }
             case VOTE -> {
                 String[] parts = redisKeyParts[2].split(":");
@@ -217,9 +203,8 @@ public final class RedisSynchronizer implements VoteSynchronizer {
 
     private static <T extends Announcement> CompletableFuture<T> dispatch(AnnounceKey<T> announceKey,
                                                                           RedisAsyncCommands<String, String> async) {
-        CompletionStage<T> stage = failedStage(new IllegalArgumentException("unsupported announce key"));
-        if (announceKey instanceof ArtifactKey key) {
-            stage = async.hgetall(toRedisKey(key)).thenApplyAsync(map -> {
+        CompletionStage<T> stage = switch (announceKey) {
+            case ArtifactKey key -> async.hgetall(toRedisKey(key)).thenApplyAsync(map -> {
                 String name = map.getOrDefault("name", "");
                 Optional<String> optional = Optional.empty();
                 if (map.containsKey("alias")) {
@@ -230,19 +215,14 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                 }
                 return announceKey.cast(new Artifact(key, name, optional));
             });
-        }
-        if (announceKey instanceof CommentsKey key) {
-            stage = async.lrange(toRedisKey(key), 0, Integer.MAX_VALUE).thenApplyAsync(list -> {
+            case CommentsKey key -> async.lrange(toRedisKey(key), 0, Integer.MAX_VALUE).thenApplyAsync(list -> {
                 ImmutableList<String> comments = ImmutableList.copyOf(list).reverse();
                 return announceKey.cast(new Comments(key, comments));
             });
-        }
-        if (announceKey instanceof VoteKey key) {
-            stage = async.hgetall(toRedisKey(key)).thenApplyAsync(map -> {
+            case VoteKey key -> async.hgetall(toRedisKey(key)).thenApplyAsync(map -> {
                 int level = Integer.parseInt(map.getOrDefault("level", "0"));
                 checkArgument(level >= 0 && level <= 5, "level out of range from 1 to 5");
                 int expectedSize = Math.max(0, map.size() - 2);
-                // noinspection UnstableApiUsage
                 ImmutableSet.Builder<ResourceLocation> roles = ImmutableSet.builderWithExpectedSize(expectedSize);
                 for (int i = 0; map.containsKey("role:" + i); ++i) {
                     ResourceLocation role = ResourceLocation.parse(map.get("role:" + i));
@@ -251,9 +231,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                 Instant time = Instant.parse(checkNotNull(map.getOrDefault("time", Instant.EPOCH.toString())));
                 return announceKey.cast(new Vote(key, level, roles.build(), time));
             });
-        }
-        if (announceKey instanceof VoteDisabledKey key) {
-            stage = async.get(toRedisKey(key)).thenApplyAsync(string -> {
+            case VoteDisabledKey key -> async.get(toRedisKey(key)).thenApplyAsync(string -> {
                 Optional<Boolean> disabled = switch (String.valueOf(string)) {
                     case "null" -> Optional.empty();
                     case "true" -> Optional.of(Boolean.TRUE);
@@ -262,20 +240,17 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                 };
                 return announceKey.cast(new VoteDisabled(key, disabled));
             });
-        }
-        if (announceKey instanceof VoteStatsKey key) {
-            stage = async.hgetall(toRedisKey(key)).thenApplyAsync(map -> {
+            case VoteStatsKey key -> async.hgetall(toRedisKey(key)).thenApplyAsync(map -> {
                 int count0 = Integer.parseInt(map.getOrDefault("level:0", "0"));
                 int count1 = Integer.parseInt(map.getOrDefault("level:1", "0"));
                 int count2 = Integer.parseInt(map.getOrDefault("level:2", "0"));
                 int count3 = Integer.parseInt(map.getOrDefault("level:3", "0"));
                 int count4 = Integer.parseInt(map.getOrDefault("level:4", "0"));
                 int count5 = Integer.parseInt(map.getOrDefault("level:5", "0"));
-                // noinspection UnstableApiUsage
                 ImmutableIntArray counts = ImmutableIntArray.of(count0, count1, count2, count3, count4, count5);
                 return announceKey.cast(new VoteStats(key, counts));
             });
-        }
+        };
         return stage.toCompletableFuture();
     }
 
@@ -358,6 +333,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
             this.scan(ScanCursor.of("0"), new ScanArgs().match(VOTE_DISABLED + ":*").limit(BATCH_MAXIMUM));
             this.scan(ScanCursor.of("0"), new ScanArgs().match(VOTE_STATS + ":*").limit(BATCH_MAXIMUM));
         }
+        // noinspection SizeReplaceableByIsEmpty
         if (this.receivedAnnouncements.size() > 0) {
             VoteMe.LOGGER.info("Retrieving {} announcement(s) from redis.", this.receivedAnnouncements.size());
             Collection<? extends Announcement> result = this.receivedAnnouncements;
