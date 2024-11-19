@@ -5,9 +5,6 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
@@ -24,7 +21,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.teacon.voteme.VoteMe;
 import org.teacon.voteme.network.SyncArtifactNamePacket;
-import org.teacon.voteme.network.VoteMePacketManager;
 import org.teacon.voteme.sync.VoteSynchronizer;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -160,45 +156,6 @@ public final class VoteArtifactNames {
         }
     }
 
-    public int loadLegacyNBT(CompoundTag nbt) {
-        ListTag names = nbt.getList("VoteArtifacts", Tag.TAG_COMPOUND);
-        for (int i = 0, size = names.size(); i < size; ++i) {
-            CompoundTag child = names.getCompound(i);
-            UUID uuid = child.getUUID("UUID");
-            String name = child.getString("Name");
-            String alias = child.getString("Alias");
-            if (!name.isEmpty()) {
-                String oldName = this.names.put(uuid, name);
-                if (!alias.isEmpty() && trimValidAlias(alias) == alias.length()) {
-                    UUID oldArtifactID = this.aliases.inverse().remove(alias);
-                    String oldAlias = this.aliases.put(uuid, alias);
-                    if (!isNullOrEmpty(oldAlias)) {
-                        this.needsSynchronizationToClient = true;
-                        this.emitArtifactAnnouncement(uuid);
-                    } else if (oldArtifactID == null) {
-                        this.needsSynchronizationToClient = true;
-                        this.emitArtifactAnnouncement(uuid);
-                    } else if (!uuid.equals(oldArtifactID)) {
-                        this.needsSynchronizationToClient = true;
-                        this.emitArtifactAnnouncement(oldArtifactID);
-                        this.emitArtifactAnnouncement(uuid);
-                    } else if (!name.equals(oldName)) {
-                        this.needsSynchronizationToClient = true;
-                        this.emitArtifactAnnouncement(uuid);
-                    }
-                } else if (this.aliases.containsKey(uuid)) {
-                    this.aliases.remove(uuid);
-                    this.needsSynchronizationToClient = true;
-                    this.emitArtifactAnnouncement(uuid);
-                } else if (!name.equals(oldName)) {
-                    this.needsSynchronizationToClient = true;
-                    this.emitArtifactAnnouncement(uuid);
-                }
-            }
-        }
-        return names.size();
-    }
-
     public void publish(VoteSynchronizer.Announcement announcement) {
         if (announcement instanceof VoteSynchronizer.Artifact artifact) {
             UUID artifactID = artifact.key().artifactID();
@@ -253,10 +210,11 @@ public final class VoteArtifactNames {
 
     @SubscribeEvent
     public static void onTick(ServerTickEvent.Pre event) {
+        // noinspection DataFlowIssue
         VoteArtifactNames instance = VoteDataStorage.get(ServerLifecycleHooks.getCurrentServer()).getArtifactNames();
         if (instance.needsSynchronizationToClient) {
-            SyncArtifactNamePacket packet = SyncArtifactNamePacket.create(instance.names, instance.aliases);
-            PacketDistributor.sendToAllPlayers(packet);
+            PacketDistributor.sendToAllPlayers(SyncArtifactNamePacket.create(instance.names, instance.aliases));
+            instance.needsSynchronizationToClient = false;
         }
     }
 
