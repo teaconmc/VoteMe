@@ -122,14 +122,24 @@ public final class VoteDataStorage extends SavedData implements Closeable {
     private void handleCommentsAnnouncement(VoteSynchronizer.Comments comments) {
         UUID artifactID = comments.key().artifactID(), voterID = comments.key().voterID();
         CommentsEntry oldEntry = this.voteComments.get(artifactID, voterID);
-        if (oldEntry == null || oldEntry.revision() <= comments.key().revision()) {
-            CommentsEntry newEntry = new CommentsEntry(comments.key().revision(), comments.comments());
+        int revision = comments.key().revision();
+        if (oldEntry == null || oldEntry.revision() <= revision) {
+            ImmutableList<String> list = comments.comments();
+            // drop the empty string prepended to the list for empty lists whose revision is larger than 0
+            if (revision > 0 && list.stream().allMatch(String::isEmpty) && !list.isEmpty()) {
+                list = list.subList(1, list.size());
+            }
+            CommentsEntry newEntry = new CommentsEntry(revision, list);
             this.voteComments.put(artifactID, voterID, newEntry);
         }
     }
 
     private void emitCommentsAnnouncement(UUID artifactID, UUID voterID, int revision, ImmutableList<String> comments) {
         VoteSynchronizer.CommentsKey key = new VoteSynchronizer.CommentsKey(artifactID, voterID, revision);
+        if (revision > 0 && comments.stream().allMatch(String::isEmpty)) {
+            // prepend an additional empty string if the comments are empty and the revision is larger than 0
+            comments = ImmutableList.<String>builder().add("").addAll(comments).build();
+        }
         this.sync.publish(List.of(new VoteSynchronizer.Comments(key, comments)));
         this.setDirty();
     }
