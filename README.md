@@ -15,15 +15,15 @@ Moderator commands (available to ops by default):
 * `/voteme modify <artifact> title <title>`
 * `/voteme modify <artifact> alias <alias>`
 * `/voteme modify <artifact> unalias`
-* `/voteme switch <category> on`
-* `/voteme switch <category> off`
-* `/voteme switch <category> unset`
+* `/voteme switch <artifact> <category> on`
+* `/voteme switch <artifact> <category> off`
+* `/voteme switch <artifact> <category> unset`
 
 Admin commands (available to nobody by default):
 
-* `/voteme admin switch <category> on`
-* `/voteme admin switch <category> off`
-* `/voteme admin switch <category> unset`
+* `/voteme admin switch <artifact> <category> on`
+* `/voteme admin switch <artifact> <category> off`
+* `/voteme admin switch <artifact> <category> unset`
 * `/voteme admin clear <artifact> <category>`
 * `/voteme admin remove <artifact>`
 * `/voteme admin create title <title>`
