@@ -150,7 +150,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
     private static String toRedisKey(AnnounceKey<?> announceKey) {
         return switch (announceKey) {
             case ArtifactKey key -> ARTIFACT + ":" + key.artifactID();
-            case CommentsKey key -> COMMENTS + ":" + key.artifactID() + ":" + key.voterID() + ":";
+            case CommentsKey key -> COMMENTS + ":" + key.artifactID() + ":" + key.voterID() + ":" + key.revision();
             case VoteKey key -> VOTE + ":" + key.artifactID() + ":" + key.categoryID() + ":" + key.voterID();
             case VoteDisabledKey key -> VOTE_DISABLED + ":" + key.artifactID() + ":" + key.categoryID();
             case VoteStatsKey key -> VOTE_STATS + ":" + key.artifactID() + ":" + key.categoryID() + ":" + key.roleID();
