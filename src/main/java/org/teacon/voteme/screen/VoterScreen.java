@@ -1,6 +1,7 @@
 package org.teacon.voteme.screen;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.GameNarrator;
@@ -9,7 +10,6 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
@@ -43,9 +43,9 @@ public final class VoterScreen extends Screen {
     private final String artifact;
 
     private final Map<ResourceLocation, Integer> votes;
-    private final List<ShowVoterPacket.Info> infoCollection;
-    final List<String> oldComments;
-    List<String> currentComments;
+    private final ImmutableList<ShowVoterPacket.Info> infoCollection;
+    private final ImmutableList<String> oldComments;
+    private final List<String> currentComments;
 
     private int slideBottom, slideTop;
     private BottomButton clearButton, unsetButton;
@@ -54,7 +54,8 @@ public final class VoterScreen extends Screen {
         super(GameNarrator.NO_TITLE);
         this.artifactID = artifactID;
         this.artifact = artifactName;
-        this.currentComments = (this.oldComments = comments);
+        this.oldComments = ImmutableList.copyOf(comments);
+        this.currentComments = Lists.newArrayList(comments);
         this.votes = new LinkedHashMap<>(infos.size());
         this.infoCollection = ImmutableList.copyOf(infos);
     }
@@ -71,18 +72,9 @@ public final class VoterScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTicks);
-        this.drawGuiContainerBackgroundLayer(guiGraphics, partialTicks, mouseX, mouseY);
-        for (Renderable renderable : this.renderables) {
-            renderable.render(guiGraphics, mouseX, mouseY, partialTicks);
-        }
-        this.drawGuiContainerForegroundLayer(guiGraphics, partialTicks, mouseX, mouseY);
-        this.drawTooltips(guiGraphics, partialTicks, mouseX, mouseY);
-    }
-
-    @Override
-    protected void renderBlurredBackground(float partialTick) {
-        // No blur, thank you
+        super.render(guiGraphics, mouseX, mouseY, partialTicks);
+        this.renderForeground(guiGraphics, partialTicks, mouseX, mouseY);
+        this.renderTooltip(guiGraphics, partialTicks, mouseX, mouseY);
     }
 
     @Override
@@ -113,7 +105,7 @@ public final class VoterScreen extends Screen {
     }
 
     private void onCommentButtonClick(Button button) {
-        Objects.requireNonNull(this.minecraft).setScreen(new CommentScreen(this));
+        this.getMinecraft().pushGuiLayer(new CommentScreen(this.currentComments));
     }
 
     private void onClearButtonClick(Button button) {
@@ -146,7 +138,7 @@ public final class VoterScreen extends Screen {
         this.slideBottom = bottom;
     }
 
-    private void drawTooltips(GuiGraphics matrixStack, float partialTicks, int mouseX, int mouseY) {
+    private void renderTooltip(GuiGraphics matrixStack, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
         int dx = mouseX - this.width / 2, dy = mouseY - this.height / 2;
         if (dx >= -103 && dy >= -55 && dx < -6 && dy < 77) {
@@ -159,16 +151,16 @@ public final class VoterScreen extends Screen {
         }
     }
 
-    private void drawGuiContainerBackgroundLayer(GuiGraphics matrixStack, float partialTicks, int mouseX, int mouseY) {
-        Minecraft mc = Objects.requireNonNull(this.minecraft);
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+    @Override
+    public void renderBackground(GuiGraphics matrixStack, int mouseX, int mouseY, float partialTick) {
+        this.renderTransparentBackground(matrixStack);
         matrixStack.blit(TEXTURE, this.width / 2 - 111, this.height / 2 - 55, 0, 42, 234, 132);
-        this.drawCategoriesInSlide(matrixStack, mc);
+        this.drawCategoriesInSlide(matrixStack, this.getMinecraft());
         matrixStack.blit(TEXTURE, this.width / 2 - 111, this.height / 2 - 97, 0, 0, 234, 42);
         matrixStack.blit(TEXTURE, this.width / 2 - 111, this.height / 2 + 77, 0, 174, 234, 32);
     }
 
-    private void drawGuiContainerForegroundLayer(GuiGraphics matrixStack, float partialTicks, int mouseX, int mouseY) {
+    private void renderForeground(GuiGraphics matrixStack, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
         this.drawArtifactName(matrixStack, mc.font);
     }
@@ -220,7 +212,7 @@ public final class VoterScreen extends Screen {
         matrixStack.pose().popPose();
     }
 
-    private static class BottomButton extends Button {
+    public static class BottomButton extends Button {
         private final boolean isRed;
 
         public BottomButton(int x, int y, boolean isRed, Button.OnPress onPress, Component title) {

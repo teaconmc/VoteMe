@@ -10,7 +10,6 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ImageButton;
-import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.gui.font.TextFieldHelper;
@@ -73,7 +72,7 @@ public final class CounterScreen extends Screen {
         this.artifactUUID = artifactUUID;
         this.inventoryIndex = inventoryIndex;
         this.artifact = this.oldArtifact = artifactName;
-        Preconditions.checkArgument(infos.size() > 0);
+        Preconditions.checkArgument(!infos.isEmpty());
         this.infoCollection = rotateAsFirst(infos, info -> category.equals(info.id));
         this.enabledInfos = infos.stream().filter(i -> i.enabledCurrently).map(i -> i.id).collect(Collectors.toCollection(TreeSet::new));
     }
@@ -90,7 +89,7 @@ public final class CounterScreen extends Screen {
         this.okButton = this.addRenderableWidget(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onOKButtonClick, Component.translatable("gui.voteme.counter.ok")));
         this.cancelButton = this.addRenderableWidget(new BottomButton(this.width / 2 + 61, this.height / 2 + 77, this::onCancelButtonClick, Component.translatable("gui.voteme.counter.cancel")));
         this.renameButton = this.addRenderableWidget(new BottomButton(this.width / 2 + 19, this.height / 2 + 77, this::onRenameButtonClick, Component.translatable("gui.voteme.counter.rename")));
-        this.bottomSwitch = this.addRenderableWidget(new BottomSwitch(this.width / 2 - 98, this.height / 2 + 76, () -> this.enabledInfos.contains(this.infoCollection.iterator().next().id), this::onSwitchClick, Component.translatable("gui.voteme.counter.switch")));
+        this.bottomSwitch = this.addRenderableWidget(new BottomSwitch(this.width / 2 - 98, this.height / 2 + 76, () -> this.enabledInfos.contains(this.infoCollection.getFirst().id), this::onSwitchClick, Component.translatable("gui.voteme.counter.switch")));
         this.bottomSwitch.setTooltip(Tooltip.create(Component.translatable("gui.voteme.counter.switch")));
         this.artifactInput = new TextFieldHelper(() -> this.artifact, text -> this.artifact = text, TextFieldHelper.createClipboardGetter(mc), TextFieldHelper.createClipboardSetter(mc), text -> mc.font.width(text) * ARTIFACT_SCALE_FACTOR <= 199);
         this.cancelButton.visible = this.renameButton.visible = this.bottomSwitch.visible = false;
@@ -98,19 +97,15 @@ public final class CounterScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTicks);
-        this.drawGuiContainerBackgroundLayer(guiGraphics, partialTicks, mouseX, mouseY);
-        for (Renderable renderable : this.renderables) {
-            renderable.render(guiGraphics, mouseX, mouseY, partialTicks);
-        }
-        this.drawGuiContainerForegroundLayer(guiGraphics, partialTicks, mouseX, mouseY);
-        this.drawTooltips(guiGraphics, partialTicks, mouseX, mouseY);
+        super.render(guiGraphics, mouseX, mouseY, partialTicks);
+        this.renderForeground(guiGraphics, partialTicks, mouseX, mouseY);
+        this.renderTooltip(guiGraphics, partialTicks, mouseX, mouseY);
     }
 
     @Override
     public void tick() {
         ++this.artifactCursorTick;
-        this.bottomSwitch.visible = this.infoCollection.iterator().next().category.enabledModifiable;
+        this.bottomSwitch.visible = this.infoCollection.getFirst().category.enabledModifiable;
         boolean canRename = !this.artifact.isEmpty() && !Objects.equals(this.artifact, this.oldArtifact);
         this.renameButton.visible = this.cancelButton.visible = canRename;
         this.okButton.visible = !canRename;
@@ -136,7 +131,7 @@ public final class CounterScreen extends Screen {
     @Override
     public void removed() {
         if (!this.oldArtifact.isEmpty()) {
-            ShowCounterPacket.Info info = this.infoCollection.iterator().next();
+            ShowCounterPacket.Info info = this.infoCollection.getFirst();
             Iterable<ResourceLocation> enabled = () -> this.infoCollection.stream()
                     .filter(i -> !i.enabledCurrently && this.enabledInfos.contains(i.id)).map(i -> i.id).iterator();
             Iterable<ResourceLocation> disabled = () -> this.infoCollection.stream()
@@ -168,18 +163,18 @@ public final class CounterScreen extends Screen {
     }
 
     private void onSwitchClick(Button button) {
-        ResourceLocation id = this.infoCollection.iterator().next().id;
+        ResourceLocation id = this.infoCollection.getFirst().id;
         if (!this.enabledInfos.add(id)) {
             this.enabledInfos.remove(id);
         }
     }
 
-    private void drawTooltips(GuiGraphics guiGraphics, float partialTicks, int mouseX, int mouseY) {
+    private void renderTooltip(GuiGraphics guiGraphics, float partialTicks, int mouseX, int mouseY) {
         Minecraft mc = Objects.requireNonNull(this.minecraft);
         int dx = mouseX - this.width / 2, dy = mouseY - this.height / 2;
         if (dx >= 73 && dy >= -19 && dx < 99 && dy < -2) {
             List<Component> tooltipList = new ArrayList<>();
-            ShowCounterPacket.Info info = this.infoCollection.iterator().next();
+            ShowCounterPacket.Info info = this.infoCollection.getFirst();
             float finalWeight = info.finalStat.getWeight();
             int finalCount = info.finalStat.getVoteCount(), finalEffective = info.finalStat.getEffectiveCount();
             tooltipList.add(Component.translatable("gui.voteme.counter.score", finalCount, finalEffective));
@@ -209,22 +204,17 @@ public final class CounterScreen extends Screen {
     }
 
     @Override
-    protected void renderBlurredBackground(float partialTick) {
-        // No blur, thank you.
+    public void renderBackground(GuiGraphics matrixStack, int mouseX, int mouseY, float partialTick) {
+        this.renderTransparentBackground(matrixStack);
+        matrixStack.blit(TEXTURE, this.width / 2 - 111, this.height / 2 - 97, 0, 0, 234, 206);
     }
 
-    private void drawGuiContainerBackgroundLayer(GuiGraphics guiGraphics, float partialTicks, int mouseX, int mouseY) {
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        guiGraphics.blit(TEXTURE, this.width / 2 - 111, this.height / 2 - 97, 0, 0, 234, 206);
-    }
-
-    private void drawGuiContainerForegroundLayer(GuiGraphics guiGraphics, float partialTicks, int mouseX, int mouseY) {
-        Minecraft mc = Objects.requireNonNull(this.minecraft);
-        ShowCounterPacket.Info info = this.infoCollection.iterator().next();
-        this.drawCategoryName(guiGraphics, info, mc.font);
-        this.drawCategoryDescription(guiGraphics, info, mc.font);
-        this.drawCategoryScore(guiGraphics, info, mc.font);
-        this.drawArtifactName(guiGraphics, mc.font);
+    private void renderForeground(GuiGraphics guiGraphics, float partialTicks, int mouseX, int mouseY) {
+        ShowCounterPacket.Info info = this.infoCollection.getFirst();
+        this.drawCategoryName(guiGraphics, info, this.font);
+        this.drawCategoryDescription(guiGraphics, info, this.font);
+        this.drawCategoryScore(guiGraphics, info, this.font);
+        this.drawArtifactName(guiGraphics, this.font);
     }
 
     private void drawCategoryName(GuiGraphics guiGraphics, ShowCounterPacket.Info info, Font font) {
