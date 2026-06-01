@@ -22,7 +22,6 @@ build
 
 # other
 eclipse
-run_client
-run_server
+run
 *.txt
 

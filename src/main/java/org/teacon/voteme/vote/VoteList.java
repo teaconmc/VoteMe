@@ -5,7 +5,6 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.primitives.ImmutableIntArray;
-import io.netty.buffer.ByteBuf;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -80,9 +79,7 @@ public final class VoteList {
     private void handleVoteStatsAnnouncement(VoteStats voteStats) {
         Preconditions.checkArgument(this.key.artifactID().equals(voteStats.key().artifactID()), "wrong artifact id");
         Preconditions.checkArgument(this.key.categoryID().equals(voteStats.key().categoryID()), "wrong category id");
-        // noinspection UnstableApiUsage
         ImmutableIntArray oldCounts = this.delayedStatsMap.put(voteStats.key().roleID(), voteStats.counts());
-        // noinspection UnstableApiUsage
         if (!voteStats.counts().equals(oldCounts)) {
             this.delayedCachedScores.clear();
         }
@@ -241,20 +238,16 @@ public final class VoteList {
 
     public SortedMap<String, Stats> buildStatsMap() {
         if (this.delayedCachedScores.isEmpty()) {
-            // noinspection UnstableApiUsage
             ImmutableIntArray zeros = ImmutableIntArray.of(0, 0, 0, 0, 0, 0);
             ListMultimap<String, Stats> results = ArrayListMultimap.create();
             for (ResourceLocation location : VoteRoleHandler.getIds()) {
                 VoteRole role = VoteRoleHandler.getRole(location).orElseThrow(NullPointerException::new);
-                // noinspection UnstableApiUsage
                 ImmutableIntArray countsByLevel = this.delayedStatsMap.computeIfAbsent(location, k -> zeros);
                 for (VoteRole.Participation participation : role.categories.get(this.key.categoryID())) {
                     float weight = participation.weight, finalScore = Float.NaN;
-                    // noinspection UnstableApiUsage
                     int count = -countsByLevel.get(0), truncation = participation.truncation;
                     int effectiveCount = Math.max(0, count - truncation * 2);
                     if (effectiveCount > 0) {
-                        // noinspection UnstableApiUsage
                         int[] counts = countsByLevel.toArray();
                         for (int i = 1, left = truncation; left > 0; ++i) {
                             int diff = Math.min(left, counts[i]);
@@ -311,9 +304,7 @@ public final class VoteList {
             this.finalScore = finalScore;
             this.effectiveCount = effectiveCount;
             this.voteCountsByLevel = voteCountsByLevel;
-            // noinspection UnstableApiUsage
             Preconditions.checkArgument(voteCountsByLevel.length() == 1 + 5);
-            // noinspection UnstableApiUsage
             Preconditions.checkArgument(voteCountsByLevel.stream().sum() == 0);
             Preconditions.checkArgument(effectiveCount > 0 || Float.isNaN(finalScore));
         }
@@ -323,18 +314,15 @@ public final class VoteList {
         }
 
         public int getVoteCount() {
-            // noinspection UnstableApiUsage
             return -this.voteCountsByLevel.get(0);
         }
 
         public int getVoteCount(int level) {
             Preconditions.checkArgument(level > 0 && level <= 5);
-            // noinspection UnstableApiUsage
             return this.voteCountsByLevel.get(level);
         }
 
         public int[] getVoteCountArray() {
-            // noinspection UnstableApiUsage
             return this.voteCountsByLevel.toArray();
         }
 
@@ -353,17 +341,11 @@ public final class VoteList {
             for (Stats stats : iterable) {
                 weightSum += stats.weight;
                 effectiveCountSum += stats.effectiveCount;
-                // noinspection UnstableApiUsage
                 countsByLevel[0] += stats.voteCountsByLevel.get(0);
-                // noinspection UnstableApiUsage
                 countsByLevel[1] += stats.voteCountsByLevel.get(1);
-                // noinspection UnstableApiUsage
                 countsByLevel[2] += stats.voteCountsByLevel.get(2);
-                // noinspection UnstableApiUsage
                 countsByLevel[3] += stats.voteCountsByLevel.get(3);
-                // noinspection UnstableApiUsage
                 countsByLevel[4] += stats.voteCountsByLevel.get(4);
-                // noinspection UnstableApiUsage
                 countsByLevel[5] += stats.voteCountsByLevel.get(5);
                 if (!Float.isNaN(stats.finalScore)) {
                     scoreDivisor += scoreWeightFunction.calculateWeight(stats);
@@ -371,7 +353,6 @@ public final class VoteList {
                 }
             }
             float finalScore = scoreDivisor > 0F && effectiveCountSum > 0F ? scoreSum / scoreDivisor : Float.NaN;
-            // noinspection UnstableApiUsage
             return new Stats(weightSum, finalScore, effectiveCountSum, ImmutableIntArray.copyOf(countsByLevel));
         }
 
