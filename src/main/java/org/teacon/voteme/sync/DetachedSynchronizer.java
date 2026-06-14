@@ -1,14 +1,16 @@
 package org.teacon.voteme.sync;
 
 import com.google.common.base.Preconditions;
-import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.Util;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.Util;
 import org.teacon.voteme.VoteMe;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
 
+@FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class DetachedSynchronizer implements VoteSynchronizer {

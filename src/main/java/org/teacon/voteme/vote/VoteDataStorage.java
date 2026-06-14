@@ -4,18 +4,21 @@ import com.google.common.collect.*;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
-import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.Util;
-import net.minecraft.core.HolderLookup;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.Util;
+import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.level.saveddata.SavedData;
-import net.minecraft.world.level.storage.DimensionDataStorage;
+import net.minecraft.world.level.saveddata.SavedDataType;
+import net.minecraft.world.level.storage.SavedDataStorage;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
@@ -38,22 +41,30 @@ import java.util.stream.IntStream;
 import static org.teacon.voteme.sync.AnnouncementSerializer.deserialize;
 import static org.teacon.voteme.sync.AnnouncementSerializer.serialize;
 
+@FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = "voteme")
 public final class VoteDataStorage extends SavedData implements Closeable {
+    private static final SavedDataType<VoteDataStorage> TYPE = new SavedDataType<>(
+            Identifier.parse("voteme:vote_lists"),
+            VoteDataStorage::new,
+            CompoundTag.CODEC.xmap(VoteDataStorage::fromTag, VoteDataStorage::toTag),
+            DataFixTypes.SAVED_DATA_COMMAND_STORAGE
+    );
+
     private int nextIndex;
 
     private final VoteArtifactNames artifactNames;
     private final Int2ObjectMap<VoteList> voteLists;
-    private final Table<UUID, ResourceLocation, Integer> voteListIDs;
+    private final Table<UUID, Identifier, Integer> voteListIDs;
     private final Table<UUID, UUID, CommentsEntry> voteComments;
 
     private final VoteSynchronizer sync;
 
     public static VoteDataStorage get(MinecraftServer server) {
-        DimensionDataStorage manager = server.overworld().getDataStorage();
-        return manager.computeIfAbsent(new Factory<>(VoteDataStorage::new, VoteDataStorage::new), "vote_lists");
+        SavedDataStorage manager = server.overworld().getDataStorage();
+        return manager.computeIfAbsent(TYPE);
     }
 
     public VoteDataStorage() {
@@ -63,16 +74,6 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         this.voteListIDs = TreeBasedTable.create();
         this.voteComments = HashBasedTable.create();
         this.sync = this.loadSynchronizer();
-    }
-
-    public VoteDataStorage(CompoundTag nbt, HolderLookup.Provider holderLookupProvider) {
-        this.nextIndex = 1;
-        this.artifactNames = new VoteArtifactNames();
-        this.voteLists = new Int2ObjectRBTreeMap<>();
-        this.voteListIDs = TreeBasedTable.create();
-        this.voteComments = HashBasedTable.create();
-        this.sync = this.loadSynchronizer();
-        this.load(nbt, holderLookupProvider);
     }
 
     @SuppressWarnings("deprecation")
@@ -148,18 +149,18 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         return this.artifactNames;
     }
 
-    public boolean hasEnabled(ResourceLocation category) {
+    public boolean hasEnabled(Identifier category) {
         boolean enabledDefault = VoteCategoryHandler.getCategory(category).filter(c -> c.enabledDefault).isPresent();
         return this.artifactNames.getUUIDs().stream()
                 .map(id -> this.voteLists.get(this.getIdOrCreate(id, category)))
                 .anyMatch(votes -> votes.getEnabled().orElse(enabledDefault));
     }
 
-    public int getIdOrCreate(UUID artifactID, ResourceLocation category) {
+    public int getIdOrCreate(UUID artifactID, Identifier category) {
         return getIdOrCreate(artifactID, category, this.nextIndex);
     }
 
-    private int getIdOrCreate(UUID artifactID, ResourceLocation category, int hint) {
+    private int getIdOrCreate(UUID artifactID, Identifier category, int hint) {
         Integer oldId = this.voteListIDs.get(artifactID, category);
         if (oldId == null) {
             int id = this.voteLists.containsKey(hint) ? this.nextIndex : hint;
@@ -205,7 +206,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
             Optional.of(this.artifactNames.getAlias(artifactID))
                     .filter(s -> !s.isEmpty()).ifPresent(s -> result.addProperty("alias", s));
             Map<Integer, VoteList> voteLists = new LinkedHashMap<>();
-            for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
+            for (Identifier categoryID : VoteCategoryHandler.getIds()) {
                 int id = this.getIdOrCreate(artifactID, categoryID);
                 Optional<VoteList> entryOptional = this.getVoteList(id);
                 boolean enabledDefault = VoteCategoryHandler
@@ -225,7 +226,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
                                 for (VoteList voteList : voteLists.values()) {
                                     JsonObject object = new JsonObject();
                                     object.add("roles", Util.make(new JsonArray(), roles -> {
-                                        for (ResourceLocation roleID : voteList.getRoles(voterID)) {
+                                        for (Identifier roleID : voteList.getRoles(voterID)) {
                                             roles.add(roleID.toString());
                                         }
                                     }));
@@ -244,7 +245,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         });
     }
 
-    public JsonElement toVoteListHTTPJson(UUID artifactID, ResourceLocation categoryID) {
+    public JsonElement toVoteListHTTPJson(UUID artifactID, Identifier categoryID) {
         int id = this.getIdOrCreate(artifactID, categoryID);
         VoteList voteList = this.getVoteList(id).orElseThrow();
 
@@ -308,35 +309,45 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         }
     }
 
-    public void load(CompoundTag nbt, HolderLookup.Provider holderLookupProvider) {
+    private static VoteDataStorage fromTag(CompoundTag nbt) {
+        VoteDataStorage storage = new VoteDataStorage();
+        storage.load(nbt);
+        return storage;
+    }
+
+    private CompoundTag toTag() {
+        return this.save(new CompoundTag());
+    }
+
+    public void load(CompoundTag nbt) {
         VoteMe.LOGGER.info("Loading vote list data on server ...");
 
         // vote list next index and index hints
-        this.nextIndex = Math.max(this.nextIndex, nbt.getInt("VoteListNextIndex"));
+        this.nextIndex = Math.max(this.nextIndex, nbt.getInt("VoteListNextIndex").orElse(0));
 
-        ListTag hintTags = nbt.getList("VoteListIndexHints", Tag.TAG_COMPOUND);
+        ListTag hintTags = nbt.getList("VoteListIndexHints").orElseGet(ListTag::new);
         for (Tag tag : hintTags) {
-            CompoundTag child = (CompoundTag) tag;
-            int hint = child.contains("VoteListIndex", Tag.TAG_INT) ? child.getInt("VoteListIndex") : this.nextIndex;
-            this.getIdOrCreate(child.getUUID("ArtifactUUID"), ResourceLocation.parse(child.getString("Category")), hint);
+            CompoundTag child = tag.asCompound().orElseThrow();
+            int hint = child.getInt("VoteListIndex").orElse(this.nextIndex);
+            UUID artifactID = child.read("ArtifactUUID", UUIDUtil.CODEC).orElseThrow();
+            Identifier categoryID = Identifier.parse(child.getString("Category").orElseThrow());
+            this.getIdOrCreate(artifactID, categoryID, hint);
         }
 
         // announcements
-        ListTag announcementTags = nbt.getList("VoteAnnouncements", Tag.TAG_COMPOUND);
+        ListTag announcementTags = nbt.getList("VoteAnnouncements").orElseGet(ListTag::new);
         for (Tag tag : announcementTags) {
-            Optional<VoteSynchronizer.Announcement> optional = deserialize((CompoundTag) tag);
-            if (optional.isPresent()) {
-                this.handle(optional.get());
-                this.sync.publish(List.of(optional.get()));
-            }
+            tag.asCompound().flatMap(announcementTag -> deserialize(announcementTag)).ifPresent(announcement -> {
+                this.handle(announcement);
+                this.sync.publish(List.of(announcement));
+            });
         }
 
         int size = 1 + hintTags.size() + announcementTags.size();
         VoteMe.LOGGER.info("Loaded {} data on server.", size);
     }
 
-    @Override
-    public CompoundTag save(CompoundTag nbt, HolderLookup.Provider holderLookupProvider) {
+    public CompoundTag save(CompoundTag nbt) {
         VoteMe.LOGGER.info("Saving vote list data on server ...");
 
         // vote list next index and index hints
@@ -346,7 +357,7 @@ public final class VoteDataStorage extends SavedData implements Closeable {
         for (Int2ObjectMap.Entry<VoteList> entry : this.voteLists.int2ObjectEntrySet()) {
             CompoundTag child = new CompoundTag();
             child.putInt("VoteListIndex", entry.getIntKey());
-            child.putUUID("ArtifactUUID", entry.getValue().getArtifactID());
+            child.store("ArtifactUUID", UUIDUtil.CODEC, entry.getValue().getArtifactID());
             child.putString("Category", entry.getValue().getCategoryID().toString());
             hintTags.add(child);
         }

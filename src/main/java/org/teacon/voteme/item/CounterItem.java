@@ -1,21 +1,24 @@
 package org.teacon.voteme.item;
 
 import com.google.common.collect.ImmutableList;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.ChatFormatting;
-import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -34,18 +37,17 @@ import org.teacon.voteme.vote.VoteArtifactNames;
 import org.teacon.voteme.vote.VoteDataStorage;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 
+@FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = "voteme")
 public final class CounterItem extends Item {
-
-    public static final ResourceLocation ID = ResourceLocation.parse("voteme:counter");
-
+    public static final Identifier ID = Identifier.parse("voteme:counter");
     public static final DeferredHolder<Item, CounterItem> INSTANCE = DeferredHolder.create(Registries.ITEM, ID);
 
     @SubscribeEvent
@@ -53,7 +55,7 @@ public final class CounterItem extends Item {
         if (event.getRegistryKey() != Registries.ITEM) {
             return;
         }
-        event.register(Registries.ITEM, ID, () -> new CounterItem(new Properties().stacksTo(1)));
+        event.register(Registries.ITEM, ID, () -> new CounterItem(ID));
     }
 
     @SubscribeEvent
@@ -63,44 +65,45 @@ public final class CounterItem extends Item {
         }
     }
 
-    private CounterItem(Properties properties) {
-        super(properties);
+    private CounterItem(Identifier identifier) {
+        super(new Properties().stacksTo(1).setId(ResourceKey.create(Registries.ITEM, identifier)));
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag tooltipFlag) {
-            UUID artifactID = stack.get(ArtifactID.INSTANCE);
-            Optional<VoteArtifactNames> artifactNames = VoteArtifactNames.effective();
-            if (artifactNames.isPresent() && artifactID != null && !artifactNames.get().getName(artifactID).isEmpty()) {
-                MutableComponent artifactText = artifactNames.get().toText(artifactID).withStyle(ChatFormatting.GREEN);
-                tooltip.add(Component.translatable("gui.voteme.counter.current_artifact_hint", artifactText).withStyle(ChatFormatting.GRAY));
-                ResourceLocation currentCategoryID = stack.get(CategoryID.INSTANCE);
-                if (!VoteCategoryHandler.getIds().isEmpty()) {
-                    tooltip.add(Component.empty());
-                }
-                for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
-                    Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
-                    if (categoryOptional.isPresent()) {
-                        Component categoryName = categoryOptional.get().name;
-                        ChatFormatting color = categoryID.equals(currentCategoryID) ? ChatFormatting.GOLD : ChatFormatting.YELLOW;
-                        MutableComponent categoryText = Component.empty().append(categoryName).withStyle(color);
-                        tooltip.add(Component.translatable("gui.voteme.counter.category_hint", categoryText).withStyle(ChatFormatting.GRAY));
-                    }
-                }
-            } else {
-                tooltip.add(Component.translatable("gui.voteme.counter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
+    public void appendHoverText(ItemStack stack, Item.TooltipContext context, TooltipDisplay tooltipDisplay,
+                                Consumer<Component> tooltip, TooltipFlag tooltipFlag) {
+        UUID artifactID = stack.get(ArtifactID.INSTANCE);
+        Optional<VoteArtifactNames> artifactNames = VoteArtifactNames.effective();
+        if (artifactNames.isPresent() && artifactID != null && !artifactNames.get().getName(artifactID).isEmpty()) {
+            MutableComponent artifactText = artifactNames.get().toText(artifactID).withStyle(ChatFormatting.GREEN);
+            tooltip.accept(Component.translatable("gui.voteme.counter.current_artifact_hint", artifactText).withStyle(ChatFormatting.GRAY));
+            Identifier currentCategoryID = stack.get(CategoryID.INSTANCE);
+            if (!VoteCategoryHandler.getIds().isEmpty()) {
+                tooltip.accept(Component.empty());
             }
+            for (Identifier categoryID : VoteCategoryHandler.getIds()) {
+                Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
+                if (categoryOptional.isPresent()) {
+                    Component categoryName = categoryOptional.get().name;
+                    ChatFormatting color = categoryID.equals(currentCategoryID) ? ChatFormatting.GOLD : ChatFormatting.YELLOW;
+                    MutableComponent categoryText = Component.empty().append(categoryName).withStyle(color);
+                    tooltip.accept(Component.translatable("gui.voteme.counter.category_hint", categoryText).withStyle(ChatFormatting.GRAY));
+                }
+            }
+        } else {
+            tooltip.accept(Component.translatable("gui.voteme.counter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
+        }
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level world, Player player, InteractionHand hand) {
+    public InteractionResult use(Level world, Player player, InteractionHand hand) {
         ItemStack itemStack = player.getItemInHand(hand);
         if (player instanceof ServerPlayer) {
             Optional<ShowCounterPacket> packet = Optional.empty();
-            MinecraftServer server = Objects.requireNonNull(player.getServer());
-            int inventoryId = hand == InteractionHand.MAIN_HAND ? player.getInventory().selected : 40;
+            MinecraftServer server = Objects.requireNonNull(player.level().getServer());
+            int inventoryId = hand == InteractionHand.MAIN_HAND ? player.getInventory().getSelectedSlot() : 40;
             UUID artifactID = itemStack.get(ArtifactID.INSTANCE);
-            ResourceLocation category = itemStack.get(CategoryID.INSTANCE);
+            Identifier category = itemStack.get(CategoryID.INSTANCE);
             if (artifactID != null && category != null) {
                 packet = ShowCounterPacket.create(inventoryId, artifactID, category, server);
             }
@@ -109,12 +112,12 @@ public final class CounterItem extends Item {
             }
             if (packet.isPresent()) {
                 PacketDistributor.sendToPlayer((ServerPlayer) player, packet.get());
-                return InteractionResultHolder.consume(itemStack);
+                return InteractionResult.CONSUME;
             }
         } else {
-            return InteractionResultHolder.success(itemStack);
+            return InteractionResult.SUCCESS;
         }
-        return InteractionResultHolder.fail(itemStack);
+        return InteractionResult.FAIL;
     }
 
     @Override
@@ -134,20 +137,20 @@ public final class CounterItem extends Item {
 
     public void rename(ServerPlayer sender, ItemStack stack, UUID artifactID, String newArtifactName) {
         if (this.checkMatchedArtifact(stack, artifactID)) {
-            VoteArtifactNames artifactNames = VoteDataStorage.get(sender.server).getArtifactNames();
+            VoteArtifactNames artifactNames = VoteDataStorage.get(Objects.requireNonNull(sender.level().getServer())).getArtifactNames();
             artifactNames.putName(sender.createCommandSourceStack(), artifactID, newArtifactName);
         } else {
             VoteMe.LOGGER.warn("Unmatched vote artifact {} submitted by {}.", artifactID, sender.getGameProfile());
         }
     }
 
-    public void applyChanges(ServerPlayer sender, ItemStack stack, UUID artifactID, ResourceLocation currentCategory,
-                             ImmutableList<ResourceLocation> enabledCategories, ImmutableList<ResourceLocation> disabledCategories) {
-        VoteDataStorage handler = VoteDataStorage.get(Objects.requireNonNull(sender.getServer()));
+    public void applyChanges(ServerPlayer sender, ItemStack stack, UUID artifactID, Identifier currentCategory,
+                             ImmutableList<Identifier> enabledCategories, ImmutableList<Identifier> disabledCategories) {
+        VoteDataStorage handler = VoteDataStorage.get(Objects.requireNonNull(sender.level().getServer()));
         if (this.checkMatchedArtifact(stack, artifactID)) {
             stack.set(CategoryID.INSTANCE, currentCategory);
             stack.set(ArtifactID.INSTANCE, artifactID);
-            for (ResourceLocation category : enabledCategories) {
+            for (Identifier category : enabledCategories) {
                 if (VoteCategoryHandler.getCategory(category).filter(c -> c.enabledModifiable).isPresent()) {
                     int entryID = handler.getIdOrCreate(artifactID, category);
                     handler.getVoteList(entryID).ifPresent(entry -> entry.setEnabled(true));
@@ -155,7 +158,7 @@ public final class CounterItem extends Item {
                     VoteMe.LOGGER.warn("Unmodifiable vote category {} submitted by {}.", category, sender.getGameProfile());
                 }
             }
-            for (ResourceLocation category : disabledCategories) {
+            for (Identifier category : disabledCategories) {
                 if (VoteCategoryHandler.getCategory(category).filter(c -> c.enabledModifiable).isPresent()) {
                     int entryID = handler.getIdOrCreate(artifactID, category);
                     handler.getVoteList(entryID).ifPresent(entry -> entry.setEnabled(false));

@@ -3,12 +3,13 @@ package org.teacon.voteme.vote;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
-import net.minecraft.MethodsReturnNonnullByDefault;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -29,9 +30,10 @@ import java.util.function.Consumer;
 
 import static net.minecraft.util.StringUtil.isNullOrEmpty;
 
+@FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = "voteme")
 public final class VoteArtifactNames {
     private boolean needsSynchronizationToClient = false;
     private final Map<UUID, String> names = new TreeMap<>();
@@ -72,7 +74,7 @@ public final class VoteArtifactNames {
     public MutableComponent toText(UUID artifactID) {
         String alias = this.getAlias(artifactID);
         Component hover = Component.literal(artifactID.toString());
-        HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover);
+        HoverEvent hoverEvent = new HoverEvent.ShowText(hover);
         if (alias.isEmpty()) {
             String shortID = artifactID.toString().substring(0, 8);
             String base = String.format("%s (%s...)", this.getName(artifactID), shortID);
@@ -201,7 +203,7 @@ public final class VoteArtifactNames {
     @SubscribeEvent
     public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         Player player = event.getEntity();
-        VoteArtifactNames instance = VoteDataStorage.get(Objects.requireNonNull(player.getServer())).getArtifactNames();
+        VoteArtifactNames instance = VoteDataStorage.get(Objects.requireNonNull(player.level().getServer())).getArtifactNames();
         if (player instanceof ServerPlayer serverPlayer) {
             SyncArtifactNamePacket packet = SyncArtifactNamePacket.create(instance.names, instance.aliases);
             PacketDistributor.sendToPlayer(serverPlayer, packet);
@@ -223,7 +225,7 @@ public final class VoteArtifactNames {
         if (remaining.charAt(0) == '#' && size > 1) {
             while (++index < size) {
                 char current = remaining.charAt(index);
-                if (!ResourceLocation.validPathChar(current)) {
+                if (!Identifier.validPathChar(current)) {
                     break;
                 }
             }

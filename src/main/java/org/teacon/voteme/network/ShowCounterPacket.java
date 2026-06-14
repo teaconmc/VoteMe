@@ -1,7 +1,8 @@
 package org.teacon.voteme.network;
 
 import com.google.common.collect.ImmutableList;
-import net.minecraft.MethodsReturnNonnullByDefault;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -10,7 +11,7 @@ import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.loading.FMLEnvironment;
@@ -30,26 +31,27 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+@FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ShowCounterPacket implements CustomPacketPayload {
 
-    public static final Type<ShowCounterPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("voteme", "show_counter"));
+    public static final Type<ShowCounterPacket> TYPE = new Type<>(Identifier.fromNamespaceAndPath("voteme", "show_counter"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, ShowCounterPacket> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.VAR_INT, p -> p.invIndex,
             UUIDUtil.STREAM_CODEC, p -> p.artifactUUID,
-            ResourceLocation.STREAM_CODEC, p -> p.category,
+            Identifier.STREAM_CODEC, p -> p.category,
             Info.STREAM_CODEC.apply(ByteBufCodecs.list()), p -> p.infos,
             ShowCounterPacket::new
     );
 
     public final int invIndex;
     public final UUID artifactUUID;
-    public final ResourceLocation category;
+    public final Identifier category;
     public final ImmutableList<Info> infos;
 
-    private ShowCounterPacket(int invIndex, UUID uuid, ResourceLocation category, List<Info> infos) {
+    private ShowCounterPacket(int invIndex, UUID uuid, Identifier category, List<Info> infos) {
         this.invIndex = invIndex;
         this.artifactUUID = uuid;
         this.category = category;
@@ -65,13 +67,13 @@ public final class ShowCounterPacket implements CustomPacketPayload {
         Handler.handle(this, context);
     }
 
-    public static Optional<ShowCounterPacket> create(int inventoryId, UUID artifactID, ResourceLocation categoryID, MinecraftServer server) {
+    public static Optional<ShowCounterPacket> create(int inventoryId, UUID artifactID, Identifier categoryID, MinecraftServer server) {
         VoteArtifactNames artifactNames = VoteDataStorage.get(server).getArtifactNames();
         if (!artifactNames.getName(artifactID).isEmpty()) {
             boolean isValidCategoryID = false;
             VoteDataStorage handler = VoteDataStorage.get(server);
             ImmutableList.Builder<Info> builder = ImmutableList.builder();
-            for (ResourceLocation location : VoteCategoryHandler.getIds()) {
+            for (Identifier location : VoteCategoryHandler.getIds()) {
                 isValidCategoryID = isValidCategoryID || location.equals(categoryID);
                 VoteCategory category = VoteCategoryHandler.getCategory(location).orElseThrow(IllegalStateException::new);
                 VoteList entry = handler.getVoteList(handler.getIdOrCreate(artifactID, location)).orElseThrow(IllegalStateException::new);
@@ -79,7 +81,7 @@ public final class ShowCounterPacket implements CustomPacketPayload {
                 if (category.enabledDefault || category.enabledModifiable || enabledCurrently) {
                     ImmutableList.Builder<Pair<Component, VoteList.Stats>> scoresBuilder = ImmutableList.builder();
                     entry.buildStatsMap().forEach((subgroup, scores) -> scoresBuilder.add(Pair.of(Optional
-                            .ofNullable(ResourceLocation.tryParse(subgroup)).flatMap(VoteRoleHandler::getRole)
+                            .ofNullable(Identifier.tryParse(subgroup)).flatMap(VoteRoleHandler::getRole)
                             .map(role -> role.name).orElse(Component.literal(subgroup)), scores)));
                     builder.add(new Info(location, category, scoresBuilder.build(), enabledCurrently));
                 }
@@ -107,7 +109,7 @@ public final class ShowCounterPacket implements CustomPacketPayload {
         if (!infos.isEmpty()) {
             UUID newArtifactUUID = UUID.randomUUID();
             artifactUUIDConsumer.accept(newArtifactUUID);
-            ResourceLocation categoryID = infos.iterator().next().id;
+            Identifier categoryID = infos.iterator().next().id;
             return Optional.of(new ShowCounterPacket(inventoryId, newArtifactUUID, categoryID, infos));
         }
         return Optional.empty();
@@ -117,7 +119,7 @@ public final class ShowCounterPacket implements CustomPacketPayload {
         public static void handle(ShowCounterPacket packet, IPayloadContext context) {
             if (!packet.infos.isEmpty()) {
                 // neoforge claims this is sufficient
-                if (FMLEnvironment.dist == Dist.CLIENT) {
+                if (FMLEnvironment.getDist() == Dist.CLIENT) {
                     ShowCounterPacket p = packet;
                     String artifactName = VoteArtifactNames.client().getName(p.artifactUUID);
                     CounterScreen gui = new CounterScreen(p.artifactUUID, artifactName, p.invIndex, p.category, p.infos);
@@ -127,16 +129,17 @@ public final class ShowCounterPacket implements CustomPacketPayload {
         }
     }
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     public static final class Info {
-        public final ResourceLocation id;
+        public final Identifier id;
         public final VoteCategory category;
         public final boolean enabledCurrently;
         public final VoteList.Stats finalStat;
         public final List<Pair<Component, VoteList.Stats>> scores;
 
-        public Info(ResourceLocation id, VoteCategory category, List<Pair<Component, VoteList.Stats>> scores, boolean enabledCurrently) {
+        public Info(Identifier id, VoteCategory category, List<Pair<Component, VoteList.Stats>> scores, boolean enabledCurrently) {
             this.id = id;
             this.scores = scores;
             this.category = category;
@@ -150,7 +153,7 @@ public final class ShowCounterPacket implements CustomPacketPayload {
         }
 
         public static final StreamCodec<RegistryFriendlyByteBuf, Info> STREAM_CODEC = StreamCodec.composite(
-                ResourceLocation.STREAM_CODEC, info -> info.id,
+                Identifier.STREAM_CODEC, info -> info.id,
                 VoteCategory.STREAM_CODEC, info -> info.category,
                 VoteMeStreamUtils.pair(ComponentSerialization.STREAM_CODEC, VoteList.Stats.STREAM_CODEC).apply(ByteBufCodecs.list()), info -> info.scores,
                 ByteBufCodecs.BOOL, info -> info.enabledCurrently,

@@ -4,7 +4,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.primitives.ImmutableIntArray;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.teacon.voteme.sync.VoteSynchronizer.Vote;
 import org.teacon.voteme.sync.VoteSynchronizer.VoteKey;
 import org.teacon.voteme.sync.VoteSynchronizer.VoteStatsKey;
@@ -26,7 +26,7 @@ public final class StatsAccumulator {
 
     private void increase(@Nullable Vote vote) {
         if (vote != null) {
-            for (ResourceLocation roleID : vote.roles()) {
+            for (Identifier roleID : vote.roles()) {
                 VoteStatsKey key = new VoteStatsKey(vote.key().artifactID(), vote.key().categoryID(), roleID);
                 this.countMaps.get(vote.level()).mergeInt(key, 1, Integer::sum);
                 this.countMaps.getFirst().mergeInt(key, -1, Integer::sum);
@@ -36,7 +36,7 @@ public final class StatsAccumulator {
 
     private void decrease(@Nullable Vote vote) {
         if (vote != null) {
-            for (ResourceLocation roleID : vote.roles()) {
+            for (Identifier roleID : vote.roles()) {
                 VoteStatsKey key = new VoteStatsKey(vote.key().artifactID(), vote.key().categoryID(), roleID);
                 this.countMaps.get(vote.level()).mergeInt(key, -1, Integer::sum);
                 this.countMaps.getFirst().mergeInt(key, 1, Integer::sum);

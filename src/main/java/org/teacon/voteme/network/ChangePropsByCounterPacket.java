@@ -1,13 +1,14 @@
 package org.teacon.voteme.network;
 
 import com.google.common.collect.ImmutableList;
-import net.minecraft.MethodsReturnNonnullByDefault;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -23,18 +24,19 @@ import java.util.stream.Stream;
 
 import static org.teacon.voteme.command.VoteMePermissions.*;
 
+@FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ChangePropsByCounterPacket implements CustomPacketPayload {
 
-    public static final Type<ChangePropsByCounterPacket> TYPE = new Type<>(ResourceLocation.parse("voteme:change_props_by_counter"));
+    public static final Type<ChangePropsByCounterPacket> TYPE = new Type<>(Identifier.parse("voteme:change_props_by_counter"));
 
     public static final StreamCodec<FriendlyByteBuf, ChangePropsByCounterPacket> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.VAR_INT, p -> p.inventoryIndex,
             UUIDUtil.STREAM_CODEC, p -> p.artifactUUID,
-            ResourceLocation.STREAM_CODEC, p -> p.categoryID,
-            ResourceLocation.STREAM_CODEC.apply(ByteBufCodecs.list()), p -> p.enabled,
-            ResourceLocation.STREAM_CODEC.apply(ByteBufCodecs.list()), p -> p.disabled,
+            Identifier.STREAM_CODEC, p -> p.categoryID,
+            Identifier.STREAM_CODEC.apply(ByteBufCodecs.list()), p -> p.enabled,
+            Identifier.STREAM_CODEC.apply(ByteBufCodecs.list()), p -> p.disabled,
             ChangePropsByCounterPacket::new
     );
 
@@ -45,12 +47,12 @@ public final class ChangePropsByCounterPacket implements CustomPacketPayload {
 
     public final int inventoryIndex;
     public final UUID artifactUUID;
-    public final ResourceLocation categoryID;
-    public final ImmutableList<ResourceLocation> enabled;
-    public final ImmutableList<ResourceLocation> disabled;
+    public final Identifier categoryID;
+    public final ImmutableList<Identifier> enabled;
+    public final ImmutableList<Identifier> disabled;
 
-    private ChangePropsByCounterPacket(int inventoryIndex, UUID artifactUUID, ResourceLocation category,
-                                       List<ResourceLocation> enabled, List<ResourceLocation> disabled) {
+    private ChangePropsByCounterPacket(int inventoryIndex, UUID artifactUUID, Identifier category,
+                                       List<Identifier> enabled, List<Identifier> disabled) {
         this.inventoryIndex = inventoryIndex;
         this.artifactUUID = artifactUUID;
         this.categoryID = category;
@@ -70,10 +72,10 @@ public final class ChangePropsByCounterPacket implements CustomPacketPayload {
         }
     }
 
-    public static ChangePropsByCounterPacket create(int inventoryIndex, UUID artifactUUID, ResourceLocation category,
-                                                    Iterable<? extends ResourceLocation> enabled, Iterable<? extends ResourceLocation> disabled) {
-        ImmutableList<ResourceLocation> wrappedEnabled = ImmutableList.copyOf(enabled);
-        ImmutableList<ResourceLocation> wrappedDisabled = ImmutableList.copyOf(disabled);
+    public static ChangePropsByCounterPacket create(int inventoryIndex, UUID artifactUUID, Identifier category,
+                                                    Iterable<? extends Identifier> enabled, Iterable<? extends Identifier> disabled) {
+        ImmutableList<Identifier> wrappedEnabled = ImmutableList.copyOf(enabled);
+        ImmutableList<Identifier> wrappedDisabled = ImmutableList.copyOf(disabled);
         if (wrappedEnabled.size() + wrappedDisabled.size() > 0) {
             VoteMe.LOGGER.info("Request for enabling {} and disabling {}.", wrappedEnabled, wrappedDisabled);
         }

@@ -5,14 +5,16 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.primitives.ImmutableIntArray;
-import net.minecraft.MethodsReturnNonnullByDefault;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import org.apache.commons.lang3.tuple.Triple;
@@ -33,6 +35,7 @@ import java.util.*;
 import static org.teacon.voteme.sync.VoteSynchronizer.VoteKey;
 import static org.teacon.voteme.sync.VoteSynchronizer.VoteStats;
 
+@FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class VoteList {
@@ -43,10 +46,10 @@ public final class VoteList {
     private final VoteDisabledKey key;
     private final Queue<Announcement> queuedAnnouncements;
     private final SortedMap<String, Stats> delayedCachedScores;
-    private final Map<ResourceLocation, ImmutableIntArray> delayedStatsMap;
-    private final Map<UUID, Triple<Integer, ImmutableSet<ResourceLocation>, Instant>> votes;
+    private final Map<Identifier, ImmutableIntArray> delayedStatsMap;
+    private final Map<UUID, Triple<Integer, ImmutableSet<Identifier>, Instant>> votes;
 
-    public VoteList(UUID artifactID, ResourceLocation categoryID) {
+    public VoteList(UUID artifactID, Identifier categoryID) {
         this.enabled = null;
         this.votes = new HashMap<>();
         this.delayedStatsMap = new HashMap<>();
@@ -104,7 +107,7 @@ public final class VoteList {
         this.enabled = voteDisabled.disabled().map(a -> !a).orElse(null);
     }
 
-    private void emitVoteAnnouncement(UUID uuid, Triple<Integer, ImmutableSet<ResourceLocation>, Instant> triple) {
+    private void emitVoteAnnouncement(UUID uuid, Triple<Integer, ImmutableSet<Identifier>, Instant> triple) {
         VoteKey key = new VoteKey(this.key.artifactID(), this.key.categoryID(), uuid);
         this.queuedAnnouncements.offer(new Vote(key, triple.getLeft(), triple.getMiddle(), triple.getRight()));
     }
@@ -118,7 +121,7 @@ public final class VoteList {
         return this.key.artifactID();
     }
 
-    public ResourceLocation getCategoryID() {
+    public Identifier getCategoryID() {
         return this.key.categoryID();
     }
 
@@ -144,7 +147,7 @@ public final class VoteList {
         int[] countArray = new int[1];
         if (fromList != this) {
             fromList.votes.forEach((uuid, from) -> {
-                Triple<Integer, ImmutableSet<ResourceLocation>, Instant> triple = this.votes.get(uuid);
+                Triple<Integer, ImmutableSet<Identifier>, Instant> triple = this.votes.get(uuid);
                 if (triple == null || triple.getRight().isBefore(from.getRight())) {
                     countArray[0] += 1;
                     this.votes.put(uuid, from);
@@ -167,7 +170,7 @@ public final class VoteList {
         return this.votes.containsKey(uuid) ? Optional.of(this.votes.get(uuid).getRight()) : Optional.empty();
     }
 
-    public Collection<? extends ResourceLocation> getRoles(UUID uuid) {
+    public Collection<? extends Identifier> getRoles(UUID uuid) {
         return this.votes.containsKey(uuid) ? this.votes.get(uuid).getMiddle() : ImmutableSet.of();
     }
 
@@ -175,11 +178,11 @@ public final class VoteList {
         this.set(player.getUUID(), level, VoteRoleHandler.getRoles(player), Instant.now());
     }
 
-    public void set(UUID uuid, int level, Collection<? extends ResourceLocation> roles, Instant voteTime) {
+    public void set(UUID uuid, int level, Collection<? extends Identifier> roles, Instant voteTime) {
         Preconditions.checkArgument(level >= 0 && level <= 5, "level out of range from 0 to 5");
 
-        ImmutableSet<ResourceLocation> roleSet = ImmutableSet.copyOf(roles);
-        Triple<Integer, ImmutableSet<ResourceLocation>, Instant> triple = Triple.of(level, roleSet, voteTime);
+        ImmutableSet<Identifier> roleSet = ImmutableSet.copyOf(roles);
+        Triple<Integer, ImmutableSet<Identifier>, Instant> triple = Triple.of(level, roleSet, voteTime);
 
         if (level > 0) {
             this.votes.put(uuid, triple);
@@ -191,14 +194,14 @@ public final class VoteList {
     }
 
     public void clear() {
-        Map<UUID, Triple<Integer, ImmutableSet<ResourceLocation>, Instant>> votes = Map.copyOf(this.votes);
+        Map<UUID, Triple<Integer, ImmutableSet<Identifier>, Instant>> votes = Map.copyOf(this.votes);
         this.votes.clear();
         votes.forEach(this::emitVoteAnnouncement);
     }
 
     public void buildAnnouncements(Collection<? super Announcement> announcements) {
-        for (Map.Entry<UUID, Triple<Integer, ImmutableSet<ResourceLocation>, Instant>> entry : this.votes.entrySet()) {
-            Triple<Integer, ImmutableSet<ResourceLocation>, Instant> triple = entry.getValue();
+        for (Map.Entry<UUID, Triple<Integer, ImmutableSet<Identifier>, Instant>> entry : this.votes.entrySet()) {
+            Triple<Integer, ImmutableSet<Identifier>, Instant> triple = entry.getValue();
             VoteKey key = new VoteKey(this.key.artifactID(), this.key.categoryID(), entry.getKey());
             announcements.add(new Vote(key, triple.getLeft(), triple.getMiddle(), triple.getRight()));
         }
@@ -209,26 +212,26 @@ public final class VoteList {
 
     public void loadLegacyNBT(CompoundTag source) {
         Preconditions.checkArgument(deserializeKey(source).equals(this.key), "invalid artifact or category");
-        Boolean enabled = source.contains("Disabled", Tag.TAG_ANY_NUMERIC) ? !source.getBoolean("Disabled") : null;
+        Boolean enabled = source.contains("Disabled") ? !source.getBoolean("Disabled").orElse(false) : null;
         if (this.enabled != enabled) {
             this.enabled = enabled;
             this.emitVoteDisabledAnnouncement(this.enabled);
         }
         this.votes.clear();
-        ListTag nbt = source.getList("Votes", Tag.TAG_COMPOUND);
+        ListTag nbt = source.getList("Votes").orElseGet(ListTag::new);
         for (int i = 0, size = nbt.size(); i < size; ++i) {
-            CompoundTag child = nbt.getCompound(i);
-            int level = Mth.clamp(child.getInt("Level"), 1, 5);
-            ImmutableSet.Builder<ResourceLocation> roleBuilder = ImmutableSet.builder();
-            for (Tag roleNBT : child.getList("VoteRoles", Tag.TAG_STRING)) {
-                roleBuilder.add(ResourceLocation.parse(roleNBT.getAsString()));
+            CompoundTag child = nbt.get(i).asCompound().orElseThrow();
+            int level = Mth.clamp(child.getInt("Level").orElse(0), 1, 5);
+            ImmutableSet.Builder<Identifier> roleBuilder = ImmutableSet.builder();
+            for (Tag roleNBT : child.getList("VoteRoles").orElseGet(ListTag::new)) {
+                roleBuilder.add(Identifier.parse(roleNBT.asString().orElseThrow()));
             }
-            ImmutableSet<ResourceLocation> roles = roleBuilder.build();
+            ImmutableSet<Identifier> roles = roleBuilder.build();
             Instant voteTime = DEFAULT_VOTE_TIME;
-            if (child.contains("VoteTime", Tag.TAG_LONG)) {
-                voteTime = Instant.ofEpochMilli(child.getLong("VoteTime"));
+            if (child.contains("VoteTime")) {
+                voteTime = Instant.ofEpochMilli(child.getLong("VoteTime").orElseThrow());
             }
-            UUID uuid = child.getUUID("UUID");
+            UUID uuid = child.read("UUID", UUIDUtil.CODEC).orElseThrow();
             if (!this.votes.containsKey(uuid) || this.votes.get(uuid).getRight().isBefore(voteTime)) {
                 this.votes.put(uuid, Triple.of(level, roles, voteTime));
                 this.emitVoteAnnouncement(uuid, Triple.of(level, roles, voteTime));
@@ -240,7 +243,7 @@ public final class VoteList {
         if (this.delayedCachedScores.isEmpty()) {
             ImmutableIntArray zeros = ImmutableIntArray.of(0, 0, 0, 0, 0, 0);
             ListMultimap<String, Stats> results = ArrayListMultimap.create();
-            for (ResourceLocation location : VoteRoleHandler.getIds()) {
+            for (Identifier location : VoteRoleHandler.getIds()) {
                 VoteRole role = VoteRoleHandler.getRole(location).orElseThrow(NullPointerException::new);
                 ImmutableIntArray countsByLevel = this.delayedStatsMap.computeIfAbsent(location, k -> zeros);
                 for (VoteRole.Participation participation : role.categories.get(this.key.categoryID())) {
@@ -279,9 +282,13 @@ public final class VoteList {
     }
 
     public static VoteDisabledKey deserializeKey(CompoundTag source) {
-        return new VoteDisabledKey(source.getUUID("ArtifactUUID"), ResourceLocation.parse(source.getString("Category")));
+        return new VoteDisabledKey(
+                source.read("ArtifactUUID", UUIDUtil.CODEC).orElseThrow(),
+                Identifier.parse(source.getString("Category").orElseThrow())
+        );
     }
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     public static final class Stats {
@@ -363,6 +370,7 @@ public final class VoteList {
         }
 
         @FunctionalInterface
+        @FieldsAreNonnullByDefault
         @MethodsReturnNonnullByDefault
         @ParametersAreNonnullByDefault
         public interface ScoreWeightFunction {

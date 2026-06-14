@@ -1,10 +1,12 @@
 package org.teacon.voteme;
 
-import net.minecraft.MethodsReturnNonnullByDefault;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
+@FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class VoteMeConfig {

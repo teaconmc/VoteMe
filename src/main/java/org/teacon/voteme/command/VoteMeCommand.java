@@ -4,7 +4,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
-import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -12,17 +11,21 @@ import com.mojang.brigadier.exceptions.Dynamic2CommandExceptionType;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.ChatFormatting;
-import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentUtils;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.LevelBasedPermissionSet;
+import net.minecraft.server.permissions.PermissionLevel;
+import net.minecraft.server.permissions.PermissionSet;
+import net.minecraft.server.players.NameAndId;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -58,17 +61,18 @@ import static net.minecraft.commands.arguments.EntityArgument.getPlayers;
 import static net.minecraft.commands.arguments.EntityArgument.players;
 import static net.minecraft.commands.arguments.GameProfileArgument.gameProfile;
 import static net.minecraft.commands.arguments.GameProfileArgument.getGameProfiles;
-import static net.minecraft.commands.arguments.ResourceLocationArgument.getId;
-import static net.minecraft.commands.arguments.ResourceLocationArgument.id;
+import static net.minecraft.commands.arguments.IdentifierArgument.getId;
+import static net.minecraft.commands.arguments.IdentifierArgument.id;
 import static org.teacon.voteme.command.AliasArgumentType.alias;
 import static org.teacon.voteme.command.AliasArgumentType.getAlias;
 import static org.teacon.voteme.command.ArtifactArgumentType.artifact;
 import static org.teacon.voteme.command.ArtifactArgumentType.getArtifact;
 import static org.teacon.voteme.command.VoteMePermissions.*;
 
+@FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = "voteme")
 public final class VoteMeCommand {
     public static final SimpleCommandExceptionType ALIAS_INVALID = new SimpleCommandExceptionType(Component.translatable("argument.voteme.alias.invalid"));
     public static final SimpleCommandExceptionType ARTIFACT_INVALID = new SimpleCommandExceptionType(Component.translatable("argument.voteme.artifact.invalid"));
@@ -80,9 +84,9 @@ public final class VoteMeCommand {
     public static final Dynamic2CommandExceptionType VOTE_ENABLED = new Dynamic2CommandExceptionType((c, a) -> Component.translatable("argument.voteme.vote_list.enabled", c, a));
     public static final DynamicCommandExceptionType VOTE_UNMODIFIABLE = new DynamicCommandExceptionType(c -> Component.translatable("argument.voteme.vote_list.unmodifiable", c));
 
-    public static final SuggestionProvider<CommandSourceStack> CATEGORY_SUGGESTION = (c, b) -> SharedSuggestionProvider.suggest(VoteCategoryHandler.getIds().stream().map(ResourceLocation::toString), b);
-    public static final SuggestionProvider<CommandSourceStack> CATEGORY_SUGGESTION_ENABLED = (c, b) -> SharedSuggestionProvider.suggest(VoteCategoryHandler.getIds().stream().filter(VoteDataStorage.get(c.getSource().getServer())::hasEnabled).map(ResourceLocation::toString), b);
-    public static final SuggestionProvider<CommandSourceStack> CATEGORY_SUGGESTION_MODIFIABLE = (c, b) -> SharedSuggestionProvider.suggest(VoteCategoryHandler.getIds().stream().filter(id -> VoteCategoryHandler.getCategory(id).filter(e -> e.enabledModifiable).isPresent()).map(ResourceLocation::toString), b);
+    public static final SuggestionProvider<CommandSourceStack> CATEGORY_SUGGESTION = (c, b) -> SharedSuggestionProvider.suggest(VoteCategoryHandler.getIds().stream().map(Identifier::toString), b);
+    public static final SuggestionProvider<CommandSourceStack> CATEGORY_SUGGESTION_ENABLED = (c, b) -> SharedSuggestionProvider.suggest(VoteCategoryHandler.getIds().stream().filter(VoteDataStorage.get(c.getSource().getServer())::hasEnabled).map(Identifier::toString), b);
+    public static final SuggestionProvider<CommandSourceStack> CATEGORY_SUGGESTION_MODIFIABLE = (c, b) -> SharedSuggestionProvider.suggest(VoteCategoryHandler.getIds().stream().filter(id -> VoteCategoryHandler.getCategory(id).filter(e -> e.enabledModifiable).isPresent()).map(Identifier::toString), b);
 
     @SubscribeEvent
     public static void register(RegisterCommandsEvent event) {
@@ -189,15 +193,16 @@ public final class VoteMeCommand {
     private static Predicate<CommandSourceStack> permission(int level, PermissionNode<Boolean>... permissionNodes) {
         Preconditions.checkArgument(permissionNodes.length > 0, "permission nodes should not be empty");
         return source -> {
-            if (source.source instanceof ServerPlayer player) {
-                return Arrays.stream(permissionNodes).anyMatch(n -> PermissionAPI.getPermission(player, n));
+            if (source.getSourceProfile().isPresent()) {
+                var id = source.getSourceProfile().get().id();
+                return Arrays.stream(permissionNodes).anyMatch(n -> PermissionAPI.getOfflinePermission(id, n));
             }
-            return source.hasPermission(level);
+            return hasPermissionLevel(source.permissions(), level);
         };
     }
 
     private static int listRoles(CommandContext<CommandSourceStack> context) {
-        Collection<? extends ResourceLocation> roles = VoteRoleHandler.getIds();
+        Collection<? extends Identifier> roles = VoteRoleHandler.getIds();
         int size = roles.size();
         if (size > 0) {
             context.getSource().sendSuccess(() -> Component.translatable("commands.voteme.list.roles.success",
@@ -209,7 +214,7 @@ public final class VoteMeCommand {
     }
 
     private static int listCategories(CommandContext<CommandSourceStack> context) {
-        Collection<? extends ResourceLocation> categories = VoteCategoryHandler.getIds();
+        Collection<? extends Identifier> categories = VoteCategoryHandler.getIds();
         int size = categories.size();
         if (size > 0) {
             context.getSource().sendSuccess(() -> Component.translatable("commands.voteme.list.categories.success",
@@ -237,9 +242,9 @@ public final class VoteMeCommand {
     private static int giveCounter(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         UUID artifactID = getArtifact(context, "artifact");
         Collection<ServerPlayer> targets = getPlayers(context, "targets");
-        ResourceLocation location = getId(context, "category");
+        Identifier location = getId(context, "category");
         Optional<VoteCategory> result = VoteCategoryHandler.getCategory(location);
-        Pair<ResourceLocation, VoteCategory> category = Pair.of(location, result.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location)));
+        Pair<Identifier, VoteCategory> category = Pair.of(location, result.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location)));
         for (ServerPlayer player : targets) {
             ItemStack item = CounterItem.INSTANCE.get().getDefaultInstance();
             item.set(CategoryID.INSTANCE, category.getKey());
@@ -264,7 +269,7 @@ public final class VoteMeCommand {
         UUID artifactID = getArtifact(context, "artifact");
         Collection<ServerPlayer> targets = getPlayers(context, "targets");
         for (ServerPlayer player : targets) {
-            ItemStack fakeVoter = new ItemStack(VoterItem.INSTANCE);
+            ItemStack fakeVoter = new ItemStack(VoterItem.INSTANCE.get());
             fakeVoter.set(ArtifactID.INSTANCE, artifactID);
             VoterItem.INSTANCE.get().open(player, fakeVoter);
         }
@@ -274,8 +279,8 @@ public final class VoteMeCommand {
     private static int queryVoter(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         UUID artifactID = getArtifact(context, "artifact");
         // noinspection DuplicatedCode
-        Collection<GameProfile> profiles = getGameProfiles(context, "target");
-        ResourceLocation location = getId(context, "category");
+        Collection<NameAndId> profiles = getGameProfiles(context, "target");
+        Identifier location = getId(context, "category");
         MinecraftServer server = context.getSource().getServer();
         VoteDataStorage handler = VoteDataStorage.get(server);
         VoteArtifactNames artifactNames = handler.getArtifactNames();
@@ -288,21 +293,21 @@ public final class VoteMeCommand {
             if (entryOptional.isPresent()) {
                 int voted = 0;
                 VoteList votes = entryOptional.get();
-                for (GameProfile profile : profiles) {
-                    int voteLevel = votes.get(profile.getId());
-                    Collection<? extends ResourceLocation> roles = votes.getRoles(profile.getId());
-                    Instant time = votes.getTime(profile.getId()).orElse(Instant.EPOCH).truncatedTo(ChronoUnit.SECONDS);
+                for (NameAndId profile : profiles) {
+                    int voteLevel = votes.get(profile.id());
+                    Collection<? extends Identifier> roles = votes.getRoles(profile.id());
+                    Instant time = votes.getTime(profile.id()).orElse(Instant.EPOCH).truncatedTo(ChronoUnit.SECONDS);
                     String timeString = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(time.atZone(ZoneId.systemDefault()));
-                    if (Objects.equals(context.getSource().source, server.getPlayerList().getPlayer(profile.getId()))) {
+                    if (Objects.equals(context.getSource().getEntity(), server.getPlayerList().getPlayer(profile.id()))) {
                         context.getSource().sendSuccess(() -> Component.translatable("commands.voteme.query.success." + voteLevel,
-                                profile.getName(), toCategoryText(location), toArtifactText(artifactNames, artifactID), timeString,
+                                profile.name(), toCategoryText(location), toArtifactText(artifactNames, artifactID), timeString,
                                 ComponentUtils.formatList(roles, VoteMeCommand::toRoleText)), false);
                     } else if (voteLevel > 0) {
                         context.getSource().sendSuccess(() -> Component.translatable("commands.voteme.query.success.voted",
-                                profile.getName(), toCategoryText(location), toArtifactText(artifactNames, artifactID)), false);
+                                profile.name(), toCategoryText(location), toArtifactText(artifactNames, artifactID)), false);
                     } else {
                         context.getSource().sendSuccess(() -> Component.translatable("commands.voteme.query.success.0",
-                                profile.getName(), toCategoryText(location), toArtifactText(artifactNames, artifactID)), false);
+                                profile.name(), toCategoryText(location), toArtifactText(artifactNames, artifactID)), false);
                     }
                     voted += voteLevel > 0 ? 1 : 0;
                 }
@@ -315,8 +320,8 @@ public final class VoteMeCommand {
 
     private static int queryVoterList(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         // noinspection DuplicatedCode
-        Collection<GameProfile> profiles = getGameProfiles(context, "target");
-        ResourceLocation location = getId(context, "category");
+        Collection<NameAndId> profiles = getGameProfiles(context, "target");
+        Identifier location = getId(context, "category");
         MinecraftServer server = context.getSource().getServer();
         VoteDataStorage handler = VoteDataStorage.get(server);
         VoteArtifactNames artifactNames = handler.getArtifactNames();
@@ -325,8 +330,8 @@ public final class VoteMeCommand {
             VoteCategory category = categoryOptional.get();
             boolean enabledDefault = category.enabledDefault;
             Set<UUID> disabledArtifacts = new LinkedHashSet<>();
-            Map<GameProfile, ListMultimap<Integer, UUID>> totalVoted = new LinkedHashMap<>();
-            for (GameProfile profile : profiles) {
+            Map<NameAndId, ListMultimap<Integer, UUID>> totalVoted = new LinkedHashMap<>();
+            for (NameAndId profile : profiles) {
                 // noinspection RedundantTypeArguments
                 totalVoted.put(profile, LinkedListMultimap.<Integer, UUID>create());
             }
@@ -335,23 +340,23 @@ public final class VoteMeCommand {
                 Optional<VoteList> entryOptional = handler.getVoteList(id).filter(e -> e.getEnabled().orElse(enabledDefault));
                 if (entryOptional.isPresent()) {
                     VoteList votes = entryOptional.get();
-                    for (GameProfile profile : profiles) {
-                        totalVoted.get(profile).put(votes.get(profile.getId()), artifactID);
+                    for (NameAndId profile : profiles) {
+                        totalVoted.get(profile).put(votes.get(profile.id()), artifactID);
                     }
                     continue;
                 }
                 disabledArtifacts.add(artifactID);
             }
             int voted = 0;
-            for (Map.Entry<GameProfile, ListMultimap<Integer, UUID>> entry : totalVoted.entrySet()) {
-                GameProfile profile = entry.getKey();
-                if (Objects.equals(context.getSource().source, server.getPlayerList().getPlayer(profile.getId()))) {
+            for (Map.Entry<NameAndId, ListMultimap<Integer, UUID>> entry : totalVoted.entrySet()) {
+                NameAndId profile = entry.getKey();
+                if (Objects.equals(context.getSource().getEntity(), server.getPlayerList().getPlayer(profile.id()))) {
                     for (int voteLevel = 5; voteLevel >= 0; --voteLevel) {
                         Collection<UUID> artifactIDs = entry.getValue().get(voteLevel);
                         if (!artifactIDs.isEmpty()) {
                             String voteLevelKey = "commands.voteme.query.list.success." + voteLevel;
                             context.getSource().sendSuccess(() -> Component.translatable(
-                                    voteLevelKey, profile.getName(), toCategoryText(location),
+                                    voteLevelKey, profile.name(), toCategoryText(location),
                                     ComponentUtils.formatList(artifactIDs, uuid -> toArtifactText(artifactNames, uuid))), false);
                             voted += voteLevel > 0 ? artifactIDs.size() : 0;
                         }
@@ -361,13 +366,13 @@ public final class VoteMeCommand {
                     Collection<UUID> artifactIDs = entry.getValue().values();
                     if (!artifactIDs.isEmpty()) {
                         context.getSource().sendSuccess(() -> Component.translatable(
-                                "commands.voteme.query.list.success.voted", profile.getName(), toCategoryText(location),
+                                "commands.voteme.query.list.success.voted", profile.name(), toCategoryText(location),
                                 ComponentUtils.formatList(artifactIDs, uuid -> toArtifactText(artifactNames, uuid))), false);
                         voted += artifactIDs.size();
                     }
                     if (!nonVotedArtifactIDs.isEmpty()) {
                         context.getSource().sendSuccess(() -> Component.translatable(
-                                "commands.voteme.query.list.success.0", profile.getName(), toCategoryText(location),
+                                "commands.voteme.query.list.success.0", profile.name(), toCategoryText(location),
                                 ComponentUtils.formatList(nonVotedArtifactIDs, uuid -> toArtifactText(artifactNames, uuid))), false);
                     }
                 }
@@ -429,42 +434,42 @@ public final class VoteMeCommand {
     }
 
     private static int switchOnVotes(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ResourceLocation location = getId(context, "category");
+        Identifier location = getId(context, "category");
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
         VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
         return processSwitchOn(context, Pair.of(location, category), getArtifact(context, "artifact"), false);
     }
 
     private static int switchOffVotes(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ResourceLocation location = getId(context, "category");
+        Identifier location = getId(context, "category");
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
         VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
         return processSwitchOff(context, Pair.of(location, category), getArtifact(context, "artifact"), false);
     }
 
     private static int switchUnsetVotes(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ResourceLocation location = getId(context, "category");
+        Identifier location = getId(context, "category");
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
         VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
         return processSwitchUnset(context, Pair.of(location, category), getArtifact(context, "artifact"), false);
     }
 
     private static int adminSwitchOnVotes(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ResourceLocation location = getId(context, "category");
+        Identifier location = getId(context, "category");
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
         VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
         return processSwitchOn(context, Pair.of(location, category), getArtifact(context, "artifact"), true);
     }
 
     private static int adminSwitchOffVotes(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ResourceLocation location = getId(context, "category");
+        Identifier location = getId(context, "category");
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
         VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
         return processSwitchOff(context, Pair.of(location, category), getArtifact(context, "artifact"), true);
     }
 
     private static int adminSwitchUnsetVotes(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ResourceLocation location = getId(context, "category");
+        Identifier location = getId(context, "category");
         Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(location);
         VoteCategory category = categoryOptional.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location));
         return processSwitchUnset(context, Pair.of(location, category), getArtifact(context, "artifact"), true);
@@ -472,9 +477,9 @@ public final class VoteMeCommand {
 
     private static int adminClearVotes(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         UUID artifactID = getArtifact(context, "artifact");
-        ResourceLocation location = getId(context, "category");
+        Identifier location = getId(context, "category");
         Optional<VoteCategory> result = VoteCategoryHandler.getCategory(location);
-        Pair<ResourceLocation, VoteCategory> category = Pair.of(location, result.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location)));
+        Pair<Identifier, VoteCategory> category = Pair.of(location, result.orElseThrow(() -> CATEGORY_NOT_FOUND.create(location)));
         VoteDataStorage handler = VoteDataStorage.get(context.getSource().getServer());
         int id = handler.getIdOrCreate(artifactID, category.getKey());
         handler.getVoteList(id).orElseThrow(IllegalStateException::new).clear();
@@ -487,7 +492,7 @@ public final class VoteMeCommand {
         UUID artifactIDFrom = getArtifact(context, "artifact-from"), artifactID = getArtifact(context, "artifact");
         VoteDataStorage handler = VoteDataStorage.get(context.getSource().getServer());
         VoteArtifactNames artifactNames = handler.getArtifactNames();
-        for (ResourceLocation location : VoteCategoryHandler.getIds()) {
+        for (Identifier location : VoteCategoryHandler.getIds()) {
             VoteList entryFrom = handler.getVoteList(handler.getIdOrCreate(artifactIDFrom, location)).orElseThrow(IllegalStateException::new);
             VoteList entry = handler.getVoteList(handler.getIdOrCreate(artifactID, location)).orElseThrow(IllegalStateException::new);
             context.getSource().sendSuccess(() -> Component.translatable("commands.voteme.merge.success", entry.merge(entryFrom),
@@ -543,7 +548,7 @@ public final class VoteMeCommand {
     }
 
     private static int processSwitchOn(CommandContext<CommandSourceStack> context,
-                                       Pair<ResourceLocation, VoteCategory> category,
+                                       Pair<Identifier, VoteCategory> category,
                                        UUID artifactID, boolean force) throws CommandSyntaxException {
         VoteDataStorage handler = VoteDataStorage.get(context.getSource().getServer());
         VoteArtifactNames artifactNames = handler.getArtifactNames();
@@ -562,7 +567,7 @@ public final class VoteMeCommand {
     }
 
     private static int processSwitchOff(CommandContext<CommandSourceStack> context,
-                                        Pair<ResourceLocation, VoteCategory> category,
+                                        Pair<Identifier, VoteCategory> category,
                                         UUID artifactID, boolean force) throws CommandSyntaxException {
         VoteDataStorage handler = VoteDataStorage.get(context.getSource().getServer());
         VoteArtifactNames artifactNames = handler.getArtifactNames();
@@ -581,7 +586,7 @@ public final class VoteMeCommand {
     }
 
     private static int processSwitchUnset(CommandContext<CommandSourceStack> context,
-                                          Pair<ResourceLocation, VoteCategory> category,
+                                          Pair<Identifier, VoteCategory> category,
                                           UUID artifactID, boolean force) throws CommandSyntaxException {
         VoteDataStorage handler = VoteDataStorage.get(context.getSource().getServer());
         VoteArtifactNames artifactNames = handler.getArtifactNames();
@@ -606,15 +611,22 @@ public final class VoteMeCommand {
         }
     }
 
-    private static MutableComponent toRoleText(ResourceLocation input) {
+    private static MutableComponent toRoleText(Identifier input) {
         return VoteRoleHandler.getText(input).withStyle(ChatFormatting.LIGHT_PURPLE);
     }
 
-    private static MutableComponent toCategoryText(ResourceLocation input) {
+    private static MutableComponent toCategoryText(Identifier input) {
         return VoteCategoryHandler.getText(input).withStyle(ChatFormatting.YELLOW);
     }
 
     private static MutableComponent toArtifactText(VoteArtifactNames artifactNames, UUID input) {
         return artifactNames.toText(input).withStyle(ChatFormatting.GREEN);
+    }
+
+    private static boolean hasPermissionLevel(PermissionSet permissions, int level) {
+        if (permissions instanceof LevelBasedPermissionSet levelBased) {
+            return levelBased.level().isEqualOrHigherThan(PermissionLevel.byId(level));
+        }
+        return false;
     }
 }

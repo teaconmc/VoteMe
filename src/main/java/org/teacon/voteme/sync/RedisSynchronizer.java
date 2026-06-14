@@ -5,6 +5,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.ImmutableIntArray;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.ScanArgs;
 import io.lettuce.core.ScanCursor;
@@ -12,10 +14,9 @@ import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.async.RedisAsyncCommands;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
-import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import org.teacon.voteme.VoteMe;
 import org.teacon.voteme.vote.VoteArtifactNames;
@@ -34,6 +35,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.teacon.voteme.sync.AnnouncementSerializer.*;
 
+@FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class RedisSynchronizer implements VoteSynchronizer {
@@ -107,7 +109,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                             String key = toRedisKey(vote.key());
                             ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
                             builder.put("level", Integer.toString(vote.level()));
-                            Iterator<ResourceLocation> roleIterator = vote.roles().iterator();
+                            Iterator<Identifier> roleIterator = vote.roles().iterator();
                             for (int i = 0; roleIterator.hasNext(); ++i) {
                                 builder.put("role:" + i, roleIterator.next().toString());
                             }
@@ -178,7 +180,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                 String[] parts = redisKeyParts[2].split(":");
                 checkArgument(parts.length == 4, "invalid message");
                 UUID artifactID = UUID.fromString(parts[0]);
-                ResourceLocation categoryID = ResourceLocation.fromNamespaceAndPath(parts[1], parts[2]);
+                Identifier categoryID = Identifier.fromNamespaceAndPath(parts[1], parts[2]);
                 UUID voterID = UUID.fromString(parts[3]);
                 return new VoteKey(artifactID, categoryID, voterID);
             }
@@ -186,15 +188,15 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                 String[] parts = redisKeyParts[2].split(":");
                 checkArgument(parts.length == 3, "invalid message");
                 UUID artifactID = UUID.fromString(parts[0]);
-                ResourceLocation categoryID = ResourceLocation.fromNamespaceAndPath(parts[1], parts[2]);
+                Identifier categoryID = Identifier.fromNamespaceAndPath(parts[1], parts[2]);
                 return new VoteDisabledKey(artifactID, categoryID);
             }
             case VOTE_STATS -> {
                 String[] parts = redisKeyParts[2].split(":");
                 checkArgument(parts.length == 5, "invalid message");
                 UUID artifactID = UUID.fromString(parts[0]);
-                ResourceLocation categoryID = ResourceLocation.fromNamespaceAndPath(parts[1], parts[2]);
-                ResourceLocation roleID = ResourceLocation.fromNamespaceAndPath(parts[3], parts[4]);
+                Identifier categoryID = Identifier.fromNamespaceAndPath(parts[1], parts[2]);
+                Identifier roleID = Identifier.fromNamespaceAndPath(parts[3], parts[4]);
                 return new VoteStatsKey(artifactID, categoryID, roleID);
             }
             default -> throw new IllegalArgumentException("unsupported announce key: " + announceKey);
@@ -223,9 +225,9 @@ public final class RedisSynchronizer implements VoteSynchronizer {
                 int level = Integer.parseInt(map.getOrDefault("level", "0"));
                 checkArgument(level >= 0 && level <= 5, "level out of range from 1 to 5");
                 int expectedSize = Math.max(0, map.size() - 2);
-                ImmutableSet.Builder<ResourceLocation> roles = ImmutableSet.builderWithExpectedSize(expectedSize);
+                ImmutableSet.Builder<Identifier> roles = ImmutableSet.builderWithExpectedSize(expectedSize);
                 for (int i = 0; map.containsKey("role:" + i); ++i) {
-                    ResourceLocation role = ResourceLocation.parse(map.get("role:" + i));
+                    Identifier role = Identifier.parse(map.get("role:" + i));
                     roles.add(role);
                 }
                 Instant time = Instant.parse(checkNotNull(map.getOrDefault("time", Instant.EPOCH.toString())));
@@ -351,6 +353,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
         this.client.close();
     }
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     private class PubSubListener extends RedisPubSubAdapter<String, String> {
@@ -359,7 +362,7 @@ public final class RedisSynchronizer implements VoteSynchronizer {
             if (SYNC.equals(channel)) {
                 RedisSynchronizer.this.server.submitAsync(() -> {
                     try {
-                        CompoundTag nbt = TagParser.parseTag(message);
+                        CompoundTag nbt = TagParser.parseCompoundFully(message);
                         deserialize(nbt).ifPresent(e -> RedisSynchronizer.this.receivedAnnouncements.add(e));
                     } catch (CommandSyntaxException e) {
                         VoteMe.LOGGER.warn("Failed to parse " + message + " as a tag from redis channel", e);

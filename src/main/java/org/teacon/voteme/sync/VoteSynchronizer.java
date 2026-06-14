@@ -3,8 +3,9 @@ package org.teacon.voteme.sync;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.ImmutableIntArray;
-import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.resources.ResourceLocation;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
+import net.minecraft.resources.Identifier;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.Closeable;
@@ -13,6 +14,7 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
+@FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public interface VoteSynchronizer extends Closeable {
@@ -20,18 +22,21 @@ public interface VoteSynchronizer extends Closeable {
 
     Collection<? extends Announcement> dequeue();
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     sealed interface AnnounceKey<T extends Announcement> permits ArtifactKey, CommentsKey, VoteDisabledKey, VoteKey, VoteStatsKey {
         T cast(Announcement announcement);
     }
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     sealed interface Announcement permits Artifact, Comments, Vote, VoteDisabled, VoteStats {
         AnnounceKey<?> key();
     }
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     record ArtifactKey(UUID artifactID) implements AnnounceKey<Artifact> {
@@ -42,12 +47,14 @@ public interface VoteSynchronizer extends Closeable {
         // nothing here
     }
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     record Artifact(ArtifactKey key, String name, Optional<String> alias) implements Announcement {
         // nothing here
     }
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     record CommentsKey(UUID artifactID, UUID voterID, int revision) implements AnnounceKey<Comments> {
@@ -57,30 +64,34 @@ public interface VoteSynchronizer extends Closeable {
         }
     }
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     record Comments(CommentsKey key, ImmutableList<String> comments) implements Announcement {
         // nothing here
     }
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
-    record VoteKey(UUID artifactID, ResourceLocation categoryID, UUID voterID) implements AnnounceKey<Vote> {
+    record VoteKey(UUID artifactID, Identifier categoryID, UUID voterID) implements AnnounceKey<Vote> {
         @Override
         public Vote cast(Announcement announcement) {
             return (Vote) announcement;
         }
     }
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
-    record Vote(VoteKey key, int level, ImmutableSet<ResourceLocation> roles, Instant time) implements Announcement {
+    record Vote(VoteKey key, int level, ImmutableSet<Identifier> roles, Instant time) implements Announcement {
         // nothing here
     }
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
-    record VoteDisabledKey(UUID artifactID, ResourceLocation categoryID) implements AnnounceKey<VoteDisabled> {
+    record VoteDisabledKey(UUID artifactID, Identifier categoryID) implements AnnounceKey<VoteDisabled> {
         @Override
         public VoteDisabled cast(Announcement announcement) {
             return (VoteDisabled) announcement;
@@ -88,22 +99,25 @@ public interface VoteSynchronizer extends Closeable {
         // nothing here
     }
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     record VoteDisabled(VoteDisabledKey key, Optional<Boolean> disabled) implements Announcement {
         // nothing here
     }
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
-    record VoteStatsKey(UUID artifactID, ResourceLocation categoryID,
-                        ResourceLocation roleID) implements AnnounceKey<VoteStats> {
+    record VoteStatsKey(UUID artifactID, Identifier categoryID,
+                        Identifier roleID) implements AnnounceKey<VoteStats> {
         @Override
         public VoteStats cast(Announcement announcement) {
             return (VoteStats) announcement;
         }
     }
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     record VoteStats(VoteStatsKey key, ImmutableIntArray counts) implements Announcement {

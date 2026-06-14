@@ -4,12 +4,13 @@ import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.arguments.ArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import net.minecraft.MethodsReturnNonnullByDefault;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.synchronization.ArgumentTypeInfos;
 import net.minecraft.commands.synchronization.SingletonArgumentInfo;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.registries.RegisterEvent;
@@ -19,9 +20,10 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Collection;
 import java.util.Collections;
 
+@FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = "voteme")
 public final class AliasArgumentType implements ArgumentType<String> {
 
     public static AliasArgumentType alias() {
@@ -51,7 +53,7 @@ public final class AliasArgumentType implements ArgumentType<String> {
 
     @SubscribeEvent
     public static void register(RegisterEvent event) {
-        event.register(Registries.COMMAND_ARGUMENT_TYPE, ResourceLocation.parse("voteme:alias"), () ->
+        event.register(Registries.COMMAND_ARGUMENT_TYPE, Identifier.parse("voteme:alias"), () ->
                 ArgumentTypeInfos.registerByClass(AliasArgumentType.class, SingletonArgumentInfo.contextFree(AliasArgumentType::alias)));
     }
 }

@@ -1,19 +1,22 @@
 package org.teacon.voteme.item;
 
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.ChatFormatting;
-import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -31,21 +34,22 @@ import org.teacon.voteme.network.ShowVoterPacket;
 import org.teacon.voteme.vote.VoteArtifactNames;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static org.teacon.voteme.command.VoteMePermissions.OPEN;
 import static org.teacon.voteme.command.VoteMePermissions.OPEN_VOTER;
 
+@FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = "voteme")
 public final class VoterItem extends Item {
 
-    public static final ResourceLocation ID = ResourceLocation.parse("voteme:voter");
+    public static final Identifier ID = Identifier.parse("voteme:voter");
 
     public static final DeferredHolder<Item, VoterItem> INSTANCE = DeferredHolder.create(Registries.ITEM, ID);
 
@@ -54,7 +58,7 @@ public final class VoterItem extends Item {
         if (event.getRegistryKey() != Registries.ITEM) {
             return;
         }
-        event.register(Registries.ITEM, ID, () -> new VoterItem(new Properties()));
+        event.register(Registries.ITEM, ID, () -> new VoterItem(ID));
     }
 
     @SubscribeEvent
@@ -64,44 +68,45 @@ public final class VoterItem extends Item {
         }
     }
 
-    private VoterItem(Properties properties) {
-        super(properties);
+    private VoterItem(Identifier identifier) {
+        super(new Properties().setId(ResourceKey.create(Registries.ITEM, identifier)));
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag tooltipFlag) {
+    public void appendHoverText(ItemStack stack, Item.TooltipContext context, TooltipDisplay tooltipDisplay,
+                                Consumer<Component> tooltip, TooltipFlag tooltipFlag) {
         UUID artifactID = stack.get(ArtifactID.INSTANCE);
         Optional<VoteArtifactNames> artifactNames = VoteArtifactNames.effective();
         if (artifactNames.isPresent() && artifactID != null && !artifactNames.get().getName(artifactID).isEmpty()) {
             MutableComponent artifactText = artifactNames.get().toText(artifactID).withStyle(ChatFormatting.GREEN);
-            tooltip.add(Component.translatable("gui.voteme.voter.current_artifact_hint", artifactText).withStyle(ChatFormatting.GRAY));
+            tooltip.accept(Component.translatable("gui.voteme.voter.current_artifact_hint", artifactText).withStyle(ChatFormatting.GRAY));
             if (!VoteCategoryHandler.getIds().isEmpty()) {
-                tooltip.add(Component.empty());
+                tooltip.accept(Component.empty());
             }
-            for (ResourceLocation categoryID : VoteCategoryHandler.getIds()) {
+            for (Identifier categoryID : VoteCategoryHandler.getIds()) {
                 Optional<VoteCategory> categoryOptional = VoteCategoryHandler.getCategory(categoryID);
                 if (categoryOptional.isPresent()) {
                     Component categoryName = categoryOptional.get().name;
                     MutableComponent categoryText = Component.empty().append(categoryName).withStyle(ChatFormatting.YELLOW);
-                    tooltip.add(Component.translatable("gui.voteme.counter.category_hint", categoryText).withStyle(ChatFormatting.GRAY));
+                    tooltip.accept(Component.translatable("gui.voteme.counter.category_hint", categoryText).withStyle(ChatFormatting.GRAY));
                 }
             }
         } else {
-            tooltip.add(Component.translatable("gui.voteme.voter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
+            tooltip.accept(Component.translatable("gui.voteme.voter.empty_artifact_hint").withStyle(ChatFormatting.GRAY));
         }
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level world, Player player, InteractionHand hand) {
+    public InteractionResult use(Level world, Player player, InteractionHand hand) {
         ItemStack itemStack = player.getItemInHand(hand);
         if (player instanceof ServerPlayer serverPlayer) {
             if (this.open(serverPlayer, itemStack)) {
-                return InteractionResultHolder.consume(itemStack);
+                return InteractionResult.CONSUME;
             }
         } else if (itemStack.has(ArtifactID.INSTANCE)) {
-            return InteractionResultHolder.success(itemStack);
+            return InteractionResult.SUCCESS;
         }
-        return InteractionResultHolder.fail(itemStack);
+        return InteractionResult.FAIL;
     }
 
     public boolean open(ServerPlayer player, ItemStack itemStack) {

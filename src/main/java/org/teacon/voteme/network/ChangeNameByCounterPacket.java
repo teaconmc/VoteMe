@@ -1,12 +1,13 @@
 package org.teacon.voteme.network;
 
-import net.minecraft.MethodsReturnNonnullByDefault;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -17,16 +18,18 @@ import org.teacon.voteme.vote.VoteArtifactNames;
 import org.teacon.voteme.vote.VoteDataStorage;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.teacon.voteme.command.VoteMePermissions.*;
 
+@FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ChangeNameByCounterPacket implements CustomPacketPayload {
 
-    public static final Type<ChangeNameByCounterPacket> TYPE = new Type<>(ResourceLocation.parse("voteme:change_name_by_counter"));
+    public static final Type<ChangeNameByCounterPacket> TYPE = new Type<>(Identifier.parse("voteme:change_name_by_counter"));
 
     public static final StreamCodec<FriendlyByteBuf, ChangeNameByCounterPacket> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.VAR_INT, p -> p.inventoryIndex,
@@ -52,7 +55,7 @@ public final class ChangeNameByCounterPacket implements CustomPacketPayload {
 
     public void handle(IPayloadContext context) {
         ServerPlayer sender = (ServerPlayer) context.player();
-        VoteArtifactNames artifactNames = VoteDataStorage.get(sender.server).getArtifactNames();
+        VoteArtifactNames artifactNames = VoteDataStorage.get(Objects.requireNonNull(sender.level().getServer())).getArtifactNames();
         boolean isCreating = artifactNames.getName(this.artifactUUID).isEmpty();
         Stream<PermissionNode<Boolean>> permissions = isCreating
                 ? Stream.of(CREATE_COUNTER, CREATE, ADMIN_CREATE, ADMIN) : Stream.of(MODIFY_COUNTER, MODIFY);

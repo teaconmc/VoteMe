@@ -1,14 +1,15 @@
 package org.teacon.voteme.network;
 
 import com.google.common.collect.ImmutableList;
-import net.minecraft.MethodsReturnNonnullByDefault;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.loading.FMLEnvironment;
@@ -25,6 +26,7 @@ import org.teacon.voteme.vote.VoteList;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
 
+@FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ShowVoterPacket implements CustomPacketPayload {
@@ -41,7 +43,7 @@ public final class ShowVoterPacket implements CustomPacketPayload {
      */
     private static final int MAX_PAGE_NUMBER = 10;
 
-    public static final Type<ShowVoterPacket> TYPE = new Type<>(ResourceLocation.parse("voteme:show_voter"));
+    public static final Type<ShowVoterPacket> TYPE = new Type<>(Identifier.parse("voteme:show_voter"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, ShowVoterPacket> STREAM_CODEC = StreamCodec.composite(
             UUIDUtil.STREAM_CODEC, p -> p.artifactID,
@@ -70,16 +72,16 @@ public final class ShowVoterPacket implements CustomPacketPayload {
     }
 
     public static Optional<ShowVoterPacket> create(UUID artifactID, ServerPlayer player) {
-        VoteArtifactNames artifactNames = VoteDataStorage.get(player.server).getArtifactNames();
+        VoteArtifactNames artifactNames = VoteDataStorage.get(Objects.requireNonNull(player.level().getServer())).getArtifactNames();
         if (!artifactNames.getName(artifactID).isEmpty()) {
-            VoteDataStorage handler = VoteDataStorage.get(player.server);
+            VoteDataStorage handler = VoteDataStorage.get(Objects.requireNonNull(player.level().getServer()));
             ImmutableList.Builder<Info> builder = ImmutableList.builder();
-            Set<ResourceLocation> categoryIDs = new LinkedHashSet<>();
-            for (ResourceLocation roleID : VoteRoleHandler.getRoles(player)) {
+            Set<Identifier> categoryIDs = new LinkedHashSet<>();
+            for (Identifier roleID : VoteRoleHandler.getRoles(player)) {
                 VoteRole role = VoteRoleHandler.getRole(roleID).orElseThrow(IllegalStateException::new);
                 categoryIDs.addAll(role.categories.keySet());
             }
-            for (ResourceLocation categoryID : categoryIDs) {
+            for (Identifier categoryID : categoryIDs) {
                 int id = handler.getIdOrCreate(artifactID, categoryID);
                 VoteList entry = handler.getVoteList(id).orElseThrow(IllegalStateException::new);
                 VoteCategory category = VoteCategoryHandler.getCategory(categoryID).orElseThrow(IllegalStateException::new);
@@ -96,32 +98,33 @@ public final class ShowVoterPacket implements CustomPacketPayload {
     static final class Handler {
         static void handle(ShowVoterPacket packet, IPayloadContext context) {
             // forge needs a separate class
-            if (FMLEnvironment.dist == Dist.CLIENT) {
+            if (FMLEnvironment.getDist() == Dist.CLIENT) {
                 String artifactName = VoteArtifactNames.client().getName(packet.artifactID);
                 if (!artifactName.isEmpty()) {
                     VoterScreen gui = new VoterScreen(packet.artifactID, artifactName, packet.infos, packet.comments);
                     context.enqueueWork(() -> Minecraft.getInstance().setScreen(gui));
                 }
-            };
+            }
         }
     }
 
+    @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     public static final class Info {
 
         public static final StreamCodec<RegistryFriendlyByteBuf, Info> STREAM_CODEC = StreamCodec.composite(
-                ResourceLocation.STREAM_CODEC, info -> info.id,
+                Identifier.STREAM_CODEC, info -> info.id,
                 VoteCategory.STREAM_CODEC, info -> info.category,
                 ByteBufCodecs.VAR_INT, info -> info.level,
                 Info::new
         );
 
         public final int level;
-        public final ResourceLocation id;
+        public final Identifier id;
         public final VoteCategory category;
 
-        public Info(ResourceLocation id, VoteCategory category, int level) {
+        public Info(Identifier id, VoteCategory category, int level) {
             this.id = id;
             this.level = level;
             this.category = category;
