@@ -4,7 +4,7 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.142'
     id 'idea'
     // Added by TeaCon
-    id 'com.gradleup.shadow' version '8.3.0'
+    id 'com.gradleup.shadow' version '9.6.0'
 }
 
 // Added by TeaCon
@@ -273,8 +273,8 @@ tasks.withType(PublishToMavenRepository).configureEach {
 // Added by TeaCon
 tasks.register("githubActionOutput", TeaConDumpPathToGitHub) {
     onlyIf { System.env.GITHUB_ACTIONS }
-    targetFile = jar.archiveFile
-    publishName = "${jar.archiveBaseName.get()}-${version}.jar"
+    targetFile = shadowJar.archiveFile
+    publishName = "${shadowJar.archiveBaseName.get()}-${version}.jar"
     modVersion = mod_version
     minecraftVersion = minecraft_version
 }
