@@ -225,6 +225,9 @@ public final class VoteArtifactNames {
         if (remaining.charAt(0) == '#' && size > 1) {
             while (++index < size) {
                 char current = remaining.charAt(index);
+                if (Character.isWhitespace(current)) {
+                    break;
+                }
                 if (!Identifier.validPathChar(current)) {
                     break;
                 }
