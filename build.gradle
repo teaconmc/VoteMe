@@ -44,8 +44,7 @@ tasks.named('wrapper', Wrapper).configure {
     distributionType = Wrapper.DistributionType.BIN
 }
 
-// Modified by TeaCon
-version = System.getenv('VERSION_IDENTIFIER') ? "${mod_version}-${System.getenv('VERSION_IDENTIFIER')}" : mod_version
+version = mod_version
 group = mod_group_id
 
 // Added by TeaCon
@@ -274,7 +273,6 @@ tasks.withType(PublishToMavenRepository).configureEach {
 // Added by TeaCon
 tasks.register("githubActionOutput", TeaConDumpPathToGitHub) {
     onlyIf { System.env.GITHUB_ACTIONS }
-    dependsOn jar, shadowJar
     targetFile = shadowJar.archiveFile
     publishName = "${shadowJar.archiveBaseName.get()}-${version}.jar"
     modVersion = mod_version
