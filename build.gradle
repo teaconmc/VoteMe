@@ -49,7 +49,7 @@ group = mod_group_id
 
 // Added by TeaCon
 sourceSets {
-    development // runtime datapack
+    data // runtime datapack
 }
 
 sourceSets.main.resources {
@@ -90,7 +90,7 @@ neoForge {
     // accessTransformers = project.files('src/main/resources/META-INF/accesstransformer.cfg')
 
     // Added by TeaCon
-    addModdingDependenciesTo sourceSets.development
+    addModdingDependenciesTo sourceSets.data
 
     // Default run configurations.
     // These can be tweaked, removed, or duplicated as needed.
@@ -149,7 +149,7 @@ neoForge {
         "${mod_id}" {
             sourceSet(sourceSets.main)
             // Added by TeaCon
-            sourceSet(sourceSets.development)
+            sourceSet(sourceSets.data)
         }
     }
 }
