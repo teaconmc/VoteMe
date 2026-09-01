@@ -7,6 +7,7 @@ import com.google.gson.JsonElement;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.arguments.selector.EntitySelector;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
@@ -16,6 +17,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
+import net.minecraft.server.permissions.PermissionSet;
 import net.minecraft.util.ExtraCodecs;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -41,11 +43,11 @@ public final class VoteRoleHandler extends SimpleJsonResourceReloadListener<Json
     }
 
     public static Collection<? extends Identifier> getRoles(ServerPlayer player) {
+        CommandSourceStack css = player.createCommandSourceStack().withPermission(PermissionSet.ALL_PERMISSIONS);
         ImmutableSet.Builder<Identifier> builder = ImmutableSet.builder();
         for (Map.Entry<Identifier, VoteRole> entry : roleMap.entrySet()) {
             try {
-                EntitySelector selector = entry.getValue().selector;
-                List<ServerPlayer> selected = selector.findPlayers(player.createCommandSourceStack());
+                List<ServerPlayer> selected = entry.getValue().selector.findPlayers(css);
                 if (selected.contains(player)) {
                     builder.add(entry.getKey());
                 }

@@ -37,7 +37,7 @@ public final class VoteRole {
         this.categories = ImmutableListMultimap.copyOf(participations);
     }
 
-    public static VoteRole fromJson(Identifier id, @Nullable JsonElement json) {
+    public static VoteRole fromJson(@Nullable Identifier id, @Nullable JsonElement json) {
         JsonObject jsonObject = Objects.requireNonNullElse(json, JsonNull.INSTANCE).getAsJsonObject();
         Codec<Component> componentCodec = ComponentSerialization.CODEC;
         Optional<Component> name = componentCodec.parse(JsonOps.INSTANCE, jsonObject.get("name")).result();
@@ -46,7 +46,7 @@ public final class VoteRole {
         }
         JsonArray participations = GsonHelper.getAsJsonArray(jsonObject, "participations");
         EntitySelector selector = parseSelector(GsonHelper.getAsString(jsonObject, "selector", "@a"));
-        return new VoteRole(name.get(), selector, parseParticipations(id, participations));
+        return new VoteRole(name.get(), selector, parseParticipations(Objects.requireNonNull(id), participations));
     }
 
     private static Multimap<Identifier, Participation> parseParticipations(Identifier id, JsonArray array) {
