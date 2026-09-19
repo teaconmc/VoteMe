@@ -15,24 +15,13 @@ import java.util.Objects;
 import java.util.UUID;
 
 public final class SubmitCommentPacket implements CustomPacketPayload {
-
-    /**
-     * Maximum permitted length in bytes that a single page of comment may contain.
-     * <p>
-     * A CJK Unified Ideograph typically has 3 bytes; 1024 would mean ~340 Chinese
-     * characters.
-     */
-    private static final int MAX_LENGTH_PER_PAGE = 1024;
-    /**
-     * Maximum permitted number of pages that one may comment on a given artifact.
-     */
     private static final int MAX_PAGE_NUMBER = 10;
 
     public static final Type<SubmitCommentPacket> TYPE = new Type<>(Identifier.parse("voteme:submit_comment"));
 
     public static final StreamCodec<FriendlyByteBuf, SubmitCommentPacket> STREAM_CODEC = StreamCodec.composite(
             UUIDUtil.STREAM_CODEC, p -> p.artifactID,
-            ByteBufCodecs.stringUtf8(MAX_LENGTH_PER_PAGE).apply(ByteBufCodecs.list(MAX_PAGE_NUMBER)), p -> p.comments,
+            ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list(MAX_PAGE_NUMBER)), p -> p.comments,
             SubmitCommentPacket::create
     );
 

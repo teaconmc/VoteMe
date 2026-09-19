@@ -14,7 +14,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @ParametersAreNonnullByDefault
 @EventBusSubscriber(modid = "voteme")
 public final class VoteMePacketManager {
-    public static final String VERSION = "5"; // Last Update: Thu Aug 22 19:34:54 PDT 2024
+    public static final String VERSION = "6";
 
     @SubscribeEvent
     public static void setup(RegisterPayloadHandlersEvent event) {

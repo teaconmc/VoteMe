@@ -252,6 +252,11 @@ public final class VoterScreen extends Screen {
         }
 
         @Override
+        public boolean shouldTakeFocusAfterInteraction() {
+            return false;
+        }
+
+        @Override
         protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
             int u0 = (this.isRed ? 7 : 60) + (this.isHoveredOrFocused() ? 106 : 0);
             graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, this.getX(), this.getY(), u0, 234, this.width, this.height, TEXTURE_WIDTH, TEXTURE_HEIGHT);

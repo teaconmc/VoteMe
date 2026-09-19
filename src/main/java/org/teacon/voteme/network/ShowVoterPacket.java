@@ -30,17 +30,6 @@ import java.util.*;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ShowVoterPacket implements CustomPacketPayload {
-
-    /**
-     * Maximum permitted length in bytes that a single page of comment may contain.
-     * <p>
-     * A CJK Unified Ideograph typically has 3 bytes; 1024 would means ~340 Chinese
-     * characters.
-     */
-    private static final int MAX_LENGTH_PER_PAGE = 1024;
-    /**
-     * Maximum permitted number of pages that one may comment on a given artifact.
-     */
     private static final int MAX_PAGE_NUMBER = 10;
 
     public static final Type<ShowVoterPacket> TYPE = new Type<>(Identifier.parse("voteme:show_voter"));
@@ -48,7 +37,7 @@ public final class ShowVoterPacket implements CustomPacketPayload {
     public static final StreamCodec<RegistryFriendlyByteBuf, ShowVoterPacket> STREAM_CODEC = StreamCodec.composite(
             UUIDUtil.STREAM_CODEC, p -> p.artifactID,
             Info.STREAM_CODEC.apply(ByteBufCodecs.list()), p -> p.infos,
-            ByteBufCodecs.stringUtf8(MAX_LENGTH_PER_PAGE).apply(ByteBufCodecs.list(MAX_PAGE_NUMBER)), p -> p.comments,
+            ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list(MAX_PAGE_NUMBER)), p -> p.comments,
             ShowVoterPacket::new
     );
 
